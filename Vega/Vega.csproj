@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <Platforms>x64</Platforms>
+    <Nullable>enable</Nullable>
+    <Version>0.1.0</Version>
+    <Authors>Sean Moss</Authors>
+    <Company>N/A</Company>
+    <Copyright>Copyright © 2020 Sean Moss</Copyright>
+    <Description>Vulkan-powered framework for games, visualizations, and other multimedia apps.</Description>
+    <PackageProjectUrl>https://github.com/mossseank/Vega</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/mossseank/Vega</RepositoryUrl>
+    <RepositoryType>Git</RepositoryType>
+    <PackageTags>Vulkan, Gamedev, Simulation, Graphics-Engine</PackageTags>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+</Project>

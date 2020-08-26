@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30420.98
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Vega", "Vega\Vega.csproj", "{DD9C800C-A760-449B-AC60-795708D678D2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DD9C800C-A760-449B-AC60-795708D678D2}.Debug|x64.ActiveCfg = Debug|x64
+		{DD9C800C-A760-449B-AC60-795708D678D2}.Debug|x64.Build.0 = Debug|x64
+		{DD9C800C-A760-449B-AC60-795708D678D2}.Release|x64.ActiveCfg = Release|x64
+		{DD9C800C-A760-449B-AC60-795708D678D2}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3877958D-C15F-4292-B8F5-A3D386E33027}
+	EndGlobalSection
+EndGlobal
