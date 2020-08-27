@@ -115,61 +115,74 @@ namespace Vega
 			evt.Exception = null;
 			return evt;
 		});
+		public static LogLevel LevelMask = LogLevel.Verbose;
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void LDEBUG(string msg, object? sender = null)
 		{
-			var evt = _ThreadEvent.Value!;
-			evt.Message = msg;
-			evt.Level = LogLevel.Debug;
-			Core.Instance?.Events.Publish(sender, evt);
+			if ((LevelMask & LogLevel.Debug) != 0) {
+				var evt = _ThreadEvent.Value!;
+				evt.Message = msg;
+				evt.Level = LogLevel.Debug;
+				Core.Instance?.Events.Publish(sender, evt); 
+			}
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void LINFO(string msg, object? sender = null)
 		{
-			var evt = _ThreadEvent.Value!;
-			evt.Message = msg;
-			evt.Level = LogLevel.Info;
-			Core.Instance?.Events.Publish(sender, evt);
+			if ((LevelMask & LogLevel.Info) != 0) {
+				var evt = _ThreadEvent.Value!;
+				evt.Message = msg;
+				evt.Level = LogLevel.Info;
+				Core.Instance?.Events.Publish(sender, evt); 
+			}
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void LWARN(string msg, object? sender = null)
 		{
-			var evt = _ThreadEvent.Value!;
-			evt.Message = msg;
-			evt.Level = LogLevel.Warning;
-			Core.Instance?.Events.Publish(sender, evt);
+			if ((LevelMask & LogLevel.Warning) != 0) {
+				var evt = _ThreadEvent.Value!;
+				evt.Message = msg;
+				evt.Level = LogLevel.Warning;
+				Core.Instance?.Events.Publish(sender, evt); 
+			}
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void LERROR(string msg, object? sender = null)
 		{
-			var evt = _ThreadEvent.Value!;
-			evt.Message = msg;
-			evt.Level = LogLevel.Error;
-			Core.Instance?.Events.Publish(sender, evt);
+			if ((LevelMask & LogLevel.Error) != 0) {
+				var evt = _ThreadEvent.Value!;
+				evt.Message = msg;
+				evt.Level = LogLevel.Error;
+				Core.Instance?.Events.Publish(sender, evt); 
+			}
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void LFATAL(string msg, object? sender = null)
 		{
-			var evt = _ThreadEvent.Value!;
-			evt.Message = msg;
-			evt.Level = LogLevel.Fatal;
-			Core.Instance?.Events.Publish(sender, evt);
+			if ((LevelMask & LogLevel.Fatal) != 0) {
+				var evt = _ThreadEvent.Value!;
+				evt.Message = msg;
+				evt.Level = LogLevel.Fatal;
+				Core.Instance?.Events.Publish(sender, evt); 
+			}
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void LEXCEPTION(Exception ex, string? msg = null, object? sender = null)
 		{
-			var evt = _ThreadEvent.Value!;
-			evt.Message = msg ?? ex.Message;
-			evt.Level = LogLevel.Exception;
-			evt.Exception = ex;
-			Core.Instance?.Events.Publish(sender, evt);
-			evt.Exception = null;
+			if ((LevelMask & LogLevel.Exception) != 0) {
+				var evt = _ThreadEvent.Value!;
+				evt.Message = msg ?? ex.Message;
+				evt.Level = LogLevel.Exception;
+				evt.Exception = ex;
+				Core.Instance?.Events.Publish(sender, evt);
+				evt.Exception = null; 
+			}
 		}
 	}
 }

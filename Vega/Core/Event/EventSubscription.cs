@@ -21,6 +21,8 @@ namespace Vega
 	internal interface IEventSubscription
 	{
 		void Dispatch(object? sender, TimeSpan time, object? data);
+
+		void Disable();
 	}
 
 	/// <summary>
@@ -70,6 +72,8 @@ namespace Vega
 				Action(sender, time, msgData);
 			}
 		}
+
+		void IEventSubscription.Disable() => _active = false;
 
 		/// <summary>
 		/// Unsubscribes this subscription instance, if currently active.

@@ -112,7 +112,7 @@ namespace Vega
 		private void dispose(bool disposing)
 		{
 			if (!IsDisposed) {
-
+				Events.ClearAll();
 			}
 
 			IsDisposed = true;

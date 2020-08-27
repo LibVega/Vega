@@ -26,6 +26,37 @@ namespace Vega
 		}
 
 		/// <summary>
+		/// Clears all subscriptions for the given event type.
+		/// </summary>
+		/// <typeparam name="T">The event type to clear subscriptions for.</typeparam>
+		public void Clear<T>()
+		{
+			lock (_subLock) {
+				if (_subscriptions.TryGetValue(typeof(T), out var sublist)) {
+					foreach (var sub in sublist) {
+						sub.Disable();
+					}
+					sublist.Clear();
+				}
+			}
+		}
+
+		/// <summary>
+		/// Clears all subscriptions in the event hub.
+		/// </summary>
+		public void ClearAll()
+		{
+			lock (_subLock) {
+				foreach (var sublist in _subscriptions.Values) {
+					foreach (var sub in sublist) {
+						sub.Disable();
+					}
+				}
+				_subscriptions.Clear();
+			}
+		}
+
+		/// <summary>
 		/// Publishes a new event to the hub, which is immediately dispatched to the interested subscribers.
 		/// </summary>
 		/// <typeparam name="T">The type of event to publish.</typeparam>
