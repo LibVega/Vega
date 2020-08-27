@@ -47,7 +47,7 @@ namespace Vega
 		/// <typeparam name="T">The type of event to publish.</typeparam>
 		/// <param name="sender">The object that is publishing the event.</param>
 		/// <param name="event">The event to publish.</param>
-		public void Publish<T>(object sender, T? @event)
+		public void Publish<T>(object? sender, T? @event)
 		{
 			lock (_subLock) {
 				if (_subscriptions.TryGetValue(typeof(T), out var sublist)) {
