@@ -21,9 +21,9 @@ namespace Vega
 
 		#region Members
 		/// <summary>
-		/// The message/event bus for the application.
+		/// The hub used to manage all core event messages, can be extended to additionally handle user messages.
 		/// </summary>
-		public MessageHub Messages { get; private set; }
+		public EventHub Events { get; private set; }
 
 		/// <summary>
 		/// Reports if the application is in a frame (between <see cref="BeginFrame"/> and <see cref="EndFrame"/>).
@@ -54,8 +54,8 @@ namespace Vega
 			}
 			Instance = this;
 
-			// Initialize the message bus and logging
-			Messages = new();
+			// Initialize event hub and logging
+			Events = new();
 
 			// Attach to exit events
 			Console.CancelKeyPress += (_, e) => {

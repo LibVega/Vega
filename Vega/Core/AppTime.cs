@@ -85,6 +85,15 @@ namespace Vega
 		public static readonly bool IsHighResolution;
 
 		private static Stopwatch _Timer;
+		/// <summary>
+		/// The most current application runtime with sub-frame accuracy. This value is independent of 
+		/// <see cref="Elapsed"/>.
+		/// </summary>
+		public static TimeSpan Now => _Timer.Elapsed;
+		/// <summary>
+		///	The timestamp for when the application time began measurement.
+		/// </summary>
+		public static readonly DateTime Start;
 		#endregion // Fields
 
 		static AppTime()
@@ -93,6 +102,7 @@ namespace Vega
 			Resolution = Math.Max((uint)Math.Ceiling(1e9 / Stopwatch.Frequency), 1);
 			IsHighResolution = (Resolution <= 10_000);
 			_Timer = Stopwatch.StartNew();
+			Start = DateTime.Now;
 		}
 
 		internal static void Frame()
