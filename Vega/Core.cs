@@ -5,7 +5,6 @@
  */
 
 using System;
-using System.Runtime.CompilerServices;
 
 namespace Vega
 {
@@ -13,14 +12,19 @@ namespace Vega
 	/// Central type for managing the runtime and resources of the whole application. Only one instance of this class
 	/// can exist at a time.
 	/// </summary>
-	public sealed class Application : IDisposable
+	public sealed class Core : IDisposable
 	{
 		/// <summary>
-		/// The active application instance, if any.
+		/// The active core object, if any.
 		/// </summary>
-		public static Application? Instance { get; private set; } = null;
+		public static Core? Instance { get; private set; } = null;
 
 		#region Members
+		/// <summary>
+		/// The message/event bus for the application.
+		/// </summary>
+		public MessageHub Messages { get; private set; }
+
 		/// <summary>
 		/// Reports if the application is in a frame (between <see cref="BeginFrame"/> and <see cref="EndFrame"/>).
 		/// </summary>
@@ -31,24 +35,27 @@ namespace Vega
 		public bool ShouldExit { get; private set; } = false;
 
 		/// <summary>
-		/// Reports if the application instance has been disposed.
+		/// Reports if the core object has been disposed.
 		/// </summary>
 		public bool IsDisposed { get; private set; } = false;
 		#endregion // Members
 
 		/// <summary>
-		/// Constructs a new application instance, which initializes the global resources for the application.
+		/// Constructs a new core object instance, which initializes the global resources for the application.
 		/// </summary>
 		/// <param name="name">The name of the application, cannot be empty or only whitespace.</param>
-		public Application(string name)
+		public Core(string name)
 		{
 			if (String.IsNullOrWhiteSpace(name)) {
 				throw new ArgumentException("Application name cannot be empty", nameof(name));
 			}
 			if (Instance != null) {
-				throw new InvalidOperationException("Cannot create more than one Application instance");
+				throw new InvalidOperationException("Cannot create more than one Core instance");
 			}
 			Instance = this;
+
+			// Initialize the message bus and logging
+			Messages = new();
 
 			// Attach to exit events
 			Console.CancelKeyPress += (_, e) => {
@@ -56,7 +63,7 @@ namespace Vega
 				this.ShouldExit = true;
 			};
 		}
-		~Application()
+		~Core()
 		{
 			dispose(false);
 		}
