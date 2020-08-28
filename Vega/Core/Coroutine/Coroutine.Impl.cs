@@ -33,9 +33,9 @@ namespace Vega
 	{
 		public readonly Func<bool> Action;
 		public readonly float Delay;
-		public readonly bool Repeat;
+		public readonly float? Repeat;
 
-		public TimerCoroutine(float delay, bool repeat, bool unscaled, Func<bool> action)
+		public TimerCoroutine(float delay, float? repeat, bool unscaled, Func<bool> action)
 			: base(timer_func(delay, repeat, action), unscaled)
 		{
 			Action = action;
@@ -43,12 +43,13 @@ namespace Vega
 			Repeat = repeat;
 		}
 
-		private	static IEnumerator<object?> timer_func(float delay, bool repeat, Func<bool> action)
+		private	static IEnumerator<object?> timer_func(float delay, float? repeat, Func<bool> action)
 		{
-			do {
-				yield return WaitForSeconds(delay);
+			yield return WaitForSeconds(delay);
+
+			while (action() && repeat.HasValue) {
+				yield return WaitForSeconds(repeat.Value);
 			}
-			while (action() && repeat);
 		}
 	}
 }

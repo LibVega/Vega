@@ -31,11 +31,16 @@ namespace Vega
 		/// <summary>
 		/// Special return value for <see cref="Tick"/> to signal the coroutine has completed execution.
 		/// </summary>
-		protected internal static readonly object END = new object();
+		protected internal static readonly object END = new();
 
 		#region Fields
 		// Record of wait object implementation
-		internal WaitObjects WaitImpl = new WaitObjects(0, null);
+		internal WaitObjects WaitImpl = new(0, null);
+
+		/// <summary>
+		/// Gets if the coroutine is currently in a waiting phase.
+		/// </summary>
+		public bool Waiting => Running && ((WaitImpl.Time > 0) || (WaitImpl.Coroutine != null));
 
 		/// <summary>
 		/// The number of times that this coroutine has been ticked.
@@ -125,5 +130,22 @@ namespace Vega
 		/// Called when the coroutine is removed from the list of active coroutines. Resource cleanup can be done here.
 		/// </summary>
 		protected internal virtual void OnRemove() { }
+	}
+
+	/// <summary>
+	/// Represents a bad return value from <see cref="Coroutine.Tick"/>.
+	/// </summary>
+	public sealed class CoroutineTickReturnException : Exception
+	{
+		/// <summary>
+		/// The return value that was not understood as a valid <see cref="Coroutine.Tick"/> value.
+		/// </summary>
+		public readonly object Value;
+
+		internal CoroutineTickReturnException(object value) :
+			base($"Bad Coroutine return value type: {value.GetType().Name}")
+		{
+			Value = value;
+		}
 	}
 }
