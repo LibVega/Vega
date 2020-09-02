@@ -9,10 +9,10 @@ using System;
 namespace Vega
 {
 	/// <summary>
-	/// Represents a ray in 2D space, with an origin point and direction. <see cref="Ray2.Direction"/> is assumed
+	/// Represents a ray in 2D space, with an origin point and direction. <see cref="Ray2D.Direction"/> is assumed
 	/// to be normalized, and ray instances produced by the library will always have normalized directions.
 	/// </summary>
-	public struct Ray2 : IEquatable<Ray2>
+	public struct Ray2D : IEquatable<Ray2D>
 	{
 		#region Fields
 		/// <summary>
@@ -30,16 +30,16 @@ namespace Vega
 		/// </summary>
 		/// <param name="origin">The ray origin.</param>
 		/// <param name="direction">The ray direction, will be normalized.</param>
-		public Ray2(in Vec2 origin, in Vec2 direction)
+		public Ray2D(in Vec2 origin, in Vec2 direction)
 		{
 			Origin = origin;
 			Direction = direction.Normalized;
 		}
 
 		#region Overrides
-		readonly bool IEquatable<Ray2>.Equals(Ray2 other) => other == this;
+		readonly bool IEquatable<Ray2D>.Equals(Ray2D other) => other == this;
 
-		public readonly override bool Equals(object? obj) => (obj is Ray2 r) && (r == this);
+		public readonly override bool Equals(object? obj) => (obj is Ray2D r) && (r == this);
 
 		public readonly override int GetHashCode() => HashCode.Combine(Origin, Direction);
 
@@ -60,8 +60,8 @@ namespace Vega
 		public readonly Line2D GetLine(float distance) => new Line2D(Origin, Origin + (Direction * distance));
 
 		#region Operators
-		public static bool operator == (in Ray2 l, in Ray2 r) => l.Origin == r.Origin && l.Direction == r.Direction;
-		public static bool operator != (in Ray2 l, in Ray2 r) => l.Origin != r.Origin || l.Direction != r.Direction;
+		public static bool operator == (in Ray2D l, in Ray2D r) => l.Origin == r.Origin && l.Direction == r.Direction;
+		public static bool operator != (in Ray2D l, in Ray2D r) => l.Origin != r.Origin || l.Direction != r.Direction;
 		#endregion // Operators
 
 		#region Tuples
@@ -71,8 +71,8 @@ namespace Vega
 			direction = Direction;
 		}
 
-		public static implicit operator Ray2 (in (Vec2 origin, Vec2 direction) tup) =>
-			new Ray2(tup.origin, tup.direction);
+		public static implicit operator Ray2D (in (Vec2 origin, Vec2 direction) tup) =>
+			new Ray2D(tup.origin, tup.direction);
 		#endregion // Tuples
 	}
 }

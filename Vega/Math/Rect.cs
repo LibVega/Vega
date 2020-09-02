@@ -54,9 +54,9 @@ namespace Vega
 		/// <summary>
 		/// The dimensions of the rectangle.
 		/// </summary>
-		public Extent2 Size
+		public Extent2D Size
 		{
-			readonly get => new Extent2(Width, Height);
+			readonly get => new Extent2D(Width, Height);
 			set { Width = value.Width; Height = value.Height; }
 		}
 
@@ -156,7 +156,7 @@ namespace Vega
 		/// </summary>
 		/// <param name="pos">The rectangle position.</param>
 		/// <param name="ex">The rectangle size.</param>
-		public Rect(in Point2 pos, in Extent2 ex)
+		public Rect(in Point2 pos, in Extent2D ex)
 		{
 			X = pos.X;
 			Y = pos.Y;
@@ -313,7 +313,7 @@ namespace Vega
 			h = Height;
 		}
 
-		public readonly void Deconstruct(out Point2 pos, out Extent2 ext)
+		public readonly void Deconstruct(out Point2 pos, out Extent2D ext)
 		{
 			pos.X = X;
 			pos.Y = Y;
@@ -326,7 +326,7 @@ namespace Vega
 			new Rect(tup.x, tup.y, tup.w, tup.h);
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static implicit operator Rect (in (Point2 pos, Extent2 ext) tup) =>
+		public static implicit operator Rect (in (Point2 pos, Extent2D ext) tup) =>
 			new Rect(tup.pos, tup.ext);
 		#endregion // Tuples
 	}

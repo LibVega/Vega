@@ -9,10 +9,10 @@ using System;
 namespace Vega
 {
 	/// <summary>
-	/// Represents an infinitely extending plane in 2D space (an infinite line). <see cref="Plane2.Normal"/> is assumed
+	/// Represents an infinitely extending plane in 2D space (an infinite line). <see cref="Plane2D.Normal"/> is assumed
 	/// to be normalized in all calculations, and all planes constructed by the library will have normalized normals.
 	/// </summary>
-	public struct Plane2 : IEquatable<Plane2>
+	public struct Plane2D : IEquatable<Plane2D>
 	{
 		#region Fields
 		/// <summary>
@@ -27,11 +27,11 @@ namespace Vega
 		/// <summary>
 		/// Gets an identical plane, but with a flipped normal vector.
 		/// </summary>
-		public readonly Plane2 Flipped => new Plane2(-Normal, -D);
+		public readonly Plane2D Flipped => new Plane2D(-Normal, -D);
 		/// <summary>
 		/// Gets the version of the plane with the normal pointing away from the origin (positive distance).
 		/// </summary>
-		public readonly Plane2 Positive => (D < 0) ? new Plane2(-Normal, -D) : this;
+		public readonly Plane2D Positive => (D < 0) ? new Plane2D(-Normal, -D) : this;
 		#endregion // Fields
 
 		#region Ctor
@@ -40,7 +40,7 @@ namespace Vega
 		/// </summary>
 		/// <param name="normal">The plane normal vector (orientation), will be normalized.</param>
 		/// <param name="d">The plane distance from origin (position).</param>
-		public Plane2(in Vec2 normal, float d)
+		public Plane2D(in Vec2 normal, float d)
 		{
 			Normal = normal.Normalized;
 			D = d;
@@ -51,7 +51,7 @@ namespace Vega
 		/// </summary>
 		/// <param name="point">The point to pass the plane through.</param>
 		/// <param name="normal">The plane normal, will be normalized.</param>
-		public Plane2(in Vec2 point, in Vec2 normal)
+		public Plane2D(in Vec2 point, in Vec2 normal)
 		{
 			Normal = normal.Normalized;
 			D = Vec2.Dot(point, Normal);
@@ -63,7 +63,7 @@ namespace Vega
 		/// <param name="x">The x-component of the normal.</param>
 		/// <param name="y">The y-component of the normal.</param>
 		/// <param name="d">The distance from the origin.</param>
-		public Plane2(float x, float y, float d)
+		public Plane2D(float x, float y, float d)
 		{
 			float len = MathF.Sqrt(x * x + y * y);
 			Normal = new Vec2(x / len, y / len);
@@ -76,20 +76,20 @@ namespace Vega
 		/// </summary>
 		/// <param name="p1">The first point to define the plane.</param>
 		/// <param name="p2">The second point to define the plane.</param>
-		public static Plane2 FromPoints(in Vec2 p1, in Vec2 p2)
+		public static Plane2D FromPoints(in Vec2 p1, in Vec2 p2)
 		{
 			float nx = p1.Y - p2.Y, ny = p2.X - p1.X;
 			float nlen = MathF.Sqrt(nx * nx + ny * ny);
 			var norm = new Vec2(nx / nlen, ny / nlen);
 			var d = Vec2.Dot(p1, norm);
-			return new Plane2(norm, d);
+			return new Plane2D(norm, d);
 		}
 		#endregion // Ctor
 
 		#region Overrides
-		readonly bool IEquatable<Plane2>.Equals(Plane2 other) => other == this;
+		readonly bool IEquatable<Plane2D>.Equals(Plane2D other) => other == this;
 
-		public readonly override bool Equals(object? obj) => (obj is Plane2 p) && (p == this);
+		public readonly override bool Equals(object? obj) => (obj is Plane2D p) && (p == this);
 
 		public readonly override int GetHashCode() => HashCode.Combine(Normal, D);
 
@@ -103,7 +103,7 @@ namespace Vega
 		/// </summary>
 		/// <param name="plane">The plane to calculate against.</param>
 		/// <param name="coord">The coordinate to dot with the plane.</param>
-		public static float Dot(in Plane2 plane, in Vec2 coord) => 
+		public static float Dot(in Plane2D plane, in Vec2 coord) => 
 			(plane.Normal.X * coord.X) + (plane.Normal.Y * coord.Y) - plane.D;
 
 		/// <summary>
@@ -111,7 +111,7 @@ namespace Vega
 		/// </summary>
 		/// <param name="plane">The plane to calculate against.</param>
 		/// <param name="normal">The normal vector to dot with the plane.</param>
-		public static float DotNormal(in Plane2 plane, in Vec2 normal) =>
+		public static float DotNormal(in Plane2D plane, in Vec2 normal) =>
 			(plane.Normal.X * normal.X) + (plane.Normal.Y * normal.Y);
 
 		/// <summary>
@@ -119,7 +119,7 @@ namespace Vega
 		/// </summary>
 		/// <param name="plane">The plane to find the point on.</param>
 		/// <param name="point">The point to get closest to the plane.</param>
-		public static Vec2 ClosestPoint(in Plane2 plane, in Vec2 point)
+		public static Vec2 ClosestPoint(in Plane2D plane, in Vec2 point)
 		{
 			float cx = plane.Normal.Y * point.X, cy = plane.Normal.X * point.Y;
 			float nx = (plane.Normal.Y * (cx - cy)) + (plane.Normal.X * plane.D);
@@ -132,13 +132,13 @@ namespace Vega
 		/// </summary>
 		/// <param name="plane">The plane to get the distance to.</param>
 		/// <param name="point">The point to get the distance to.</param>
-		public static float Distance(in Plane2 plane, in Vec2 point) =>
+		public static float Distance(in Plane2D plane, in Vec2 point) =>
 			MathF.Abs(plane.Normal.X * point.X + plane.Normal.Y * point.Y - plane.D);
 		#endregion // Plane Functions
 
 		#region Operators
-		public static bool operator == (in Plane2 l, in Plane2 r) => l.Normal == r.Normal && l.D == r.D;
-		public static bool operator != (in Plane2 l, in Plane2 r) => l.Normal != r.Normal || l.D != r.D;
+		public static bool operator == (in Plane2D l, in Plane2D r) => l.Normal == r.Normal && l.D == r.D;
+		public static bool operator != (in Plane2D l, in Plane2D r) => l.Normal != r.Normal || l.D != r.D;
 		#endregion // Operators
 
 		public readonly void Deconstruct(out Vec2 normal, out float d)

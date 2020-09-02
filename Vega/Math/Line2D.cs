@@ -35,11 +35,11 @@ namespace Vega
 		/// <summary>
 		/// Constructs a ray starting at <see cref="P1"/>, pointing in the direction of <see cref="P2"/>.
 		/// </summary>
-		public readonly Ray2 Ray1 => new Ray2(P1, P2 - P1);
+		public readonly Ray2D Ray1 => new Ray2D(P1, P2 - P1);
 		/// <summary>
 		/// Constructs a ray starting at <see cref="P2"/>, pointing in the direction of <see cref="P1"/>.
 		/// </summary>
-		public readonly Ray2 Ray2 => new Ray2(P2, P1 - P2);
+		public readonly Ray2D Ray2 => new Ray2D(P2, P1 - P2);
 		#endregion // Fields
 
 		/// <summary>
