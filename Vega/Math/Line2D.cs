@@ -40,6 +40,11 @@ namespace Vega
 		/// Constructs a ray starting at <see cref="P2"/>, pointing in the direction of <see cref="P1"/>.
 		/// </summary>
 		public readonly Ray2D Ray2 => new Ray2D(P2, P1 - P2);
+
+		/// <summary>
+		/// Constructs the plane that this line is contained within.
+		/// </summary>
+		public readonly Plane2D Plane => Plane2D.FromPoints(P1, P2);
 		#endregion // Fields
 
 		/// <summary>

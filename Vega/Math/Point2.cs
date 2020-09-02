@@ -178,6 +178,10 @@ namespace Vega
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static explicit operator Point2 (in Point3 p) => new Point2(p.X, p.Y);
 
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static explicit operator Point2(in Vec2 v) => new Point2((int)v.X, (int)v.Y);
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static explicit operator Point2 (in Extent2D e) => new Point2((int)e.Width, (int)e.Height);
 		#endregion // Operators

@@ -362,7 +362,7 @@ namespace Vega
 		public static Vec2 operator - (in Vec2 v) => new Vec2(-v.X, -v.Y);
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static explicit operator Point2 (in Vec2 v) => new Point2((int)v.X, (int)v.Y);
+		public static explicit operator Vec2 (in Point2 p) => new Vec2(p.X, p.Y);
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static explicit operator Vec2 (in Vec3 v) => new Vec2(v.X, v.Y);
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]

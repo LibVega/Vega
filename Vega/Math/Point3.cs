@@ -195,6 +195,9 @@ namespace Vega
 		public static Point3 operator / (in Point3 l, int r) => new Point3(l.X / r, l.Y / r, l.Z / r);
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static explicit operator Point3(in Vec3 v) => new Point3((int)v.X, (int)v.Y, (int)v.Z);
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static explicit operator Point3 (in Point2 p) => new Point3(p.X, p.Y, 0);
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
