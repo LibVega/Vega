@@ -141,7 +141,7 @@ namespace Vega
 		public static bool operator != (in Plane2 l, in Plane2 r) => l.Normal != r.Normal || l.D != r.D;
 		#endregion // Operators
 
-		public void Deconstruct(out Vec2 normal, out float d)
+		public readonly void Deconstruct(out Vec2 normal, out float d)
 		{
 			normal = Normal;
 			d = D;

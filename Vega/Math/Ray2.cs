@@ -53,6 +53,12 @@ namespace Vega
 		/// <returns>The position along the ray.</returns>
 		public readonly Vec2 GetPosition(float distance) => Origin + (Direction * distance);
 
+		/// <summary>
+		/// Constructs a line segment going from the ray origin to the given distance along the ray.
+		/// </summary>
+		/// <param name="distance">The distance along the ray, or the length of the final line segment.</param>
+		public readonly Line2D GetLine(float distance) => new Line2D(Origin, Origin + (Direction * distance));
+
 		#region Operators
 		public static bool operator == (in Ray2 l, in Ray2 r) => l.Origin == r.Origin && l.Direction == r.Direction;
 		public static bool operator != (in Ray2 l, in Ray2 r) => l.Origin != r.Origin || l.Direction != r.Direction;
