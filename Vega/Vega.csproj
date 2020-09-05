@@ -23,5 +23,10 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <EmbeddedResource Include="..\Dependencies\Native\glfw3.win" Link="Lib\glfw3.win" />
+    <EmbeddedResource Include="..\Dependencies\Native\glfw3.osx" Link="Lib\glfw3.osx" />
+  </ItemGroup>
 
 </Project>

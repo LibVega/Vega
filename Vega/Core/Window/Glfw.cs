@@ -122,7 +122,7 @@ namespace Vega
 
 		static Glfw()
 		{
-			Lib = new EmbeddedLibrary(typeof(Glfw).Assembly, "glfw3", "glfw3");
+			Lib = new EmbeddedLibrary(typeof(Glfw).Assembly, "Vega.Lib.glfw3", "glfw3");
 			var _ = Lib.Handle; // Causes the library to be loaded
 
 			// Check the version
