@@ -97,6 +97,38 @@ namespace Vega.Util
 			Dispose();
 		}
 
+		/// <summary>
+		/// Attempts to load an exported library function into the given delegate type. 
+		/// </summary>
+		/// <typeparam name="T">The delegate type for the loaded function.</typeparam>
+		/// <param name="funcName">The exported function name.</param>
+		/// <returns>The loaded function.</returns>
+		/// <exception cref="ArgumentException">The given exported function name could not be found.</exception>
+		public T GetFunction<T>(string funcName) where T : Delegate
+		{
+			if (NativeLibrary.TryGetExport(Handle, funcName, out var handle)) {
+				return Marshal.GetDelegateForFunctionPointer<T>(handle);
+			}
+			throw new ArgumentException($"The exported function '{funcName}' could not be found", nameof(funcName));
+		}
+
+		/// <summary>
+		/// Attempts to load an exported library function into the given delegate type. 
+		/// </summary>
+		/// <typeparam name="T">The delegate type for the loaded function.</typeparam>
+		/// <param name="funcName">The exported function name.</param>
+		/// <param name="func">The loaded function.</param>
+		/// <returns>If the function was found and loaded correctly.</returns>
+		public bool TryGetFunction<T>(string funcName, out T? func) where T : Delegate
+		{
+			if (NativeLibrary.TryGetExport(Handle, funcName, out var handle)) {
+				func = Marshal.GetDelegateForFunctionPointer<T>(handle);
+				return true;
+			}
+			func = null;
+			return false;
+		}
+
 		#region Loading
 		// Performs the extracting the loading
 		private IntPtr load()
@@ -127,6 +159,7 @@ namespace Vega.Util
 
 			// Attempt to load the library installed in the system
 			if (NativeLibrary.TryLoad(FileName, out var handle)) {
+				LibraryPath = FileName;
 				return handle;
 			}
 			throw new DllNotFoundException("Failed to load fallback library installed on system");
