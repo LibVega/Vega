@@ -51,7 +51,7 @@ namespace Vega
 				Family = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? OSFamily.Windows :
 					RuntimeInformation.IsOSPlatform(OSPlatform.macOS) ? OSFamily.MacOS :
 					RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? OSFamily.LinuxDesktop :
-					throw new InvalidOperationException($"Cannot load Vega on platform '{osName}'");
+					throw new PlatformNotSupportedException($"Cannot load Vega on platform '{osName}'");
 				Version = Environment.OSVersion.Version;
 			}
 		}
@@ -79,7 +79,7 @@ namespace Vega
 				Arch = arch switch { 
 					ProcessorArchitecture.Amd64 => CPUArch.X64,
 					ProcessorArchitecture.Arm => CPUArch.Arm64,
-					_ => throw new InvalidOperationException($"Unknown processor architecture ({arch})")
+					_ => throw new PlatformNotSupportedException($"Unknown processor architecture ({arch})")
 				};
 			}
 		}
