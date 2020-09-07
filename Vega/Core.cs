@@ -36,6 +36,16 @@ namespace Vega
 		public bool ShouldExit { get; private set; } = false;
 
 		/// <summary>
+		/// The list of all open windows in the application.
+		/// </summary>
+		public IReadOnlyList<Window> Windows => _windows;
+		private readonly List<Window> _windows = new();
+		/// <summary>
+		/// Gets the current main window (the oldest open window).
+		/// </summary>
+		public Window? MainWindow => (_windows.Count > 0) ? _windows[0] : null;
+
+		/// <summary>
 		/// Reports if the core object has been disposed.
 		/// </summary>
 		public bool IsDisposed { get; private set; } = false;
@@ -92,6 +102,13 @@ namespace Vega
 
 			AppTime.Frame();
 
+			// Run window frames
+			foreach (var win in _windows) {
+				win.BeginFrame();
+			}
+			Glfw.PollEvents();
+
+			// Tick begin coroutines
 			CoroutineManager.Tick(CoroutinePolicy.Beginning);
 		}
 
@@ -105,6 +122,11 @@ namespace Vega
 				throw new InvalidOperationException("Cannot call EndFrame() if a frame is not active");
 			}
 			InFrame = false;
+
+			// End window frames
+			foreach (var win in _windows) {
+				win.EndFrame();
+			}
 
 			CoroutineManager.Tick(CoroutinePolicy.End);
 		}
@@ -178,6 +200,25 @@ namespace Vega
 		public Coroutine ScheduleAction(Func<bool> action, TimeSpan delay, TimeSpan? repeat = null, bool unscaled = false)
 			=> ScheduleAction(action, (float)delay.TotalSeconds, (float?)repeat?.TotalSeconds ?? null, unscaled);
 		#endregion // Coroutine
+
+		#region Window
+		/// <summary>
+		/// Creates and opens a new window, with its own render commands and input handling.
+		/// </summary>
+		/// <param name="title">The initial title of the new window.</param>
+		/// <param name="width">The width of the new window.</param>
+		/// <param name="height">The height of the new window.</param>
+		/// <returns>The new Window instance, which is added to <see cref="Windows"/>.</returns>
+		public Window CreateWindow(string title, uint width, uint height)
+		{
+			var win = new Window(title, width, height);
+			_windows.Add(win);
+			return win;
+		}
+
+		// Remove the window from the internal list
+		internal void RemoveWindow(Window win) => _windows.Remove(win);
+		#endregion // Window
 
 		#region IDisposable
 		public void Dispose()

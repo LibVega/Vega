@@ -126,7 +126,7 @@ namespace Vega
 		/// <summary>
 		/// Gets the monitor that the system considers as the primary monitor.
 		/// </summary>
-		public static Monitor PrimaryMonitor
+		public static Monitor Primary
 		{
 			get {
 				var prim = Glfw.GetPrimaryMonitor();
