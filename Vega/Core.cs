@@ -63,6 +63,12 @@ namespace Vega
 				e.Cancel = true;
 				this.ShouldExit = true;
 			};
+
+			// Initialize the dependencies
+			if (!Glfw.Init()) {
+				var err = Glfw.LastError;
+				throw new Exception($"GLFW failed to initialize (code {err.code}): {err.desc}");
+			}
 		}
 		~Core()
 		{
@@ -189,6 +195,9 @@ namespace Vega
 				CoroutineManager.Cleanup();
 				Events.ClearAll();
 			}
+
+			// Terminate libraries
+			Glfw.Terminate();
 
 			IsDisposed = true;
 			Instance = null;

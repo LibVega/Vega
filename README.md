@@ -3,6 +3,8 @@ Vulkan-powered .NET 5 framework for games, visualizations, and other multimedia 
 
 This library is inflenced primarily by the [Monogame](https://www.monogame.net/) project, but designed to map more closely to the underlying graphics API (Vulkan). The result is a library that can be picked up by relative beginners, but also rewards developers who are willing to get a bit dirty with optimizations and lower-level operations.
 
+Currently, Vega supports 64-bit Windows, Mac OSX, and Linux desktop applications. Mobile and console support is expected, but desktop is the main focus until the library is nearing feature-complete. 32-bit will not be supported.
+
 ## Dependencies
 
 Dependencies in the form of libraries or other files are included in the Vega library binary as embedded resources. Native libraries are extracted and loaded at runtime. This allows the entirety of the Vega library to be used as a single file. While this may bloat the size of the library a bit, it allows for simple distribution with drop-and-play functionality.

@@ -193,6 +193,9 @@ namespace Vega.Util
 			var version = typeof(EmbeddedLibrary).Assembly.GetName().Version!;
 			var vstr = $"{version.Major}.{version.Minor}.{version.Revision}";
 			ExtractPath = Path.Combine(local, "VegaLib", "Native", vstr);
+			if (!Directory.Exists(ExtractPath)) {
+				Directory.CreateDirectory(ExtractPath);
+			}
 		}
 	}
 }
