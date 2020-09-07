@@ -46,6 +46,11 @@ namespace Vega
 		private static readonly Delegates.glfwGetMonitorPos _GlfwGetMonitorPos;
 		private static readonly Delegates.glfwGetVideoModes _GlfwGetVideoModes;
 		private static readonly Delegates.glfwGetVideoMode _GlfwGetVideoMode;
+		private static readonly Delegates.glfwGetMonitorPhysicalSize _GlfwGetMonitorPhysicalSize;
+		private static readonly Delegates.glfwGetMonitorContentScale _GlfwGetMonitorContentScale;
+		private static readonly Delegates.glfwGetMonitorWorkarea _GlfwGetMonitorWorkarea;
+		private static readonly Delegates.glfwGetMonitorName _GlfwGetMonitorName;
+		private static readonly Delegates.glfwSetMonitorCallback _GlfwSetMonitorCallback;
 		private static readonly Delegates.glfwSetWindowTitle _GlfwSetWindowTitle;
 		private static readonly Delegates.glfwSetMouseButtonCallback _GlfwSetMouseButtonCallback;
 		private static readonly Delegates.glfwSetScrollCallback _GlfwSetScrollCallback;
@@ -80,6 +85,8 @@ namespace Vega
 		public delegate void GLFWwindowfocusfun(IntPtr window, int focused);
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 		public delegate void GLFWwindowiconifyfun(IntPtr window, int iconified);
+		[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+		public delegate void GLFWmonitorfun(IntPtr monitor, int @event);
 		#endregion // Public Delegate Types
 
 		#region API Delegate Types
@@ -129,6 +136,16 @@ namespace Vega
 			public delegate IntPtr glfwGetVideoModes(IntPtr monitor, out int count);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate IntPtr glfwGetVideoMode(IntPtr monitor);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void glfwGetMonitorPhysicalSize(IntPtr monitor, out int w, out int h);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void glfwGetMonitorContentScale(IntPtr monitor, out float x, out float y);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void glfwGetMonitorWorkarea(IntPtr monitor, out int x, out int y, out int w, out int h);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate IntPtr glfwGetMonitorName(IntPtr monitor);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate GLFWmonitorfun glfwSetMonitorCallback(GLFWmonitorfun callback);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate void glfwSetWindowTitle(IntPtr window, IntPtr title);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]

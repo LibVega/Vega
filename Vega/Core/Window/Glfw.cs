@@ -33,8 +33,6 @@ namespace Vega
 		#endregion // Fields
 
 		#region Passthrough API
-		public static bool Init() => (_GlfwInit() == Glfw.TRUE);
-		public static void Terminate() => _GlfwTerminate();
 		public static void WindowHint(int hint, int value) => _GlfwWindowHint(hint, value);
 		public static void DestroyWindow(IntPtr window) => _GlfwDestroyWindow(window);
 		public static bool WindowShouldClose(IntPtr window) => (_GlfwWindowShouldClose(window) == Glfw.TRUE);
@@ -53,6 +51,12 @@ namespace Vega
 		public static IntPtr GetPrimaryMonitor() => _GlfwGetPrimaryMonitor();
 		public static void GetMonitorPos(IntPtr monitor, out int x, out int y) => 
 			_GlfwGetMonitorPos(monitor, out x, out y);
+		public static void GetMonitorPhysicalSize(IntPtr monitor, out int w, out int h) =>
+			_GlfwGetMonitorPhysicalSize(monitor, out w, out h);
+		public static void GetMonitorContentScale(IntPtr monitor, out float x, out float y) =>
+			_GlfwGetMonitorContentScale(monitor, out x, out y);
+		public static void GetMonitorWorkarea(IntPtr monitor, out int x, out int y, out int w, out int h) =>
+			_GlfwGetMonitorWorkarea(monitor, out x, out y, out w, out h);
 		public static void SetMouseButtonCallback(IntPtr window, GLFWmousebuttonfun mouse_button_callback)
 			=> _GlfwSetMouseButtonCallback(window, mouse_button_callback);
 		public static void SetScrollCallback(IntPtr window, GLFWscrollfun scroll_callback)
@@ -76,12 +80,12 @@ namespace Vega
 		#endregion // Passthrough API
 
 		#region API Function Wrappers
-		public static unsafe IntPtr CreateWindow(int width, int height, string title)
+		public static unsafe IntPtr CreateWindow(int width, int height, string title, Monitor? monitor)
 		{
 			byte[] tstr = Encoding.UTF8.GetBytes(title + '\0');
 
 			fixed (byte* tptr = tstr) {
-				return _GlfwCreateWindow(width, height, (IntPtr)tptr, IntPtr.Zero, IntPtr.Zero);
+				return _GlfwCreateWindow(width, height, (IntPtr)tptr, monitor?.Handle ?? IntPtr.Zero, IntPtr.Zero);
 			}
 		}
 
@@ -111,6 +115,12 @@ namespace Vega
 			return Marshal.PtrToStructure<VidMode>(mptr);
 		}
 
+		public static string GetMonitorName(IntPtr monitor)
+		{
+			IntPtr sptr = _GlfwGetMonitorName(monitor);
+			return Marshal.PtrToStringAnsi(sptr) ?? "<UNKNOWN>";
+		}
+
 		public static unsafe void SetWindowTitle(IntPtr window, string title)
 		{
 			byte[] tstr = Encoding.UTF8.GetBytes(title + '\0');
@@ -119,6 +129,33 @@ namespace Vega
 			}
 		}
 		#endregion // API Function Wrappers
+
+		#region Init/Term
+		public static void Init()
+		{
+			// Set error callback
+			_GlfwSetErrorCallback((code, desc) => {
+				_LastErrorCode = code;
+				_LastErrorDesc = desc;
+			});
+
+			// Init
+			if (_GlfwInit() != Glfw.TRUE) {
+				var err = LastError;
+				throw new Exception($"Failed to initialize GLFW (code {err.code}): {err.desc}");
+			}
+
+			// Install other callbacks
+			_GlfwSetMonitorCallback((mon, @event) => Monitor.MonitorUpdate(mon, @event == Glfw.CONNECTED));
+		}
+
+		public static void Terminate()
+		{
+			Monitor._Monitors = null;
+
+			_GlfwTerminate();
+		}
+		#endregion Init/Term
 
 		static Glfw()
 		{
@@ -153,6 +190,11 @@ namespace Vega
 			_GlfwGetMonitorPos = LoadFunc<Delegates.glfwGetMonitorPos>();
 			_GlfwGetVideoModes = LoadFunc<Delegates.glfwGetVideoModes>();
 			_GlfwGetVideoMode = LoadFunc<Delegates.glfwGetVideoMode>();
+			_GlfwGetMonitorPhysicalSize = LoadFunc<Delegates.glfwGetMonitorPhysicalSize>();
+			_GlfwGetMonitorContentScale = LoadFunc<Delegates.glfwGetMonitorContentScale>();
+			_GlfwGetMonitorWorkarea = LoadFunc<Delegates.glfwGetMonitorWorkarea>();
+			_GlfwGetMonitorName = LoadFunc<Delegates.glfwGetMonitorName>();
+			_GlfwSetMonitorCallback = LoadFunc<Delegates.glfwSetMonitorCallback>();
 			_GlfwSetWindowTitle = LoadFunc<Delegates.glfwSetWindowTitle>();
 			_GlfwSetMouseButtonCallback = LoadFunc<Delegates.glfwSetMouseButtonCallback>();
 			_GlfwSetScrollCallback = LoadFunc<Delegates.glfwSetScrollCallback>();
@@ -166,12 +208,6 @@ namespace Vega
 			_GlfwSetWindowIconifyCallback = LoadFunc<Delegates.glfwSetWindowIconifyCallback>();
 			_GlfwGetPhysicalDevicePresentationSupport = LoadFunc<Delegates.glfwGetPhysicalDevicePresentationSupport>();
 			_GlfwCreateWindowSurface = LoadFunc<Delegates.glfwCreateWindowSurface>();
-
-			// Set error callback
-			_GlfwSetErrorCallback((code, desc) => {
-				_LastErrorCode = code;
-				_LastErrorDesc = desc;
-			});
 		}
 
 		[StructLayout(LayoutKind.Explicit, Size=6*sizeof(int))]

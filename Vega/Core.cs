@@ -65,10 +65,7 @@ namespace Vega
 			};
 
 			// Initialize the dependencies
-			if (!Glfw.Init()) {
-				var err = Glfw.LastError;
-				throw new Exception($"GLFW failed to initialize (code {err.code}): {err.desc}");
-			}
+			Glfw.Init();
 		}
 		~Core()
 		{
