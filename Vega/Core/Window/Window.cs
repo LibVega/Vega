@@ -30,6 +30,26 @@ namespace Vega
 
 
 	/// <summary>
+	/// Window type moding.
+	/// </summary>
+	public enum WindowMode
+	{
+		/// <summary>
+		/// Non-fullscreen windowed.
+		/// </summary>
+		Window,
+		/// <summary>
+		/// Windowed (or borderless) fullscreen, a floating window taking up the whole screen.
+		/// </summary>
+		FullscreenWindow,
+		/// <summary>
+		/// Exclusive hardware fullscreen mode.
+		/// </summary>
+		FullscreenExclusive
+	}
+
+
+	/// <summary>
 	/// Manages a single application window.
 	/// </summary>
 	public class Window : IDisposable
@@ -54,13 +74,14 @@ namespace Vega
 		private string _title;
 		/// <summary>
 		/// If the window is resizeable by the user by dragging on the window. This does not affect programatic
-		/// resizing of the window.
+		/// resizing of the window. This value does not effect fullscreen windows.
 		/// </summary>
 		public bool Resizeable
 		{
-			get => _resizeable;
+			get => (Mode == WindowMode.Window) && _resizeable;
 			set {
 				if (IsDisposed) throw new ObjectDisposedException(nameof(Window));
+				if (Mode != WindowMode.Window) return;
 				Glfw.SetWindowAttrib(Handle, Glfw.RESIZABLE, value ? Glfw.TRUE : Glfw.FALSE);
 				_resizeable = value;
 			}
@@ -71,9 +92,10 @@ namespace Vega
 		/// </summary>
 		public bool Decorated
 		{
-			get => _decorated;
+			get => (Mode == WindowMode.Window) && _decorated;
 			set {
 				if (IsDisposed) throw new ObjectDisposedException(nameof(Window));
+				if (Mode != WindowMode.Window) return;
 				Glfw.SetWindowAttrib(Handle, Glfw.DECORATED, value ? Glfw.TRUE : Glfw.FALSE);
 				_decorated = value;
 			}
@@ -85,7 +107,11 @@ namespace Vega
 		/// </summary>
 		public bool Floating
 		{
-			get => _floating;
+			get => Mode switch { 
+				WindowMode.Window => _floating,
+				WindowMode.FullscreenWindow => false,
+				_ => true
+			};
 			set {
 				if (IsDisposed) throw new ObjectDisposedException(nameof(Window));
 				Glfw.SetWindowAttrib(Handle, Glfw.FLOATING, value ? Glfw.TRUE : Glfw.FALSE);
@@ -144,6 +170,88 @@ namespace Vega
 			: throw new ObjectDisposedException(nameof(Window));
 		#endregion // Status
 
+		#region State
+		/// <summary>
+		/// The window position (top-left corner) within global screen space. Setting position only affects windows
+		/// that are not fullscreen.
+		/// </summary>
+		public Point2 Position
+		{
+			get {
+				if (IsDisposed) throw new ObjectDisposedException(nameof(Window));
+				Glfw.GetWindowPos(Handle, out var x, out var y);
+				return new Point2(x, y);
+			}
+			set {
+				if (IsDisposed) throw new ObjectDisposedException(nameof(Window));
+				if (Mode != WindowMode.Window) return;
+				Glfw.SetWindowPos(Handle, value.X, value.Y);
+			}
+		}
+		/// <summary>
+		/// The size of the content area (not including the frame) of the window. Setting the size only affects windows
+		/// that are not fullscreen.
+		/// </summary>
+		public Extent2D Size
+		{
+			get {
+				if (IsDisposed) throw new ObjectDisposedException(nameof(Window));
+				Glfw.GetWindowSize(Handle, out var w, out var h);
+				return new Extent2D((uint)w, (uint)h);
+			}
+			set {
+				if (IsDisposed) throw new ObjectDisposedException(nameof(Window));
+				if (Mode != WindowMode.Window) return;
+				Glfw.SetWindowSize(Handle, (int)value.Width, (int)value.Height);
+			}
+		}
+		/// <summary>
+		/// Gets the current rectangular window area.
+		/// </summary>
+		public Rect WindowArea => new Rect(Position, Size);
+		/// <summary>
+		/// The current window mode.
+		/// </summary>
+		public WindowMode Mode { get; private set; }
+		/// <summary>
+		/// Gets the current monitor that the center of the window is within, or which has the most overlap. Will
+		/// return <c>null</c> if the window is not open, or if it is not within any monitor.
+		/// </summary>
+		public Monitor? CurrentMonitor
+		{
+			get {
+				if (IsDisposed) throw new ObjectDisposedException(nameof(Window));
+				if (!Visible || Iconified) return null;
+				var mons = Monitor.Monitors;
+				var area = WindowArea;
+
+				// Check center
+				var center = area.Center;
+				foreach (var m in mons) {
+					if (m.DisplayArea.Contains(center)) {
+						return m;
+					}
+				}
+
+				// Check overlap
+				uint bestArea = 0;
+				Monitor? bestMon = null;
+				foreach (var m in mons) {
+					Rect.Intersect(m.DisplayArea, area, out var overlap);
+					if (overlap.Area > bestArea) {
+						bestArea = overlap.Area;
+						bestMon = m;
+					}
+				}
+				return bestMon;
+			}
+		}
+
+		// State saving for fullscreen switches
+		private Rect _savedWindow;
+		private Rect _savedMonitor;
+		#endregion // State
+
 		/// <summary>
 		/// Gets if the window has been disposed.
 		/// </summary>
@@ -170,6 +278,7 @@ namespace Vega
 			Decorated = true;
 			Floating = false;
 			CursorMode = CursorMode.Normal;
+			Mode = WindowMode.Window;
 		}
 		~Window()
 		{
@@ -177,6 +286,92 @@ namespace Vega
 		}
 
 		#region Window Actions
+		/// <summary>
+		/// Sets the monitor for the window. This function is used to move between windowed and fullscreen states.
+		/// </summary>
+		/// <param name="monitor">
+		/// The monitor to make the window fullscreen on, or <c>null</c> to put the window into windowed mode.
+		/// </param>
+		/// <param name="mode">
+		/// The video mode for exclusive fullscreen, or <c>null</c> to use windowed (borderless) fullscreen.
+		/// </param>
+		public void SetMonitor(Monitor? monitor, VideoMode? mode = null)
+		{
+			// Check for same-state
+			var targState = (monitor, mode) switch { 
+				(null, _) => WindowMode.Window,
+				(not null, null) => WindowMode.FullscreenWindow,
+				_ => WindowMode.FullscreenExclusive
+			};
+			var currMon = CurrentMonitor ?? Monitor.Primary;
+			if (targState == Mode && monitor == currMon) {
+				return;
+			}
+
+			// * -> Window
+			if (targState == WindowMode.Window) {
+				if (Mode != WindowMode.FullscreenExclusive) { // (FSWindow or Window) -> Window
+					Glfw.SetWindowPos(Handle, _savedWindow.X, _savedWindow.Y);
+					Glfw.SetWindowSize(Handle, (int)_savedWindow.Width, (int)_savedWindow.Height);
+				}
+				else { // FSExclusive -> Window
+					Glfw.SetWindowMonitor(Handle, IntPtr.Zero, _savedWindow.X, _savedWindow.Y,
+						(int)_savedWindow.Width, (int)_savedWindow.Height, Glfw.DONT_CARE);
+				}
+
+				Glfw.SetWindowAttrib(Handle, Glfw.RESIZABLE, _resizeable ? Glfw.TRUE : Glfw.FALSE);
+				Glfw.SetWindowAttrib(Handle, Glfw.DECORATED, _decorated ? Glfw.TRUE : Glfw.FALSE);
+				Glfw.SetWindowAttrib(Handle, Glfw.FLOATING, _floating ? Glfw.TRUE : Glfw.FALSE);
+			}
+			// * -> FSWindow
+			else if (targState == WindowMode.FullscreenWindow) {
+				var newArea = monitor!.DisplayArea;
+
+				if (Mode == WindowMode.Window) { // Window -> FSWindow
+					_savedWindow = WindowArea;
+					_savedMonitor = currMon.DisplayArea;
+
+					Glfw.SetWindowAttrib(Handle, Glfw.RESIZABLE, Glfw.FALSE);
+					Glfw.SetWindowAttrib(Handle, Glfw.DECORATED, Glfw.FALSE);
+					Glfw.SetWindowAttrib(Handle, Glfw.FLOATING, Glfw.FALSE);
+					Glfw.SetWindowPos(Handle, newArea.X, newArea.Y);
+					Glfw.SetWindowSize(Handle, (int)newArea.Width, (int)newArea.Height);
+				}
+				else if (Mode == WindowMode.FullscreenWindow) { // Monitor switch, only change pos/size
+					Glfw.SetWindowPos(Handle, newArea.X, newArea.Y);
+					Glfw.SetWindowSize(Handle, (int)newArea.Width, (int)newArea.Height);
+				}
+				else { // FSExclusive -> FSWindow
+					Glfw.SetWindowMonitor(Handle, IntPtr.Zero, _savedMonitor.X, _savedMonitor.Y,
+						(int)_savedMonitor.Width, (int)_savedMonitor.Height, Glfw.DONT_CARE);
+					Glfw.SetWindowAttrib(Handle, Glfw.RESIZABLE, Glfw.FALSE);
+					Glfw.SetWindowAttrib(Handle, Glfw.DECORATED, Glfw.FALSE);
+					Glfw.SetWindowAttrib(Handle, Glfw.FLOATING, Glfw.FALSE);
+				}
+
+				Glfw.FocusWindow(Handle);
+			}
+			// * -> FSExclusive
+			else {
+				if (Mode == WindowMode.Window) { // Window -> FSExclusive
+					_savedWindow = WindowArea;
+					_savedMonitor = currMon.DisplayArea;
+				}
+				else if (Mode == WindowMode.FullscreenWindow) { // FSWindow -> FSExclusive
+					// Do nothing - keep the saved values from the last windowed mode
+				}
+				else { // Monitor change
+					// Do nothing - Glfw.SetWindowMonitor will handle all changes needed
+				}
+
+				Glfw.SetWindowMonitor(Handle, monitor!.Handle, 0, 0, (int)mode!.Value.Width,
+					(int)mode.Value.Height, (int)mode.Value.RefreshRate);
+			}
+
+			// Update mode
+			Mode = targState;
+		}
+
 		/// <summary>
 		/// Marks the window as requested to be closed. User code will still need to check this value and react
 		/// appropriately. To force close a window immediately, call <see cref="Dispose"/>.

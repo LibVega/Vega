@@ -106,8 +106,8 @@ namespace Vega
 		#endregion // Overrides
 
 		#region Operators
-		public static bool operator == (Monitor l, Monitor r) => l?.Handle == r?.Handle;
-		public static bool operator != (Monitor l, Monitor r) => l?.Handle != r?.Handle;
+		public static bool operator == (Monitor? l, Monitor? r) => l?.Handle == r?.Handle;
+		public static bool operator != (Monitor? l, Monitor? r) => l?.Handle != r?.Handle;
 		#endregion // Operators
 
 		#region Static Values

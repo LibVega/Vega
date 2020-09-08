@@ -47,6 +47,7 @@ namespace Vega
 		private static readonly Delegates.glfwSetWindowSize _GlfwSetWindowSize;
 		private static readonly Delegates.glfwGetWindowPos _GlfwGetWindowPos;
 		private static readonly Delegates.glfwSetWindowPos _GlfwSetWindowPos;
+		private static readonly Delegates.glfwSetWindowMonitor _GlfwSetWindowMonitor;
 		private static readonly Delegates.glfwGetInputMode _GlfwGetInputMode;
 		private static readonly Delegates.glfwSetInputMode _GlfwSetInputMode;
 		private static readonly Delegates.glfwGetPrimaryMonitor _GlfwGetPrimaryMonitor;
@@ -145,6 +146,8 @@ namespace Vega
 			public delegate void glfwGetWindowPos(IntPtr window, out int x, out int y);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate void glfwSetWindowPos(IntPtr window, int w, int y);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void glfwSetWindowMonitor(IntPtr window, IntPtr monitor, int x, int y, int w, int h, int refresh);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate int glfwGetInputMode(IntPtr window, int mode);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]

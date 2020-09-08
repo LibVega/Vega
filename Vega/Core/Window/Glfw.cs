@@ -55,6 +55,8 @@ namespace Vega
 		public static void GetWindowPos(IntPtr window, out int x, out int y) => 
 			_GlfwGetWindowPos(window, out x, out y);
 		public static void SetWindowPos(IntPtr window, int x, int y) => _GlfwSetWindowPos(window, x, y);
+		public static void SetWindowMonitor(IntPtr window, IntPtr monitor, int x, int y, int w, int h, int refresh) =>
+			_GlfwSetWindowMonitor(window, monitor, x, y, w, h, refresh);
 		public static int GetInputMode(IntPtr window, int mode) => _GlfwGetInputMode(window, mode);
 		public static void SetInputMode(IntPtr window, int mode, int value) => _GlfwSetInputMode(window, mode, value);
 		public static IntPtr GetPrimaryMonitor() => _GlfwGetPrimaryMonitor();
@@ -201,6 +203,7 @@ namespace Vega
 			_GlfwSetWindowSize = LoadFunc<Delegates.glfwSetWindowSize>();
 			_GlfwGetWindowPos = LoadFunc<Delegates.glfwGetWindowPos>();
 			_GlfwSetWindowPos = LoadFunc<Delegates.glfwSetWindowPos>();
+			_GlfwSetWindowMonitor = LoadFunc<Delegates.glfwSetWindowMonitor>();
 			_GlfwGetInputMode = LoadFunc<Delegates.glfwGetInputMode>();
 			_GlfwSetInputMode = LoadFunc<Delegates.glfwSetInputMode>();
 			_GlfwGetPrimaryMonitor = LoadFunc<Delegates.glfwGetPrimaryMonitor>();
