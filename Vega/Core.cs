@@ -230,6 +230,11 @@ namespace Vega
 		private void dispose(bool disposing)
 		{
 			if (!IsDisposed) {
+				// Close open windows
+				while (_windows.Count > 0) {
+					_windows[0].Dispose();
+				}
+
 				CoroutineManager.Cleanup();
 				Events.ClearAll();
 			}

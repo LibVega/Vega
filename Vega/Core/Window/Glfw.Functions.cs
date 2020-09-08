@@ -32,8 +32,14 @@ namespace Vega
 		private static readonly Delegates.glfwCreateWindow _GlfwCreateWindow;
 		private static readonly Delegates.glfwDestroyWindow _GlfwDestroyWindow;
 		private static readonly Delegates.glfwWindowShouldClose _GlfwWindowShouldClose;
-		private static readonly Delegates.glfwPollEvents _GlfwPollEvents;
+		private static readonly Delegates.glfwSetWindowShouldClose _GlfwSetWindowShouldClose;
+		private static readonly Delegates.glfwHideWindow _GlfwHideWindow;
 		private static readonly Delegates.glfwShowWindow _GlfwShowWindow;
+		private static readonly Delegates.glfwFocusWindow _GlfwFocusWindow;
+		private static readonly Delegates.glfwRequestWindowAttention _GlfwRequestWindowAttention;
+		private static readonly Delegates.glfwIconifyWindow _GlfwIconifyWindow;
+		private static readonly Delegates.glfwRestoreWindow _GlfwRestoreWindow;
+		private static readonly Delegates.glfwPollEvents _GlfwPollEvents;
 		private static readonly Delegates.glfwVulkanSupported _GlfwVulkanSupported;
 		private static readonly Delegates.glfwGetWindowAttrib _GlfwGetWindowAttrib;
 		private static readonly Delegates.glfwSetWindowAttrib _GlfwSetWindowAttrib;
@@ -41,6 +47,8 @@ namespace Vega
 		private static readonly Delegates.glfwSetWindowSize _GlfwSetWindowSize;
 		private static readonly Delegates.glfwGetWindowPos _GlfwGetWindowPos;
 		private static readonly Delegates.glfwSetWindowPos _GlfwSetWindowPos;
+		private static readonly Delegates.glfwGetInputMode _GlfwGetInputMode;
+		private static readonly Delegates.glfwSetInputMode _GlfwSetInputMode;
 		private static readonly Delegates.glfwGetPrimaryMonitor _GlfwGetPrimaryMonitor;
 		private static readonly Delegates.glfwGetMonitors _GlfwGetMonitors;
 		private static readonly Delegates.glfwGetMonitorPos _GlfwGetMonitorPos;
@@ -56,7 +64,6 @@ namespace Vega
 		private static readonly Delegates.glfwSetScrollCallback _GlfwSetScrollCallback;
 		private static readonly Delegates.glfwSetKeyCallback _GlfwSetKeyCallback;
 		private static readonly Delegates.glfwGetCursorPos _GlfwGetCursorPos;
-		private static readonly Delegates.glfwSetInputMode _GlfwSetInputMode;
 		private static readonly Delegates.glfwSetCursorEnterCallback _GlfwSetCursorEnterCallback;
 		private static readonly Delegates.glfwSetWindowPosCallback _GlfwSetWindowPosCallback;
 		private static readonly Delegates.glfwSetWindowSizeCallback _GlfwSetWindowSizeCallback;
@@ -109,9 +116,21 @@ namespace Vega
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate int glfwWindowShouldClose(IntPtr window);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
-			public delegate void glfwPollEvents();
+			public delegate void glfwSetWindowShouldClose(IntPtr window, int value);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void glfwHideWindow(IntPtr window);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate void glfwShowWindow(IntPtr window);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void glfwFocusWindow(IntPtr window);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void glfwRequestWindowAttention(IntPtr window);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void glfwIconifyWindow(IntPtr window);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void glfwRestoreWindow(IntPtr window);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void glfwPollEvents();
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate int glfwVulkanSupported();
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
@@ -126,6 +145,10 @@ namespace Vega
 			public delegate void glfwGetWindowPos(IntPtr window, out int x, out int y);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate void glfwSetWindowPos(IntPtr window, int w, int y);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate int glfwGetInputMode(IntPtr window, int mode);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void glfwSetInputMode(IntPtr window, int mode, int value);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate IntPtr glfwGetPrimaryMonitor();
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
@@ -156,8 +179,6 @@ namespace Vega
 			public delegate GLFWkeyfun glfwSetKeyCallback(IntPtr window, GLFWkeyfun key_callback);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate void glfwGetCursorPos(IntPtr window, out double xpos, out double ypos);
-			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
-			public delegate void glfwSetInputMode(IntPtr window, int mode, int value);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate void glfwSetCursorEnterCallback(IntPtr window, Glfwcursorenterfun cursor_enter_callback);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]

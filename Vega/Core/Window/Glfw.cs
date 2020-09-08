@@ -36,8 +36,15 @@ namespace Vega
 		public static void WindowHint(int hint, int value) => _GlfwWindowHint(hint, value);
 		public static void DestroyWindow(IntPtr window) => _GlfwDestroyWindow(window);
 		public static bool WindowShouldClose(IntPtr window) => (_GlfwWindowShouldClose(window) == Glfw.TRUE);
-		public static void PollEvents() => _GlfwPollEvents();
+		public static void SetWindowShouldClose(IntPtr window, bool value) => 
+			_GlfwSetWindowShouldClose(window, value ? Glfw.TRUE : Glfw.FALSE);
+		public static void HideWindow(IntPtr window) => _GlfwHideWindow(window);
 		public static void ShowWindow(IntPtr window) => _GlfwShowWindow(window);
+		public static void FocusWindow(IntPtr window) => _GlfwFocusWindow(window);
+		public static void RequestWindowAttention(IntPtr window) => _GlfwRequestWindowAttention(window);
+		public static void IconifyWindow(IntPtr window) => _GlfwIconifyWindow(window);
+		public static void RestoreWindow(IntPtr window) => _GlfwRestoreWindow(window);
+		public static void PollEvents() => _GlfwPollEvents();
 		public static bool VulkanSupported() => (_GlfwVulkanSupported() == Glfw.TRUE);
 		public static int GetWindowAttrib(IntPtr window, int attrib) => _GlfwGetWindowAttrib(window, attrib);
 		public static void SetWindowAttrib(IntPtr window, int attrib, int value) => 
@@ -48,6 +55,8 @@ namespace Vega
 		public static void GetWindowPos(IntPtr window, out int x, out int y) => 
 			_GlfwGetWindowPos(window, out x, out y);
 		public static void SetWindowPos(IntPtr window, int x, int y) => _GlfwSetWindowPos(window, x, y);
+		public static int GetInputMode(IntPtr window, int mode) => _GlfwGetInputMode(window, mode);
+		public static void SetInputMode(IntPtr window, int mode, int value) => _GlfwSetInputMode(window, mode, value);
 		public static IntPtr GetPrimaryMonitor() => _GlfwGetPrimaryMonitor();
 		public static void GetMonitorPos(IntPtr monitor, out int x, out int y) => 
 			_GlfwGetMonitorPos(monitor, out x, out y);
@@ -65,8 +74,6 @@ namespace Vega
 			_GlfwSetKeyCallback(window, key_callback);
 		public static void GetCursorPos(IntPtr window, out double x, out double y) => 
 			_GlfwGetCursorPos(window, out x, out y);
-		public static void SetInputMode(IntPtr window, int mode, int value) => 
-			_GlfwSetInputMode(window, mode, value);
 		public static void SetCursorEnterCallback(IntPtr window, Glfwcursorenterfun func) => 
 			_GlfwSetCursorEnterCallback(window, func);
 		public static void SetWindowPosCallback(IntPtr window, GLFWwindowposfun func) => 
@@ -147,6 +154,9 @@ namespace Vega
 
 			// Install other callbacks
 			_GlfwSetMonitorCallback((mon, @event) => Monitor.MonitorUpdate(mon, @event == Glfw.CONNECTED));
+
+			// Setup window conditions
+			Glfw.WindowHint(Glfw.CLIENT_API, Glfw.NO_API);
 		}
 
 		public static void Terminate()
@@ -176,8 +186,14 @@ namespace Vega
 			_GlfwCreateWindow = LoadFunc<Delegates.glfwCreateWindow>();
 			_GlfwDestroyWindow = LoadFunc<Delegates.glfwDestroyWindow>();
 			_GlfwWindowShouldClose = LoadFunc<Delegates.glfwWindowShouldClose>();
-			_GlfwPollEvents = LoadFunc<Delegates.glfwPollEvents>();
+			_GlfwSetWindowShouldClose = LoadFunc<Delegates.glfwSetWindowShouldClose>();
+			_GlfwHideWindow = LoadFunc<Delegates.glfwHideWindow>();
 			_GlfwShowWindow = LoadFunc<Delegates.glfwShowWindow>();
+			_GlfwFocusWindow = LoadFunc<Delegates.glfwFocusWindow>();
+			_GlfwRequestWindowAttention = LoadFunc<Delegates.glfwRequestWindowAttention>();
+			_GlfwIconifyWindow = LoadFunc<Delegates.glfwIconifyWindow>();
+			_GlfwRestoreWindow = LoadFunc<Delegates.glfwRestoreWindow>();
+			_GlfwPollEvents = LoadFunc<Delegates.glfwPollEvents>();
 			_GlfwVulkanSupported = LoadFunc<Delegates.glfwVulkanSupported>();
 			_GlfwGetWindowAttrib = LoadFunc<Delegates.glfwGetWindowAttrib>();
 			_GlfwSetWindowAttrib = LoadFunc<Delegates.glfwSetWindowAttrib>();
@@ -185,6 +201,8 @@ namespace Vega
 			_GlfwSetWindowSize = LoadFunc<Delegates.glfwSetWindowSize>();
 			_GlfwGetWindowPos = LoadFunc<Delegates.glfwGetWindowPos>();
 			_GlfwSetWindowPos = LoadFunc<Delegates.glfwSetWindowPos>();
+			_GlfwGetInputMode = LoadFunc<Delegates.glfwGetInputMode>();
+			_GlfwSetInputMode = LoadFunc<Delegates.glfwSetInputMode>();
 			_GlfwGetPrimaryMonitor = LoadFunc<Delegates.glfwGetPrimaryMonitor>();
 			_GlfwGetMonitors = LoadFunc<Delegates.glfwGetMonitors>();
 			_GlfwGetMonitorPos = LoadFunc<Delegates.glfwGetMonitorPos>();
@@ -200,7 +218,6 @@ namespace Vega
 			_GlfwSetScrollCallback = LoadFunc<Delegates.glfwSetScrollCallback>();
 			_GlfwSetKeyCallback = LoadFunc<Delegates.glfwSetKeyCallback>();
 			_GlfwGetCursorPos = LoadFunc<Delegates.glfwGetCursorPos>();
-			_GlfwSetInputMode = LoadFunc<Delegates.glfwSetInputMode>();
 			_GlfwSetCursorEnterCallback = LoadFunc<Delegates.glfwSetCursorEnterCallback>();
 			_GlfwSetWindowPosCallback = LoadFunc<Delegates.glfwSetWindowPosCallback>();
 			_GlfwSetWindowSizeCallback = LoadFunc<Delegates.glfwSetWindowSizeCallback>();
