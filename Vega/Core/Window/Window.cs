@@ -252,6 +252,29 @@ namespace Vega
 		private Rect _savedMonitor;
 		#endregion // State
 
+		#region Events
+		/// <summary>
+		/// Event for the window position changing.
+		/// </summary>
+		public event WindowPositionCallback? PositionChanged;
+		/// <summary>
+		/// Event for the window size changing.
+		/// </summary>
+		public event WindowSizeCallback? SizeChanged;
+		/// <summary>
+		/// Event for the window focus status changing.
+		/// </summary>
+		public event WindowFocusCallback? FocusChanged;
+		/// <summary>
+		/// Event for the window iconification changing.
+		/// </summary>
+		public event WindowIconifyCallback? IconifyChanged;
+		/// <summary>
+		/// Event for the window mode changing.
+		/// </summary>
+		public event WindowModeCallback? ModeChanged;
+		#endregion // Events
+
 		/// <summary>
 		/// Gets if the window has been disposed.
 		/// </summary>
@@ -279,6 +302,12 @@ namespace Vega
 			Floating = false;
 			CursorMode = CursorMode.Normal;
 			Mode = WindowMode.Window;
+
+			// Setup callbacks
+			Glfw.SetWindowPosCallback(Handle, (win, x, y) => PositionChanged?.Invoke(this, new(x, y)));
+			Glfw.SetWindowSizeCallback(Handle, (win, w, h) => SizeChanged?.Invoke(this, new((uint)w, (uint)h)));
+			Glfw.SetWindowFocusCallback(Handle, (win, focus) => FocusChanged?.Invoke(this, focus == Glfw.TRUE));
+			Glfw.SetWindowIconifyCallback(Handle, (win, icon) => IconifyChanged?.Invoke(this, icon == Glfw.TRUE));
 		}
 		~Window()
 		{
@@ -369,6 +398,7 @@ namespace Vega
 			}
 
 			// Update mode
+			ModeChanged?.Invoke(this, Mode, targState);
 			Mode = targState;
 		}
 
