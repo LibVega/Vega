@@ -109,6 +109,7 @@ namespace Vega
 			Glfw.PollEvents();
 			foreach (var win in _windows) {
 				win.Keyboard.ProcessHoldEvents();
+				win.Mouse.HandleEvents();
 			}
 
 			// Tick begin coroutines

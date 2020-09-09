@@ -13,7 +13,7 @@ namespace Vega.Input
 	/// Reports keyboard input for a specific open <see cref="Window"/>. Supports both polling and event-based 
 	/// operations.
 	/// </summary>
-	public class Keyboard
+	public sealed class Keyboard
 	{
 		/// <summary>
 		/// The default quantity for the <see cref="HoldTime"/> field.
@@ -105,8 +105,7 @@ namespace Vega.Input
 				if (action == Glfw.REPEAT) return;
 				var keys = KeysUtils.Translate(key);
 				if (keys == Keys.Unknown) return;
-				var pressed = action == Glfw.PRESS;
-				handleKey(keys, scancode, pressed);
+				handleKey(keys, scancode, action == Glfw.PRESS);
 			};
 			Glfw.SetKeyCallback(window.Handle, _keyfunc);
 		}

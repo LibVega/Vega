@@ -10,27 +10,6 @@ using Vega.Input;
 namespace Vega
 {
 	/// <summary>
-	/// Cursor/window interaction modes.
-	/// </summary>
-	public enum CursorMode
-	{
-		/// <summary>
-		/// The system cursor appears over the window, and can move freely around and off of the window.
-		/// </summary>
-		Normal,
-		/// <summary>
-		/// The cursor can move freely, but is hidden while over the window.
-		/// </summary>
-		Hidden,
-		/// <summary>
-		/// The cursor is invisible and is locked in the window, and virtual mouse inputs are provided to maintain
-		/// full logical mouse movements.
-		/// </summary>
-		Locked
-	}
-
-
-	/// <summary>
 	/// Window type moding.
 	/// </summary>
 	public enum WindowMode
@@ -120,29 +99,6 @@ namespace Vega
 			}
 		}
 		private bool _floating;
-		/// <summary>
-		/// The interation mode for the cursor within this window.
-		/// </summary>
-		public CursorMode CursorMode
-		{
-			get {
-				if (IsDisposed) throw new ObjectDisposedException(nameof(Window));
-				return Glfw.GetInputMode(Handle, Glfw.CURSOR) switch {
-					Glfw.CURSOR_DISABLED => CursorMode.Locked,
-					Glfw.CURSOR_HIDDEN => CursorMode.Hidden,
-					_ => CursorMode.Normal
-				};
-			}
-			set {
-				if (IsDisposed) throw new ObjectDisposedException(nameof(Window));
-				var mode = value switch { 
-					CursorMode.Hidden => Glfw.CURSOR_HIDDEN,
-					CursorMode.Locked => Glfw.CURSOR_DISABLED,
-					_ => Glfw.CURSOR_NORMAL
-				};
-				Glfw.SetInputMode(Handle, Glfw.CURSOR, mode);
-			}
-		}
 		#endregion // Properties
 
 		#region Status
@@ -282,6 +238,11 @@ namespace Vega
 		/// </summary>
 		public Keyboard Keyboard => !IsDisposed ? _keyboard : throw new ObjectDisposedException(nameof(Window));
 		private readonly Keyboard _keyboard;
+		/// <summary>
+		/// The mouse input processing for this window.
+		/// </summary>
+		public Mouse Mouse => !IsDisposed ? _mouse : throw new ObjectDisposedException(nameof(Window));
+		private readonly Mouse _mouse;
 		#endregion // Input
 
 		/// <summary>
@@ -309,7 +270,6 @@ namespace Vega
 			Resizeable = true;
 			Decorated = true;
 			Floating = false;
-			CursorMode = CursorMode.Normal;
 			Mode = WindowMode.Window;
 
 			// Setup callbacks
@@ -320,6 +280,7 @@ namespace Vega
 
 			// Setup input
 			_keyboard = new Keyboard(this);
+			_mouse = new Mouse(this);
 		}
 		~Window()
 		{
@@ -483,6 +444,7 @@ namespace Vega
 		internal void BeginFrame()
 		{
 			_keyboard.NewFrame();
+			_mouse.NewFrame();
 		}
 
 		internal void EndFrame()
