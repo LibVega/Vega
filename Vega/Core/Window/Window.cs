@@ -249,6 +249,12 @@ namespace Vega
 		/// Gets if the window has been disposed.
 		/// </summary>
 		public bool IsDisposed { get; private set; } = false;
+
+		// Function registers to keep managed delegates from being disposed
+		private Glfw.GLFWwindowposfun _posfunc;
+		private Glfw.GLFWwindowsizefun _sizefunc;
+		private Glfw.GLFWwindowfocusfun _focusfunc;
+		private Glfw.GLFWwindowiconifyfun _iconifyfunc;
 		#endregion // Fields
 
 		internal Window(string title, uint width, uint height)
@@ -273,10 +279,14 @@ namespace Vega
 			Mode = WindowMode.Window;
 
 			// Setup callbacks
-			Glfw.SetWindowPosCallback(Handle, (win, x, y) => PositionChanged?.Invoke(this, new(x, y)));
-			Glfw.SetWindowSizeCallback(Handle, (win, w, h) => SizeChanged?.Invoke(this, new((uint)w, (uint)h)));
-			Glfw.SetWindowFocusCallback(Handle, (win, focus) => FocusChanged?.Invoke(this, focus == Glfw.TRUE));
-			Glfw.SetWindowIconifyCallback(Handle, (win, icon) => IconifyChanged?.Invoke(this, icon == Glfw.TRUE));
+			_posfunc = (win, x, y) => PositionChanged?.Invoke(this, new(x, y));
+			_sizefunc = (win, w, h) => SizeChanged?.Invoke(this, new((uint)w, (uint)h));
+			_focusfunc = (win, focus) => FocusChanged?.Invoke(this, focus == Glfw.TRUE);
+			_iconifyfunc = (win, icon) => IconifyChanged?.Invoke(this, icon == Glfw.TRUE);
+			Glfw.SetWindowPosCallback(Handle, _posfunc);
+			Glfw.SetWindowSizeCallback(Handle, _sizefunc);
+			Glfw.SetWindowFocusCallback(Handle, _focusfunc);
+			Glfw.SetWindowIconifyCallback(Handle, _iconifyfunc);
 
 			// Setup input
 			_keyboard = new Keyboard(this);
