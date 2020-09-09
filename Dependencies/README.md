@@ -19,5 +19,13 @@ These libraries can be overridden by placing other binaries into the same direct
 
 * License: [zlib](https://github.com/glfw/glfw/blob/master/LICENSE.md)
 * Description: Used to handle window operations and peripheral input events.
-* Version: 3.3+ (3.3.2 included for Windows/OSX)
+* Version: `3.3+` (`3.3.2` included for Windows/OSX)
 * Type: Pre-compiled binaries from GLFW authors
+
+## [OpenAL-Soft](https://openal-soft.org/)
+
+* License: [LGPLv2](https://github.com/kcat/openal-soft/blob/master/COPYING)
+  * Note that this license requires re-linkability. There is built-in functionality available within Vega to allow easy re-linking by simply putting a different version of the library in the same directory as the application.
+* Description: Used for audio playback and effects
+* Version: `1.20.1` included for Windows/OSX
+* Type: Manually built from source release

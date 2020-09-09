@@ -18,6 +18,7 @@ The Vulkan runtime is required to run applications built with Vega. This is ofte
 Thanks to the following projects/groups for their libraries or tools used by or adapted for Vega:
 
 * [GLFW3](https://www.glfw.org/) - Library used for windowing and input
+* [OpenAL-Soft](https://openal-soft.org/) - Library used for audio playback and effects
 
 ## Licensing
 
