@@ -5,6 +5,7 @@
  */
 
 using System;
+using Vega.Input;
 
 namespace Vega
 {
@@ -275,6 +276,14 @@ namespace Vega
 		public event WindowModeCallback? ModeChanged;
 		#endregion // Events
 
+		#region Input
+		/// <summary>
+		/// The keyboard input processing for this window.
+		/// </summary>
+		public Keyboard Keyboard => !IsDisposed ? _keyboard : throw new ObjectDisposedException(nameof(Window));
+		private readonly Keyboard _keyboard;
+		#endregion // Input
+
 		/// <summary>
 		/// Gets if the window has been disposed.
 		/// </summary>
@@ -308,6 +317,9 @@ namespace Vega
 			Glfw.SetWindowSizeCallback(Handle, (win, w, h) => SizeChanged?.Invoke(this, new((uint)w, (uint)h)));
 			Glfw.SetWindowFocusCallback(Handle, (win, focus) => FocusChanged?.Invoke(this, focus == Glfw.TRUE));
 			Glfw.SetWindowIconifyCallback(Handle, (win, icon) => IconifyChanged?.Invoke(this, icon == Glfw.TRUE));
+
+			// Setup input
+			_keyboard = new Keyboard(this);
 		}
 		~Window()
 		{
@@ -470,7 +482,7 @@ namespace Vega
 		#region Frame
 		internal void BeginFrame()
 		{
-
+			_keyboard.NewFrame();
 		}
 
 		internal void EndFrame()

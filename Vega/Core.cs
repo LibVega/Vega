@@ -107,6 +107,9 @@ namespace Vega
 				win.BeginFrame();
 			}
 			Glfw.PollEvents();
+			foreach (var win in _windows) {
+				win.Keyboard.ProcessHoldEvents();
+			}
 
 			// Tick begin coroutines
 			CoroutineManager.Tick(CoroutinePolicy.Beginning);
