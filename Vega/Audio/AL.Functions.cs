@@ -24,6 +24,16 @@ namespace Vega.Audio
 		#region Handles
 		private readonly static Delegates.GetError _GetError;
 		private readonly static Delegates.GetString _GetString;
+
+		private readonly static Delegates.GenSources _GenSources;
+		private readonly static Delegates.DeleteSources _DeleteSources;
+		private readonly static Delegates.GenBuffers _GenBuffers;
+		private readonly static Delegates.DeleteBuffers _DeleteBuffers;
+		private readonly static Delegates.BufferData _BufferData;
+
+		private readonly static Delegates.Sourcei _Sourcei;
+		private readonly static Delegates.Sourcef _Sourcef;
+		private readonly static Delegates.GetBufferi _GetBufferi;
 		#endregion // Handles
 
 		public static class Delegates
@@ -32,6 +42,24 @@ namespace Vega.Audio
 			public delegate int GetError();
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate IntPtr GetString(int param);
+
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void GenSources(int n, IntPtr sources);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void DeleteSources(int n, IntPtr sources);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void GenBuffers(int n, IntPtr buffers);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void DeleteBuffers(int n, IntPtr buffers);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void BufferData(uint buffer, int format, IntPtr data, uint size, uint freq);
+
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void Sourcei(uint source, int param, int value);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void Sourcef(uint source, int param, float value);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void GetBufferi(uint buffer, int param, out int value);
 		}
 	}
 

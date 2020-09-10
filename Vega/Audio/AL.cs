@@ -24,6 +24,49 @@ namespace Vega.Audio
 		public static int LastError { get; private set; } = AL.NO_ERROR;
 		#endregion // Fields
 
+		#region API
+		public unsafe static uint[] GenSources(int count)
+		{
+			var arr = new uint[count];
+			fixed (uint* aptr = arr) {
+				_GenSources(count, new IntPtr(aptr));
+			}
+			return arr;
+		}
+
+		public unsafe static void DeleteSources(uint[] srcs)
+		{
+			fixed (uint* sptr = srcs) {
+				_DeleteSources(srcs.Length, new IntPtr(sptr));
+			}
+		}
+
+		public unsafe static uint[] GenBuffers(int count)
+		{
+			var arr = new uint[count];
+			fixed (uint* aptr = arr) {
+				_GenBuffers(count, new IntPtr(aptr));
+			}
+			return arr;
+		}
+
+		public unsafe static void DeleteBuffers(uint[] bufs)
+		{
+			fixed (uint* bptr = bufs) {
+				_DeleteBuffers(bufs.Length, new IntPtr(bptr));
+			}
+		}
+
+		public static void BufferData(uint buffer, int format, IntPtr data, uint size, uint freq) =>
+			_BufferData(buffer, format, data, size, freq);
+
+		public static void Sourcei(uint src, int param, int value) => _Sourcei(src, param, value);
+
+		public static void Sourcef(uint src, int param, float value) => _Sourcef(src, param, value);
+
+		public static void GetBufferi(uint buffer, int param, out int value) => _GetBufferi(buffer, param, out value);
+		#endregion // API
+
 		#region Errors
 		[Conditional("DEBUG")]
 		[MethodImpl(MethodImplOptions.NoInlining)]
@@ -67,6 +110,16 @@ namespace Vega.Audio
 
 			_GetError = LoadFunc<Delegates.GetError>();
 			_GetString = LoadFunc<Delegates.GetString>();
+
+			_GenSources = LoadFunc<Delegates.GenSources>();
+			_DeleteSources = LoadFunc<Delegates.DeleteSources>();
+			_GenBuffers = LoadFunc<Delegates.GenBuffers>();
+			_DeleteBuffers = LoadFunc<Delegates.DeleteBuffers>();
+			_BufferData = LoadFunc<Delegates.BufferData>();
+
+			_Sourcei = LoadFunc<Delegates.Sourcei>();
+			_Sourcef = LoadFunc<Delegates.Sourcef>();
+			_GetBufferi = LoadFunc<Delegates.GetBufferi>();
 		}
 	}
 
