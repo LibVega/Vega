@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using Vega.Audio;
 
 namespace Vega
 {
@@ -21,10 +22,13 @@ namespace Vega
 		public static Core? Instance { get; private set; } = null;
 
 		#region Members
+		// The audio driver associated with this instance
+		internal readonly AudioDriver AudioDriver;
+
 		/// <summary>
 		/// The hub used to manage all core event messages, can be extended to additionally handle user messages.
 		/// </summary>
-		public EventHub Events { get; private set; }
+		public readonly EventHub Events;
 
 		/// <summary>
 		/// Reports if the application is in a frame (between <see cref="BeginFrame"/> and <see cref="EndFrame"/>).
@@ -76,6 +80,9 @@ namespace Vega
 
 			// Initialize the dependencies
 			Glfw.Init();
+
+			// Initialize audio
+			AudioDriver = new AudioDriver(this);
 		}
 		~Core()
 		{
@@ -238,6 +245,9 @@ namespace Vega
 				while (_windows.Count > 0) {
 					_windows[0].Dispose();
 				}
+
+				// Shutdown audio
+				AudioDriver.Dispose();
 
 				CoroutineManager.Cleanup();
 				Events.ClearAll();

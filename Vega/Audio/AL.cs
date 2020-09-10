@@ -81,6 +81,32 @@ namespace Vega.Audio
 		public static int LastError { get; private set; } = ALC.NO_ERROR;
 		#endregion // Fields
 
+		#region API
+		public static IntPtr OpenDevice(string devicename)
+		{
+			var sptr = Marshal.StringToHGlobalAnsi(devicename);
+			try {
+				return _OpenDevice(sptr);
+			}
+			finally {
+				Marshal.FreeHGlobal(sptr);
+			}
+		}
+
+		public static bool CloseDevice(IntPtr device) => _CloseDevice(device) == ALC.TRUE;
+
+		public unsafe static IntPtr CreateContext(IntPtr device, int[] attrlist)
+		{
+			fixed (int* aptr = attrlist) {
+				return _CreateContext(device, new IntPtr(aptr));
+			}
+		}
+
+		public static bool MakeContextCurrent(IntPtr context) => _MakeContextCurrent(context) == ALC.TRUE;
+
+		public static void DestroyContext(IntPtr context) => _DestroyContext(context);
+		#endregion // API
+
 		#region Errors
 		[Conditional("DEBUG")]
 		[MethodImpl(MethodImplOptions.NoInlining)]
@@ -151,6 +177,12 @@ namespace Vega.Audio
 		{
 			_GetError = LoadFunc<Delegates.GetError>();
 			_GetString = LoadFunc<Delegates.GetString>();
+
+			_OpenDevice = LoadFunc<Delegates.OpenDevice>();
+			_CloseDevice = LoadFunc<Delegates.CloseDevice>();
+			_CreateContext = LoadFunc<Delegates.CreateContext>();
+			_MakeContextCurrent = LoadFunc<Delegates.MakeContextCurrent>();
+			_DestroyContext = LoadFunc<Delegates.DestroyContext>();
 		}
 	}
 }

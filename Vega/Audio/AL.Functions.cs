@@ -50,6 +50,12 @@ namespace Vega.Audio
 		#region Handles
 		private readonly static Delegates.GetError _GetError;
 		private readonly static Delegates.GetString _GetString;
+
+		private readonly static Delegates.OpenDevice _OpenDevice;
+		private readonly static Delegates.CloseDevice _CloseDevice;
+		private readonly static Delegates.CreateContext _CreateContext;
+		private readonly static Delegates.MakeContextCurrent _MakeContextCurrent;
+		private readonly static Delegates.DestroyContext _DestroyContext;
 		#endregion // Handles
 
 		public static class Delegates
@@ -58,6 +64,17 @@ namespace Vega.Audio
 			public delegate int GetError(IntPtr device);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate IntPtr GetString(IntPtr device, int param);
+
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate IntPtr OpenDevice(IntPtr devicename);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate byte CloseDevice(IntPtr device);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate IntPtr CreateContext(IntPtr device, IntPtr attrlist);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate byte MakeContextCurrent(IntPtr context);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void DestroyContext(IntPtr context);
 		}
 	}
 }
