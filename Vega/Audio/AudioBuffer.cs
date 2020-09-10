@@ -5,55 +5,29 @@
  */
 
 using System;
-using System.Threading;
 
 namespace Vega.Audio
 {
-	/// <summary>
-	/// Represents an in-memory buffer of audio data.
-	/// </summary>
-	public sealed class AudioBuffer : IDisposable
+	// Represents an in-memory buffer of audio data.
+	internal sealed class AudioBuffer : IDisposable
 	{
 		#region Fields
 		// OpenAL buffer handle
 		internal readonly uint Handle;
 
-		#region Info
-		/// <summary>
-		/// If the contained data is stereo (2-channel interleaved), <c>false</c> implies mono sound.
-		/// </summary>
-		public bool Stereo { get; private set; } = false;
-		/// <summary>
-		/// The number of samples in the stored data, stereo data counts pairs of data points as a single sample.
-		/// </summary>
-		public uint SampleCount { get; private set; } = 0;
-		/// <summary>
-		/// The natural playback frequency for the stored data.
-		/// </summary>
-		public uint Frequency { get; private set; } = 0;
-		/// <summary>
-		/// The playback duration of the stored data at the natural playback rate.
-		/// </summary>
-		public TimeSpan Duration { get; private set; } = TimeSpan.Zero;
-		#endregion // Info
-
-		/// <summary>
-		/// The number of audio sources currently using this buffer.
-		/// </summary>
-		public uint UseCount => _useCount;
-		internal uint _useCount;
-
-		/// <summary>
-		/// Gets if the buffer has been disposed.
-		/// </summary>
-		public bool IsDisposed { get; private set; } = false;
+		// If the data is stereo
+		public bool Stereo { get; private set; }
+		// Data sample count (pairs of samples for stereo)
+		public uint SampleCount { get; private set; }
+		// Natural playback frequency
+		public uint Frequency { get; private set; }
+		// Duration of the audio data
+		public TimeSpan Duration { get; private set; }
 		#endregion // Fields
 
-		/// <summary>
-		/// Creates a new un-sized and empty audio data buffer.
-		/// </summary>
 		public AudioBuffer()
 		{
+			// Generate the buffer handle
 			Handle = AL.GenBuffers(1)[0];
 			AL.CheckError("generate buffer");
 			if (Handle == 0) {
@@ -65,27 +39,13 @@ namespace Vega.Audio
 			dispose(false);
 		}
 
-		// Increment the use count
-		internal void IncUseCount() => Interlocked.Increment(ref _useCount);
-		// Decrement the use count
-		internal void DecUseCount() => Interlocked.Decrement(ref _useCount);
-
 		#region Data
-		/// <summary>
-		/// Sets the data in the buffer, and updates the buffer info fields.
-		/// </summary>
-		/// <param name="data">The audio data, interleaved if stereo.</param>
-		/// <param name="stereo">If the data is stereo (2-channel).</param>
-		/// <param name="hz">The sample rate for the data.</param>
-		/// <exception cref="ObjectDisposedException">The buffer is disposed.</exception>
-		/// <exception cref="InvalidOperationException">The buffer is currently in use by audio sources.</exception>
+		// Sets the data in the buffer, and updates the buffer info fields.
 		public unsafe void SetData(ReadOnlySpan<short> data, bool stereo, uint hz)
 		{
-			if (IsDisposed) {
-				throw new ObjectDisposedException(nameof(AudioBuffer));
-			}
-			if (UseCount != 0) {
-				throw new InvalidOperationException("Cannot set AudioBuffer data while the buffer is in use");
+			// Check data
+			if (stereo && (data.Length & 1) > 0) {
+				throw new ArgumentException("Stereo data must have an even number of samples", nameof(data));
 			}
 
 			// Set the data
@@ -116,16 +76,8 @@ namespace Vega.Audio
 
 		private void dispose(bool disposing)
 		{
-			if (disposing) {
-				if (UseCount != 0) {
-					throw new InvalidOperationException("Cannot dispose AudioBuffer currently in use");
-				}
-			}
-			if (!IsDisposed) {
-				AL.DeleteBuffers(new[] { Handle });
-				AL.CheckError("delete buffer");
-			}
-			IsDisposed = true;
+			AL.DeleteBuffers(new[] { Handle });
+			AL.CheckError("delete buffer");
 		}
 		#endregion // IDisposable
 	}
