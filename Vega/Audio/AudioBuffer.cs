@@ -51,7 +51,7 @@ namespace Vega.Audio
 			// Set the data
 			var fmt = stereo ? AL.FORMAT_STEREO16 : AL.FORMAT_MONO16;
 			fixed (short* dptr = data) {
-				AL.BufferData(Handle, fmt, new IntPtr(dptr), (uint)data.Length, hz);
+				AL.BufferData(Handle, fmt, new IntPtr(dptr), (uint)data.Length * sizeof(short), hz);
 				AL.CheckError("buffer data set");
 			}
 

@@ -33,7 +33,12 @@ namespace Vega.Audio
 
 		private readonly static Delegates.Sourcei _Sourcei;
 		private readonly static Delegates.Sourcef _Sourcef;
+		private readonly static Delegates.GetSourcei _GetSourcei;
 		private readonly static Delegates.GetBufferi _GetBufferi;
+
+		private readonly static Delegates.SourcePlay _SourcePlay;
+		private readonly static Delegates.SourcePause _SourcePause;
+		private readonly static Delegates.SourceStop _SourceStop;
 		#endregion // Handles
 
 		public static class Delegates
@@ -59,7 +64,16 @@ namespace Vega.Audio
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate void Sourcef(uint source, int param, float value);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void GetSourcei(uint source, int param, out int value);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate void GetBufferi(uint buffer, int param, out int value);
+
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void SourcePlay(uint source);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void SourcePause(uint source);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate void SourceStop(uint source);
 		}
 	}
 

@@ -6,13 +6,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Vega.Audio
 {
 	// Manages a specific audio context
 	internal sealed class AudioDriver : IDisposable
 	{
-		public const int SOURCE_COUNT = 32;
+		public const int SOURCE_COUNT = 64;
 
 		#region Fields
 		// Core using this driver
@@ -27,6 +28,11 @@ namespace Vega.Audio
 		private readonly Stack<uint> _availableSources = new();
 		private readonly List<uint> _usedSources = new();
 		private readonly object _sourceLock = new();
+
+		// SoundInstance runtime tracking
+		private readonly List<SoundInstance> _playingInstances = new();
+		private readonly object _instanceLock = new();
+		private float _lastCleanTime = 0;
 		#endregion // Fields
 
 		public AudioDriver(Core core)
@@ -62,6 +68,28 @@ namespace Vega.Audio
 			dispose(false);
 		}
 
+		// Run at the beginning of the frame to update running audio effects
+		// Clean checks happen every 1/5 second
+		public void Update()
+		{
+			var nowTime = (float)AppTime.Elapsed.TotalSeconds;
+			if ((nowTime - _lastCleanTime) < 0.2f) {
+				return;
+			}
+			_lastCleanTime = nowTime;
+
+			lock (_instanceLock) {
+				_playingInstances.RemoveAll(inst => { 
+					if (inst.IsStopped) {
+						inst.releaseSource();
+						return true;
+					}
+					return false;
+				});
+			}
+		}
+
+		#region Sources
 		public uint ReserveSource()
 		{
 			lock (_sourceLock) {
@@ -71,7 +99,7 @@ namespace Vega.Audio
 
 				var src = _availableSources.Pop();
 				_usedSources.Add(src);
-				ResetSoundEffects(src);
+				ResetSource(src);
 				return src;
 			}
 		}
@@ -86,13 +114,46 @@ namespace Vega.Audio
 			}
 		}
 
-		public void ResetSoundEffects(uint src)
+		public void ResetSource(uint src)
 		{
 			// No looping, default volume and pitch
 			AL.Sourcei(src, AL.LOOPING, 0);
 			AL.Sourcef(src, AL.GAIN, 1);
 			AL.Sourcef(src, AL.PITCH, 1);
 		}
+		#endregion // Sources
+
+		#region SoundInstance
+		// Adds the sound instance to the runtime tracking system
+		public void TrackInstance(SoundInstance inst)
+		{
+			lock (_instanceLock) {
+				_playingInstances.Add(inst);
+			}
+		}
+
+		// Remove the sound instance from the runtime tracking
+		public void RemoveInstance(SoundInstance inst)
+		{
+			lock (_instanceLock) {
+				_playingInstances.Remove(inst);
+			}
+		}
+
+		// Stop all instances associated with the sound for a good cleanup
+		public void StopInstances(Sound sound)
+		{
+			lock (_instanceLock) {
+				_playingInstances.RemoveAll(inst => { 
+					if (ReferenceEquals(inst.Sound, sound)) {
+						inst.stopImpl();
+						return true;
+					}
+					return false;
+				});
+			}
+		}
+		#endregion // SoundInstance
 
 		#region IDisposable
 		public void Dispose()

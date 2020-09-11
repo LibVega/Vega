@@ -64,7 +64,15 @@ namespace Vega.Audio
 
 		public static void Sourcef(uint src, int param, float value) => _Sourcef(src, param, value);
 
+		public static void GetSourcei(uint buffer, int param, out int value) => _GetSourcei(buffer, param, out value);
+
 		public static void GetBufferi(uint buffer, int param, out int value) => _GetBufferi(buffer, param, out value);
+
+		public static void SourcePlay(uint source) => _SourcePlay(source);
+
+		public static void SourcePause(uint source) => _SourcePause(source);
+
+		public static void SourceStop(uint source) => _SourceStop(source);
 		#endregion // API
 
 		#region Errors
@@ -119,7 +127,12 @@ namespace Vega.Audio
 
 			_Sourcei = LoadFunc<Delegates.Sourcei>();
 			_Sourcef = LoadFunc<Delegates.Sourcef>();
+			_GetSourcei = LoadFunc<Delegates.GetSourcei>();
 			_GetBufferi = LoadFunc<Delegates.GetBufferi>();
+
+			_SourcePlay = LoadFunc<Delegates.SourcePlay>();
+			_SourcePause = LoadFunc<Delegates.SourcePause>();
+			_SourceStop = LoadFunc<Delegates.SourceStop>();
 		}
 	}
 

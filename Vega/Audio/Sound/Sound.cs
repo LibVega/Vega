@@ -61,6 +61,13 @@ namespace Vega.Audio
 			dispose(false);
 		}
 
+		#region Instance
+		/// <summary>
+		/// Creates a new controllable instance of this sound. The calling code must manage the instance lifetime.
+		/// </summary>
+		public SoundInstance CreateInstance() => new SoundInstance(this);
+		#endregion // Instance
+
 		#region IDisposable
 		public void Dispose()
 		{
@@ -71,6 +78,7 @@ namespace Vega.Audio
 		private void dispose(bool disposing)
 		{
 			if (!IsDisposed) {
+				Core.Instance?.AudioDriver.StopInstances(this);
 				if (disposing) {
 					Buffer.Dispose();
 				}

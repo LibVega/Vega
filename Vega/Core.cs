@@ -119,6 +119,9 @@ namespace Vega
 				win.Mouse.HandleEvents();
 			}
 
+			// Update audio engine
+			AudioDriver.Update();
+
 			// Tick begin coroutines
 			CoroutineManager.Tick(CoroutinePolicy.Beginning);
 		}
