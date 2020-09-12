@@ -65,7 +65,23 @@ namespace Vega.Audio
 		/// <summary>
 		/// Creates a new controllable instance of this sound. The calling code must manage the instance lifetime.
 		/// </summary>
-		public SoundInstance CreateInstance() => new SoundInstance(this);
+		public SoundInstance CreateInstance() => new SoundInstance(this, false);
+
+		/// <summary>
+		/// Plays the sound in a "fire-and-forget" fashion. The created instance is internally managed and released.
+		/// </summary>
+		/// <returns>If the sound could be played.</returns>
+		public bool Play()
+		{
+			try {
+				var si = new SoundInstance(this, true);
+				si.Play();
+				return true;
+			}
+			catch {
+				return false;
+			}
+		}
 		#endregion // Instance
 
 		#region IDisposable

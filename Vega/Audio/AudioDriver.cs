@@ -6,7 +6,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Vega.Audio
 {
@@ -79,13 +78,25 @@ namespace Vega.Audio
 			_lastCleanTime = nowTime;
 
 			lock (_instanceLock) {
-				_playingInstances.RemoveAll(inst => { 
-					if (inst.IsStopped) {
-						inst.releaseSource();
-						return true;
+				for (int i = 0; i < _playingInstances.Count; ) {
+					var inst = _playingInstances[i];
+					
+					if (inst.IsDisposed) {
+						_playingInstances.RemoveAt(i);
+						continue;
 					}
-					return false;
-				});
+					if (inst.IsStopped) { // Releases the OpenAL source and removes from _playingInstances
+						if (inst.IsTransient) {
+							inst.Dispose();
+						}
+						else {
+							inst.Stop();
+						}
+						continue;
+					}
+
+					++i;
+				}
 			}
 		}
 
@@ -144,13 +155,25 @@ namespace Vega.Audio
 		public void StopInstances(Sound sound)
 		{
 			lock (_instanceLock) {
-				_playingInstances.RemoveAll(inst => { 
-					if (ReferenceEquals(inst.Sound, sound)) {
-						inst.stopImpl();
-						return true;
+				for (int i = 0; i < _playingInstances.Count; ) {
+					var inst = _playingInstances[i];
+
+					if (inst.IsDisposed) {
+						_playingInstances.RemoveAt(i);
+						continue;
 					}
-					return false;
-				});
+					if (ReferenceEquals(inst.Sound, sound)) { // Also removes from _playingInstances
+						if (inst.IsTransient) {
+							inst.Dispose();
+						}
+						else {
+							inst.Stop();
+						}
+						continue;
+					}
+
+					++i;
+				}
 			}
 		}
 		#endregion // SoundInstance

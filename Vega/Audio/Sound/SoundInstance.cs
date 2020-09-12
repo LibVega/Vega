@@ -17,8 +17,10 @@ namespace Vega.Audio
 		/// <summary>
 		/// The <see cref="Sound"/> object that this instance is playing from.
 		/// </summary>
-		public Sound Sound => _sound!;
-		internal Sound? _sound = null;
+		public readonly Sound Sound;
+
+		// If this instance is transient (fire-and-forget)
+		internal readonly bool IsTransient;
 
 		// OpenAL source handle
 		internal uint Handle = 0;
@@ -31,6 +33,7 @@ namespace Vega.Audio
 		public PlaybackState State
 		{
 			get {
+				if (IsDisposed) throw new ObjectDisposedException(nameof(SoundInstance));
 				if (!HasHandle) {
 					return PlaybackState.Stopped;
 				}
@@ -67,9 +70,10 @@ namespace Vega.Audio
 		public bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
 
-		internal SoundInstance(Sound? sound)
+		internal SoundInstance(Sound sound, bool transient)
 		{
-			_sound = sound;
+			Sound = sound;
+			IsTransient = transient;
 		}
 		~SoundInstance()
 		{
@@ -93,7 +97,7 @@ namespace Vega.Audio
 			// Reserve new source if required
 			if (!HasHandle) {
 				Handle = Core.Instance!.AudioDriver.ReserveSource();
-				AL.Sourcei(Handle, AL.BUFFER, (int)_sound!.Buffer.Handle);
+				AL.Sourcei(Handle, AL.BUFFER, (int)Sound.Buffer.Handle);
 				AL.CheckError("set source buffer");
 			}
 
@@ -112,6 +116,9 @@ namespace Vega.Audio
 		/// </summary>
 		public void Pause()
 		{
+			if (IsDisposed) throw new ObjectDisposedException(nameof(SoundInstance));
+
+			// Same-state
 			if (!IsPlaying) {
 				return;
 			}
@@ -125,25 +132,23 @@ namespace Vega.Audio
 		/// </summary>
 		public void Stop()
 		{
-			if (IsStopped) {
-				return;
+			if (IsDisposed) throw new ObjectDisposedException(nameof(SoundInstance));
+
+			// Stop playback if not stopped
+			if (!IsStopped) {
+				AL.SourceStop(Handle);
+				AL.CheckError("source stop");
 			}
 
-			stopImpl();
-			Core.Instance?.AudioDriver.RemoveInstance(this);
-		}
-
-		// Impl of stop that does not call into AudioDriver.RemoveInstance
-		internal void stopImpl()
-		{
-			AL.SourceStop(Handle);
-			AL.CheckError("source stop");
-
-			releaseSource();
+			// Release handle if reserved
+			if (HasHandle) {
+				releaseSource();
+				Core.Instance?.AudioDriver.RemoveInstance(this);
+			}
 		}
 		#endregion // State Control
 
-		internal void releaseSource()
+		private void releaseSource()
 		{
 			if (HasHandle) {
 				AL.Sourcei(Handle, AL.BUFFER, 0);
