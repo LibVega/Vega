@@ -13,6 +13,19 @@ namespace Vega.Audio
 	/// </summary>
 	public sealed class SoundInstance : IDisposable
 	{
+		/// <summary>
+		/// The master volume for all sound instances, in the range [0, 1]. Defaults to 1.
+		/// </summary>
+		public static float MasterVolume
+		{
+			get => _MasterVolume;
+			set {
+				_MasterVolume = Math.Clamp(value, 0, 1);
+				Core.Instance?.AudioDriver.UpdateSoundInstanceMasterVolume();
+			}
+		}
+		private static float _MasterVolume = 1;
+
 		#region Fields
 		/// <summary>
 		/// The <see cref="Sound"/> object that this instance is playing from.
@@ -64,6 +77,43 @@ namespace Vega.Audio
 		public bool IsPlaying => State == PlaybackState.Playing;
 		#endregion // State
 
+		#region Properties
+		/// <summary>
+		/// The playback volume of the instance, in the range [0, 1].
+		/// </summary>
+		public float Volume
+		{
+			get => _volume;
+			set {
+				if (IsDisposed) throw new ObjectDisposedException(nameof(SoundInstance));
+				var clamp = Math.Clamp(value, 0, 1);
+				if (HasHandle) {
+					AL.Sourcef(Handle, AL.GAIN, clamp * _MasterVolume);
+					AL.CheckError("gain set");
+				}
+				_volume = clamp;
+			}
+		}
+		private float _volume = 1;
+
+		/// <summary>
+		/// If the source will automatically loop when it reaches the end.
+		/// </summary>
+		public bool Looping
+		{
+			get => _looping;
+			set {
+				if (IsDisposed) throw new ObjectDisposedException(nameof(SoundInstance));
+				if (HasHandle) {
+					AL.Sourcei(Handle, AL.LOOPING, value ? AL.TRUE : AL.FALSE);
+					AL.CheckError("looping set");
+				}
+				_looping = value;
+			}
+		}
+		private bool _looping = false;
+		#endregion // Properties
+
 		/// <summary>
 		/// Gets if the instance has been disposed.
 		/// </summary>
@@ -99,6 +149,10 @@ namespace Vega.Audio
 				Handle = Core.Instance!.AudioDriver.ReserveSource();
 				AL.Sourcei(Handle, AL.BUFFER, (int)Sound.Buffer.Handle);
 				AL.CheckError("set source buffer");
+
+				// Setup the values on a new handle
+				Volume = _volume;
+				Looping = _looping;
 			}
 
 			// Play the sound

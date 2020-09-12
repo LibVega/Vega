@@ -176,6 +176,24 @@ namespace Vega.Audio
 				}
 			}
 		}
+
+		// Called when SoundInstance.MasterVolume is changed
+		public void UpdateSoundInstanceMasterVolume()
+		{
+			lock (_instanceLock) {
+				for (int i = 0; i < _playingInstances.Count; ) {
+					var inst = _playingInstances[i];
+					
+					if (inst.IsDisposed) {
+						_playingInstances.RemoveAt(i);
+						continue;
+					}
+
+					inst.Volume = inst.Volume; // Updates with the new master volume value
+					++i;
+				}
+			}
+		}
 		#endregion // SoundInstance
 
 		#region IDisposable

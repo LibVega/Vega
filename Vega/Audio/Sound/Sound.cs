@@ -70,11 +70,13 @@ namespace Vega.Audio
 		/// <summary>
 		/// Plays the sound in a "fire-and-forget" fashion. The created instance is internally managed and released.
 		/// </summary>
+		/// <param name="volume">The volume of the new sound, in the range [0, 1].</param>
 		/// <returns>If the sound could be played.</returns>
-		public bool Play()
+		public bool Play(float volume = 1)
 		{
 			try {
 				var si = new SoundInstance(this, true);
+				si.Volume = volume;
 				si.Play();
 				return true;
 			}
