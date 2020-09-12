@@ -25,6 +25,7 @@
   </PropertyGroup>
   
   <ItemGroup>
+    <EmbeddedResource Include="..\Dependencies\Native\content.win" Link="Lib\content.win" />
     <EmbeddedResource Include="..\Dependencies\Native\glfw3.win" Link="Lib\glfw3.win" />
     <EmbeddedResource Include="..\Dependencies\Native\glfw3.osx" Link="Lib\glfw3.osx" />
     <EmbeddedResource Include="..\Dependencies\Native\openal.win" Link="Lib\openal.win" />
