@@ -1,5 +1,10 @@
 This directory contains the library dependencies for Vega.
 
+There are a few different folders in this directory:
+
+* `content` - Contains the project files and source code for the "content" library used to load content at runtime.
+* `Native` - the precompiled native library binaries, including the precompiled binaries for `content`.
+
 **Note: All libraries are simply rehosted, and carry their original licenses and links to their original project/author pages.**
 
 # Native Libraries

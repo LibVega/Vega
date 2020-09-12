@@ -3,7 +3,7 @@ Vulkan-powered .NET 5 framework for games, visualizations, and other multimedia 
 
 This library is inflenced primarily by the [Monogame](https://www.monogame.net/) project, but designed to map more closely to the underlying graphics API (Vulkan). The result is a library that can be picked up by relative beginners, but also rewards developers who are willing to get a bit dirty with optimizations and lower-level operations.
 
-Currently, Vega supports 64-bit Windows, Mac OSX, and Linux desktop applications. Mobile and console support is expected, but desktop is the main focus until the library is nearing feature-complete. 32-bit will not be supported.
+Currently, Vega supports 64-bit Windows, MacOS, and Linux desktop applications. Mobile and console support is expected, but desktop is the main focus until the library is nearing feature-complete. 32-bit will not be supported.
 
 ## Dependencies
 
@@ -19,6 +19,7 @@ Thanks to the following projects/groups for their libraries or tools used by or 
 
 * [GLFW3](https://www.glfw.org/) - Library used for windowing and input
 * [OpenAL-Soft](https://openal-soft.org/) - Library used for audio playback and effects
+* [premake](https://premake.github.io/index.html) - C++ project generation tool used for building some dependencies
 
 ## Licensing
 
