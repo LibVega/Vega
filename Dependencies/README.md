@@ -34,3 +34,25 @@ These libraries can be overridden by placing other binaries into the same direct
 * Description: Used for audio playback and effects
 * Version: `1.20.1` included for Windows/OSX
 * Type: Manually built from source release
+
+## [stb](https://github.com/nothings/stb)
+
+* Components: stb_vorbis.c
+* License: Public Domain
+* Description:
+  * `stb_vorbis.c` - Used to load OGG/Vorbis audio files
+* Version:
+  * `stb_vorbis.c` - `1.20`
+* Type: Included in the `content` source project.
+
+## [dr_libs](https://github.com/mackron/dr_libs)
+
+* Components: dr_wav.h, dr_flac.h
+* License: Public Domain
+* Description:
+  * `dr_wav.h` - Used to load WAVE audio files
+  * `dr_flac.h` - Used to load FLAC audio files
+* Version:
+  * `dr_wav.h` - `0.12.11`
+  * `dr_flac.h` - `0.12.20`
+* Type: Included in the `content` source project.
