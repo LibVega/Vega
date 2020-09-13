@@ -19,7 +19,7 @@ Thanks to the following projects/groups for their libraries or tools used by or 
 
 * [GLFW3](https://www.glfw.org/) - Library used for windowing and input
 * [OpenAL-Soft](https://openal-soft.org/) - Library used for audio playback and effects
-* [premake](https://premake.github.io/index.html) - C++ project generation tool used for building some dependencies
+* Additional dependencies used in the [ContentLoader](https://github.com/VegaLib/ContentLoader) project
 
 ## Licensing
 
