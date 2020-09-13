@@ -25,6 +25,8 @@ namespace Vega.Content
 
 		public static void AudioCloseFile(IntPtr handle) => _VegaAudioCloseFile(handle);
 
+		public static AudioType AudioGetType(IntPtr handle) => _VegaAudioGetType(handle);
+
 		public static AudioError AudioGetError(IntPtr handle) => _VegaAudioGetError(handle);
 
 		public static ulong AudioGetFrameCount(IntPtr handle) => _VegaAudioGetFrameCount(handle);
@@ -55,6 +57,7 @@ namespace Vega.Content
 			// Load audio
 			_VegaAudioOpenFile = LoadFunc<Delegates.vegaAudioOpenFile>();
 			_VegaAudioCloseFile = LoadFunc<Delegates.vegaAudioCloseFile>();
+			_VegaAudioGetType = LoadFunc<Delegates.vegaAudioGetType>();
 			_VegaAudioGetError = LoadFunc<Delegates.vegaAudioGetError>();
 			_VegaAudioGetFrameCount = LoadFunc<Delegates.vegaAudioGetFrameCount>();
 			_VegaAudioGetSampleRate = LoadFunc<Delegates.vegaAudioGetSampleRate>();

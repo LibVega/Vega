@@ -26,6 +26,7 @@ namespace Vega.Content
 		// AUDIO
 		private static readonly Delegates.vegaAudioOpenFile _VegaAudioOpenFile;
 		private static readonly Delegates.vegaAudioCloseFile _VegaAudioCloseFile;
+		private static readonly Delegates.vegaAudioGetType _VegaAudioGetType;
 		private static readonly Delegates.vegaAudioGetError _VegaAudioGetError;
 		private static readonly Delegates.vegaAudioGetFrameCount _VegaAudioGetFrameCount;
 		private static readonly Delegates.vegaAudioGetSampleRate _VegaAudioGetSampleRate;
@@ -42,6 +43,8 @@ namespace Vega.Content
 			public delegate IntPtr vegaAudioOpenFile(IntPtr path, out AudioError error);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate void vegaAudioCloseFile(IntPtr handle);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate AudioType vegaAudioGetType(IntPtr handle);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate AudioError vegaAudioGetError(IntPtr handle);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
