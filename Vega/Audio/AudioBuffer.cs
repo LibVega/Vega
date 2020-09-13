@@ -18,7 +18,7 @@ namespace Vega.Audio
 		// If the data is stereo
 		public bool Stereo { get; private set; }
 		// Data sample count (pairs of samples for stereo)
-		public uint SampleCount { get; private set; }
+		public uint FrameCount { get; private set; }
 		// Natural playback frequency
 		public uint Frequency { get; private set; }
 		// Duration of the audio data
@@ -61,9 +61,9 @@ namespace Vega.Audio
 			AL.GetBufferi(Handle, AL.SIZE, out var size);
 			AL.GetBufferi(Handle, AL.FREQUENCY, out var freq);
 			Stereo = channels > 1;
-			SampleCount = (uint)(size / ((bits / 8) * channels));
+			FrameCount = (uint)(size / ((bits / 8) * channels));
 			Frequency = (uint)freq;
-			Duration = TimeSpan.FromSeconds((double)SampleCount / Frequency);
+			Duration = TimeSpan.FromSeconds((double)FrameCount / Frequency);
 		}
 		#endregion // Data
 

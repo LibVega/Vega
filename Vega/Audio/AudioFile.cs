@@ -23,6 +23,7 @@ namespace Vega.Audio
 		public readonly uint SampleRate;
 		public readonly bool Stereo;
 		public readonly AudioType AudioType;
+		public ulong TotalSampleCount => FrameCount * (Stereo ? 2u : 1u);
 
 		// Error info
 		public AudioError Error => NativeContent.AudioGetError(_handle);
@@ -36,7 +37,7 @@ namespace Vega.Audio
 		{
 			// Ensure file
 			if (!File.Exists(path)) {
-				throw new IOException($"The audio file '{path}' does not exist or is an invalid path");
+				throw new FileNotFoundException($"The audio file '{path}' does not exist or is an invalid path");
 			}
 			Path = path;
 

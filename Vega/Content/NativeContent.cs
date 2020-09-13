@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Text;
 using Vega.Util;
 
 namespace Vega.Content
@@ -18,7 +19,8 @@ namespace Vega.Content
 		#region Audio API
 		public unsafe static IntPtr AudioOpenFile(string path, out AudioError error)
 		{
-			fixed (char* sptr = path) {
+			var sdata = Encoding.ASCII.GetBytes(path);
+			fixed (byte* sptr = sdata) {
 				return _VegaAudioOpenFile(new IntPtr(sptr), out error);
 			}
 		}

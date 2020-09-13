@@ -25,7 +25,7 @@ namespace Vega.Audio
 		/// <summary>
 		/// The number of samples in the buffer data.
 		/// </summary>
-		public uint SampleCount => Buffer.SampleCount;
+		public uint FrameCount => Buffer.FrameCount;
 		/// <summary>
 		/// The natural playback frequency for the data.
 		/// </summary>
@@ -104,5 +104,25 @@ namespace Vega.Audio
 			IsDisposed = true;
 		}
 		#endregion // IDisposable
+
+		#region Content Load
+		/// <summary>
+		/// Attempts to open and load the audio file at the given path as a new <see cref="Sound"/> instance.</br>
+		/// Supported audio file types are WAVE (.wav), OGG/Vorbis (.ogg), and Flac (.flac).
+		/// </summary>
+		/// <param name="path">The path to the audio file.</param>
+		/// <returns></returns>
+		public static Sound LoadFromFile(string path)
+		{
+			using (var file = new AudioFile(path)) {
+				// Load file data
+				var buffer = new short[file.TotalSampleCount];
+				var read = file.ReadFrames(buffer);
+
+				// Put data into sound
+				return new Sound(buffer, file.Stereo, file.SampleRate);
+			}
+		}
+		#endregion // Content Load
 	}
 }
