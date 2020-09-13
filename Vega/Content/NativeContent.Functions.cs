@@ -11,7 +11,7 @@ using System.Security;
 namespace Vega.Content
 {
 	// Functions for the ContentLoader library
-	internal static partial class NativeLoader
+	internal static partial class NativeContent
 	{
 		private static T LoadFunc<T>() where T : Delegate
 		{

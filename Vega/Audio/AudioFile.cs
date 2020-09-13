@@ -25,10 +25,10 @@ namespace Vega.Audio
 		public readonly AudioType AudioType;
 
 		// Error info
-		public AudioError Error => NativeLoader.AudioGetError(_handle);
+		public AudioError Error => NativeContent.AudioGetError(_handle);
 
 		// Streaming info
-		public ulong RemainingFrames => NativeLoader.AudioGetRemainingFrames(_handle);
+		public ulong RemainingFrames => NativeContent.AudioGetRemainingFrames(_handle);
 		public bool EOF => RemainingFrames == 0;
 		#endregion // Fields
 
@@ -41,13 +41,13 @@ namespace Vega.Audio
 			Path = path;
 
 			// Try to load the file
-			_handle = NativeLoader.AudioOpenFile(path, out var error);
+			_handle = NativeContent.AudioOpenFile(path, out var error);
 			if (_handle == IntPtr.Zero || error != AudioError.NoError) {
 				throw new ContentLoadException(path, $"audio file loading failed with {error}");
 			}
 
 			// Get the file info
-			NativeLoader.AudioGetInfo(_handle, out var frames, out var rate, out var channels);
+			NativeContent.AudioGetInfo(_handle, out var frames, out var rate, out var channels);
 			if (rate < 8_000 || rate > 48_000) {
 				throw new ContentLoadException(path, 
 					$"audio files must have sample rates in [8000, 48000] (actual {rate})");
@@ -59,7 +59,7 @@ namespace Vega.Audio
 			FrameCount = frames;
 			SampleRate = rate;
 			Stereo = (channels == 2);
-			AudioType = NativeLoader.AudioGetType(_handle);
+			AudioType = NativeContent.AudioGetType(_handle);
 		}
 		~AudioFile()
 		{
@@ -74,7 +74,7 @@ namespace Vega.Audio
 			}
 
 			ulong fCount = (uint)buffer.Length / (Stereo ? 2u : 1u);
-			ulong read = NativeLoader.AudioReadFrames(_handle, fCount, buffer);
+			ulong read = NativeContent.AudioReadFrames(_handle, fCount, buffer);
 			if (read == 0) {
 				throw new ContentLoadException(Path, $"audio file data read error ({Error})");
 			}
@@ -91,7 +91,7 @@ namespace Vega.Audio
 		private void dispose(bool disposing)
 		{
 			if (_handle != IntPtr.Zero) {
-				NativeLoader.AudioCloseFile(_handle);
+				NativeContent.AudioCloseFile(_handle);
 			}
 		}
 		#endregion // IDisposable

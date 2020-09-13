@@ -10,7 +10,7 @@ using Vega.Util;
 namespace Vega.Content
 {
 	// API mapping to the embedded native ContentLoader library
-	internal static partial class NativeLoader
+	internal static partial class NativeContent
 	{
 		// Library handle
 		public static readonly EmbeddedLibrary Lib;
@@ -48,10 +48,10 @@ namespace Vega.Content
 		}
 		#endregion // Audio API
 
-		static NativeLoader()
+		static NativeContent()
 		{
 			// Load library
-			Lib = new EmbeddedLibrary(typeof(NativeLoader).Assembly, "Vega.Lib.content", "content");
+			Lib = new EmbeddedLibrary(typeof(NativeContent).Assembly, "Vega.Lib.content", "content");
 			var _ = Lib.Handle; // Force load handle
 
 			// Load audio
