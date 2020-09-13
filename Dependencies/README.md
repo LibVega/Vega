@@ -1,10 +1,5 @@
 This directory contains the library dependencies for Vega.
 
-There are a few different folders in this directory:
-
-* `content` - Contains the project files and source code for the "content" library used to load content at runtime.
-* `Native` - the precompiled native library binaries, including the precompiled binaries for `content`.
-
 **Note: All libraries are simply rehosted, and carry their original licenses and links to their original project/author pages.**
 
 # Native Libraries
@@ -35,24 +30,11 @@ These libraries can be overridden by placing other binaries into the same direct
 * Version: `1.20.1` included for Windows/OSX
 * Type: Manually built from source release
 
-## [stb](https://github.com/nothings/stb)
+## [ContentLoader](https://github.com/VegaLib/ContentLoader)
 
-* Components: stb_vorbis.c
-* License: Public Domain
-* Description:
-  * `stb_vorbis.c` - Used to load OGG/Vorbis audio files
-* Version:
-  * `stb_vorbis.c` - `1.20`
-* Type: Included in the `content` source project.
+This is a separately maintained library, part of the Vega project. It relies on third-party code, information about which can be found in that repo.
 
-## [dr_libs](https://github.com/mackron/dr_libs)
-
-* Components: dr_wav.h, dr_flac.h
-* License: Public Domain
-* Description:
-  * `dr_wav.h` - Used to load WAVE audio files
-  * `dr_flac.h` - Used to load FLAC audio files
-* Version:
-  * `dr_wav.h` - `0.12.11`
-  * `dr_flac.h` - `0.12.20`
-* Type: Included in the `content` source project.
+* License: [MIT](https://github.com/VegaLib/ContentLoader/blob/master/LICENSE)
+* Description: Used to load certain kinds of content
+* Version: `N/A`
+* Type: Manually built from source release
