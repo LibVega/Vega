@@ -31,7 +31,7 @@ namespace Vega
 			/// </summary>
 			public static bool IsWindows => Family == OSFamily.Windows;
 			/// <summary>
-			/// Gets if the operating system is Apple Mac OSX desktop.
+			/// Gets if the operating system is Apple MacOS desktop.
 			/// </summary>
 			public static bool IsMacOS => Family == OSFamily.MacOS;
 			/// <summary>

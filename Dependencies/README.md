@@ -8,7 +8,7 @@ This directory contains the library dependencies for Vega.
 Native library dependencies are embedded into the Vega library as `EmbeddedResource` items. There is utility code in the library that is able to detect the correct library to extract and load at runtime. All native libraries have the same base resource name, with platform-specific extensions:
 
 * `.win` - Windows binaries
-* `.osx` - Mac OSX desktop binaries
+* `.mac` - MacOS desktop binaries
 * `.lin` - Linux desktop binaries (not used currently, Linux dependencies must be installed separately)
 
 Extracted libraries are put in a specific folder within the system "Local Application Data" folder, so they only need to be extracted once.
@@ -19,7 +19,7 @@ These libraries can be overridden by placing other binaries into the same direct
 
 * License: [zlib](https://github.com/glfw/glfw/blob/master/LICENSE.md)
 * Description: Used to handle window operations and peripheral input events.
-* Version: `3.3+` (`3.3.2` included for Windows/OSX)
+* Version: `3.3+` (`3.3.2` included for Windows/MacOS)
 * Type: Pre-compiled binaries from GLFW authors
 
 ## [OpenAL-Soft](https://openal-soft.org/)
@@ -27,7 +27,7 @@ These libraries can be overridden by placing other binaries into the same direct
 * License: [LGPLv2](https://github.com/kcat/openal-soft/blob/master/COPYING)
   * Note that this license requires re-linkability. There is built-in functionality available within Vega to allow easy re-linking by simply putting a different version of the library in the same directory as the application.
 * Description: Used for audio playback and effects
-* Version: `1.20.1` included for Windows/OSX
+* Version: `1.20.1` included for Windows/MacOS
 * Type: Manually built from source release
 
 ## [ContentLoader](https://github.com/VegaLib/ContentLoader)

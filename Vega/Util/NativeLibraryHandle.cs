@@ -215,7 +215,7 @@ namespace Vega.Util
 		/// loaded at runtime, based on some naming rules for the extension of the embedded resource names:
 		/// <list type="bullet">
 		/// <item><term>.win</term> Windows desktop</item>
-		/// <item><term>.osx</term> Mac OSX desktop</item>
+		/// <item><term>.mac</term> MacOS desktop</item>
 		/// <item><term>.lin</term> Linux desktop</item>
 		/// </list>
 		/// This also supports library overrides by putting the library into the application directory.
@@ -237,7 +237,7 @@ namespace Vega.Util
 			var avail = assembly.GetManifestResourceNames();
 			bool win = avail.Contains(resource + ".win");
 			bool lin = avail.Contains(resource + ".lin");
-			bool mac = avail.Contains(resource + ".osx");
+			bool mac = avail.Contains(resource + ".mac");
 
 			return new NativeLibraryHandle(load, assembly, resource, win, lin, mac);
 		}
