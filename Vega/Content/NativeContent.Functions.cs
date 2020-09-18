@@ -13,15 +13,6 @@ namespace Vega.Content
 	// Functions for the ContentLoader library
 	internal static partial class NativeContent
 	{
-		private static T LoadFunc<T>() where T : Delegate
-		{
-			var fn = typeof(T).Name;
-			if (Lib.TryGetFunction<T>(fn, out var func)) {
-				return func!;
-			}
-			throw new InvalidOperationException($"Function '{fn}' not found in OpenAL library");
-		}
-
 		#region Functions
 		// AUDIO
 		private static readonly Delegates.vegaAudioOpenFile _VegaAudioOpenFile;

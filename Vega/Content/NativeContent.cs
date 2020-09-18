@@ -14,7 +14,7 @@ namespace Vega.Content
 	internal static partial class NativeContent
 	{
 		// Library handle
-		public static readonly EmbeddedLibrary Lib;
+		public static readonly NativeLibraryHandle Lib;
 
 		#region Audio API
 		public unsafe static IntPtr AudioOpenFile(string path, out AudioError error)
@@ -53,20 +53,20 @@ namespace Vega.Content
 		static NativeContent()
 		{
 			// Load library
-			Lib = new EmbeddedLibrary(typeof(NativeContent).Assembly, "Vega.Lib.content", "content");
+			Lib = NativeLibraryHandle.FromEmbedded(typeof(NativeContent).Assembly, "Vega.Lib.content", "content");
 			var _ = Lib.Handle; // Force load handle
 
 			// Load audio
-			_VegaAudioOpenFile = LoadFunc<Delegates.vegaAudioOpenFile>();
-			_VegaAudioCloseFile = LoadFunc<Delegates.vegaAudioCloseFile>();
-			_VegaAudioGetType = LoadFunc<Delegates.vegaAudioGetType>();
-			_VegaAudioGetError = LoadFunc<Delegates.vegaAudioGetError>();
-			_VegaAudioGetFrameCount = LoadFunc<Delegates.vegaAudioGetFrameCount>();
-			_VegaAudioGetSampleRate = LoadFunc<Delegates.vegaAudioGetSampleRate>();
-			_VegaAudioGetChannelCount = LoadFunc<Delegates.vegaAudioGetChannelCount>();
-			_VegaAudioGetInfo = LoadFunc<Delegates.vegaAudioGetInfo>();
-			_VegaAudioGetRemainingFrames = LoadFunc<Delegates.vegaAudioGetRemainingFrames>();
-			_VegaAudioReadFrames = LoadFunc<Delegates.vegaAudioReadFrames>();
+			_VegaAudioOpenFile = Lib.LoadFunction<Delegates.vegaAudioOpenFile>();
+			_VegaAudioCloseFile = Lib.LoadFunction<Delegates.vegaAudioCloseFile>();
+			_VegaAudioGetType = Lib.LoadFunction<Delegates.vegaAudioGetType>();
+			_VegaAudioGetError = Lib.LoadFunction<Delegates.vegaAudioGetError>();
+			_VegaAudioGetFrameCount = Lib.LoadFunction<Delegates.vegaAudioGetFrameCount>();
+			_VegaAudioGetSampleRate = Lib.LoadFunction<Delegates.vegaAudioGetSampleRate>();
+			_VegaAudioGetChannelCount = Lib.LoadFunction<Delegates.vegaAudioGetChannelCount>();
+			_VegaAudioGetInfo = Lib.LoadFunction<Delegates.vegaAudioGetInfo>();
+			_VegaAudioGetRemainingFrames = Lib.LoadFunction<Delegates.vegaAudioGetRemainingFrames>();
+			_VegaAudioReadFrames = Lib.LoadFunction<Delegates.vegaAudioReadFrames>();
 		}
 	}
 }

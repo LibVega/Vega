@@ -12,17 +12,6 @@ namespace Vega
 {
 	internal static partial class Glfw
 	{
-		private static readonly int FUNC_TYPE_TRIM_LEN = typeof(Delegates.glfwInit).Name.LastIndexOf('.') + 1;
-
-		private static T LoadFunc<T>() where T : Delegate
-		{
-			var fn = typeof(T).Name.Substring(FUNC_TYPE_TRIM_LEN);
-			if (Lib.TryGetFunction<T>(fn, out var func)) {
-				return func!;
-			}
-			throw new InvalidOperationException($"Function '{fn}' not found in GLFW library");
-		}
-
 		#region Delegate Fields
 		private static readonly Delegates.glfwInit _GlfwInit;
 		private static readonly Delegates.glfwTerminate _GlfwTerminate;

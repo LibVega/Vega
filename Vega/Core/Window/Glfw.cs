@@ -15,7 +15,7 @@ namespace Vega
 	{
 		#region Fields
 		// The library handle
-		private static readonly EmbeddedLibrary Lib;
+		private static readonly NativeLibraryHandle Lib;
 
 		// Error reporting
 		private static int _LastErrorCode = Glfw.NO_ERROR;
@@ -171,63 +171,63 @@ namespace Vega
 
 		static Glfw()
 		{
-			Lib = new EmbeddedLibrary(typeof(Glfw).Assembly, "Vega.Lib.glfw3", "glfw3");
+			Lib = NativeLibraryHandle.FromEmbedded(typeof(Glfw).Assembly, "Vega.Lib.glfw3", "glfw3");
 			var _ = Lib.Handle; // Causes the library to be loaded
 
 			// Check the version
-			_GlfwGetVersion = LoadFunc<Delegates.glfwGetVersion>();
+			_GlfwGetVersion = Lib.LoadFunction<Delegates.glfwGetVersion>();
 			_GlfwGetVersion(out var vmaj, out var vmin, out var vrev);
 			if (vmaj < 3 || vmin < 3)
 				throw new PlatformNotSupportedException($"Vega requires GLFW 3.3 or later (found {vmaj}.{vmin}.{vrev})");
 
 			// Load the functions
-			_GlfwInit = LoadFunc<Delegates.glfwInit>();
-			_GlfwTerminate = LoadFunc<Delegates.glfwTerminate>();
-			_GlfwSetErrorCallback = LoadFunc<Delegates.glfwSetErrorCallback>();
-			_GlfwWindowHint = LoadFunc<Delegates.glfwWindowHint>();
-			_GlfwCreateWindow = LoadFunc<Delegates.glfwCreateWindow>();
-			_GlfwDestroyWindow = LoadFunc<Delegates.glfwDestroyWindow>();
-			_GlfwWindowShouldClose = LoadFunc<Delegates.glfwWindowShouldClose>();
-			_GlfwSetWindowShouldClose = LoadFunc<Delegates.glfwSetWindowShouldClose>();
-			_GlfwHideWindow = LoadFunc<Delegates.glfwHideWindow>();
-			_GlfwShowWindow = LoadFunc<Delegates.glfwShowWindow>();
-			_GlfwFocusWindow = LoadFunc<Delegates.glfwFocusWindow>();
-			_GlfwRequestWindowAttention = LoadFunc<Delegates.glfwRequestWindowAttention>();
-			_GlfwIconifyWindow = LoadFunc<Delegates.glfwIconifyWindow>();
-			_GlfwRestoreWindow = LoadFunc<Delegates.glfwRestoreWindow>();
-			_GlfwPollEvents = LoadFunc<Delegates.glfwPollEvents>();
-			_GlfwVulkanSupported = LoadFunc<Delegates.glfwVulkanSupported>();
-			_GlfwGetWindowAttrib = LoadFunc<Delegates.glfwGetWindowAttrib>();
-			_GlfwSetWindowAttrib = LoadFunc<Delegates.glfwSetWindowAttrib>();
-			_GlfwGetWindowSize = LoadFunc<Delegates.glfwGetWindowSize>();
-			_GlfwSetWindowSize = LoadFunc<Delegates.glfwSetWindowSize>();
-			_GlfwGetWindowPos = LoadFunc<Delegates.glfwGetWindowPos>();
-			_GlfwSetWindowPos = LoadFunc<Delegates.glfwSetWindowPos>();
-			_GlfwSetWindowMonitor = LoadFunc<Delegates.glfwSetWindowMonitor>();
-			_GlfwGetInputMode = LoadFunc<Delegates.glfwGetInputMode>();
-			_GlfwSetInputMode = LoadFunc<Delegates.glfwSetInputMode>();
-			_GlfwGetPrimaryMonitor = LoadFunc<Delegates.glfwGetPrimaryMonitor>();
-			_GlfwGetMonitors = LoadFunc<Delegates.glfwGetMonitors>();
-			_GlfwGetMonitorPos = LoadFunc<Delegates.glfwGetMonitorPos>();
-			_GlfwGetVideoModes = LoadFunc<Delegates.glfwGetVideoModes>();
-			_GlfwGetVideoMode = LoadFunc<Delegates.glfwGetVideoMode>();
-			_GlfwGetMonitorPhysicalSize = LoadFunc<Delegates.glfwGetMonitorPhysicalSize>();
-			_GlfwGetMonitorContentScale = LoadFunc<Delegates.glfwGetMonitorContentScale>();
-			_GlfwGetMonitorWorkarea = LoadFunc<Delegates.glfwGetMonitorWorkarea>();
-			_GlfwGetMonitorName = LoadFunc<Delegates.glfwGetMonitorName>();
-			_GlfwSetMonitorCallback = LoadFunc<Delegates.glfwSetMonitorCallback>();
-			_GlfwSetWindowTitle = LoadFunc<Delegates.glfwSetWindowTitle>();
-			_GlfwSetMouseButtonCallback = LoadFunc<Delegates.glfwSetMouseButtonCallback>();
-			_GlfwSetScrollCallback = LoadFunc<Delegates.glfwSetScrollCallback>();
-			_GlfwSetKeyCallback = LoadFunc<Delegates.glfwSetKeyCallback>();
-			_GlfwGetCursorPos = LoadFunc<Delegates.glfwGetCursorPos>();
-			_GlfwSetCursorEnterCallback = LoadFunc<Delegates.glfwSetCursorEnterCallback>();
-			_GlfwSetWindowPosCallback = LoadFunc<Delegates.glfwSetWindowPosCallback>();
-			_GlfwSetWindowSizeCallback = LoadFunc<Delegates.glfwSetWindowSizeCallback>();
-			_GlfwSetWindowFocusCallback = LoadFunc<Delegates.glfwSetWindowFocusCallback>();
-			_GlfwSetWindowIconifyCallback = LoadFunc<Delegates.glfwSetWindowIconifyCallback>();
-			_GlfwGetPhysicalDevicePresentationSupport = LoadFunc<Delegates.glfwGetPhysicalDevicePresentationSupport>();
-			_GlfwCreateWindowSurface = LoadFunc<Delegates.glfwCreateWindowSurface>();
+			_GlfwInit = Lib.LoadFunction<Delegates.glfwInit>();
+			_GlfwTerminate = Lib.LoadFunction<Delegates.glfwTerminate>();
+			_GlfwSetErrorCallback = Lib.LoadFunction<Delegates.glfwSetErrorCallback>();
+			_GlfwWindowHint = Lib.LoadFunction<Delegates.glfwWindowHint>();
+			_GlfwCreateWindow = Lib.LoadFunction<Delegates.glfwCreateWindow>();
+			_GlfwDestroyWindow = Lib.LoadFunction<Delegates.glfwDestroyWindow>();
+			_GlfwWindowShouldClose = Lib.LoadFunction<Delegates.glfwWindowShouldClose>();
+			_GlfwSetWindowShouldClose = Lib.LoadFunction<Delegates.glfwSetWindowShouldClose>();
+			_GlfwHideWindow = Lib.LoadFunction<Delegates.glfwHideWindow>();
+			_GlfwShowWindow = Lib.LoadFunction<Delegates.glfwShowWindow>();
+			_GlfwFocusWindow = Lib.LoadFunction<Delegates.glfwFocusWindow>();
+			_GlfwRequestWindowAttention = Lib.LoadFunction<Delegates.glfwRequestWindowAttention>();
+			_GlfwIconifyWindow = Lib.LoadFunction<Delegates.glfwIconifyWindow>();
+			_GlfwRestoreWindow = Lib.LoadFunction<Delegates.glfwRestoreWindow>();
+			_GlfwPollEvents = Lib.LoadFunction<Delegates.glfwPollEvents>();
+			_GlfwVulkanSupported = Lib.LoadFunction<Delegates.glfwVulkanSupported>();
+			_GlfwGetWindowAttrib = Lib.LoadFunction<Delegates.glfwGetWindowAttrib>();
+			_GlfwSetWindowAttrib = Lib.LoadFunction<Delegates.glfwSetWindowAttrib>();
+			_GlfwGetWindowSize = Lib.LoadFunction<Delegates.glfwGetWindowSize>();
+			_GlfwSetWindowSize = Lib.LoadFunction<Delegates.glfwSetWindowSize>();
+			_GlfwGetWindowPos = Lib.LoadFunction<Delegates.glfwGetWindowPos>();
+			_GlfwSetWindowPos = Lib.LoadFunction<Delegates.glfwSetWindowPos>();
+			_GlfwSetWindowMonitor = Lib.LoadFunction<Delegates.glfwSetWindowMonitor>();
+			_GlfwGetInputMode = Lib.LoadFunction<Delegates.glfwGetInputMode>();
+			_GlfwSetInputMode = Lib.LoadFunction<Delegates.glfwSetInputMode>();
+			_GlfwGetPrimaryMonitor = Lib.LoadFunction<Delegates.glfwGetPrimaryMonitor>();
+			_GlfwGetMonitors = Lib.LoadFunction<Delegates.glfwGetMonitors>();
+			_GlfwGetMonitorPos = Lib.LoadFunction<Delegates.glfwGetMonitorPos>();
+			_GlfwGetVideoModes = Lib.LoadFunction<Delegates.glfwGetVideoModes>();
+			_GlfwGetVideoMode = Lib.LoadFunction<Delegates.glfwGetVideoMode>();
+			_GlfwGetMonitorPhysicalSize = Lib.LoadFunction<Delegates.glfwGetMonitorPhysicalSize>();
+			_GlfwGetMonitorContentScale = Lib.LoadFunction<Delegates.glfwGetMonitorContentScale>();
+			_GlfwGetMonitorWorkarea = Lib.LoadFunction<Delegates.glfwGetMonitorWorkarea>();
+			_GlfwGetMonitorName = Lib.LoadFunction<Delegates.glfwGetMonitorName>();
+			_GlfwSetMonitorCallback = Lib.LoadFunction<Delegates.glfwSetMonitorCallback>();
+			_GlfwSetWindowTitle = Lib.LoadFunction<Delegates.glfwSetWindowTitle>();
+			_GlfwSetMouseButtonCallback = Lib.LoadFunction<Delegates.glfwSetMouseButtonCallback>();
+			_GlfwSetScrollCallback = Lib.LoadFunction<Delegates.glfwSetScrollCallback>();
+			_GlfwSetKeyCallback = Lib.LoadFunction<Delegates.glfwSetKeyCallback>();
+			_GlfwGetCursorPos = Lib.LoadFunction<Delegates.glfwGetCursorPos>();
+			_GlfwSetCursorEnterCallback = Lib.LoadFunction<Delegates.glfwSetCursorEnterCallback>();
+			_GlfwSetWindowPosCallback = Lib.LoadFunction<Delegates.glfwSetWindowPosCallback>();
+			_GlfwSetWindowSizeCallback = Lib.LoadFunction<Delegates.glfwSetWindowSizeCallback>();
+			_GlfwSetWindowFocusCallback = Lib.LoadFunction<Delegates.glfwSetWindowFocusCallback>();
+			_GlfwSetWindowIconifyCallback = Lib.LoadFunction<Delegates.glfwSetWindowIconifyCallback>();
+			_GlfwGetPhysicalDevicePresentationSupport = Lib.LoadFunction<Delegates.glfwGetPhysicalDevicePresentationSupport>();
+			_GlfwCreateWindowSurface = Lib.LoadFunction<Delegates.glfwCreateWindowSurface>();
 		}
 
 		[StructLayout(LayoutKind.Explicit, Size=6*sizeof(int))]

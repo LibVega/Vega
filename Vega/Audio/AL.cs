@@ -18,7 +18,7 @@ namespace Vega.Audio
 	{
 		#region Fields
 		// OpenAL library handle
-		public static readonly EmbeddedLibrary Lib;
+		public static readonly NativeLibraryHandle Lib;
 
 		// Last library error
 		public static int LastError { get; private set; } = AL.NO_ERROR;
@@ -113,26 +113,26 @@ namespace Vega.Audio
 
 		static AL()
 		{
-			Lib = new EmbeddedLibrary(typeof(AL).Assembly, "Vega.Lib.openal", "openal");
+			Lib = NativeLibraryHandle.FromEmbedded(typeof(AL).Assembly, "Vega.Lib.openal", "openal");
 			var _ = Lib.Handle; // Load
 
-			_GetError = LoadFunc<Delegates.GetError>();
-			_GetString = LoadFunc<Delegates.GetString>();
+			_GetError = Lib.LoadFunction<Delegates.alGetError>();
+			_GetString = Lib.LoadFunction<Delegates.alGetString>();
 
-			_GenSources = LoadFunc<Delegates.GenSources>();
-			_DeleteSources = LoadFunc<Delegates.DeleteSources>();
-			_GenBuffers = LoadFunc<Delegates.GenBuffers>();
-			_DeleteBuffers = LoadFunc<Delegates.DeleteBuffers>();
-			_BufferData = LoadFunc<Delegates.BufferData>();
+			_GenSources = Lib.LoadFunction<Delegates.alGenSources>();
+			_DeleteSources = Lib.LoadFunction<Delegates.alDeleteSources>();
+			_GenBuffers = Lib.LoadFunction<Delegates.alGenBuffers>();
+			_DeleteBuffers = Lib.LoadFunction<Delegates.alDeleteBuffers>();
+			_BufferData = Lib.LoadFunction<Delegates.alBufferData>();
 
-			_Sourcei = LoadFunc<Delegates.Sourcei>();
-			_Sourcef = LoadFunc<Delegates.Sourcef>();
-			_GetSourcei = LoadFunc<Delegates.GetSourcei>();
-			_GetBufferi = LoadFunc<Delegates.GetBufferi>();
+			_Sourcei = Lib.LoadFunction<Delegates.alSourcei>();
+			_Sourcef = Lib.LoadFunction<Delegates.alSourcef>();
+			_GetSourcei = Lib.LoadFunction<Delegates.alGetSourcei>();
+			_GetBufferi = Lib.LoadFunction<Delegates.alGetBufferi>();
 
-			_SourcePlay = LoadFunc<Delegates.SourcePlay>();
-			_SourcePause = LoadFunc<Delegates.SourcePause>();
-			_SourceStop = LoadFunc<Delegates.SourceStop>();
+			_SourcePlay = Lib.LoadFunction<Delegates.alSourcePlay>();
+			_SourcePause = Lib.LoadFunction<Delegates.alSourcePause>();
+			_SourceStop = Lib.LoadFunction<Delegates.alSourceStop>();
 		}
 	}
 
@@ -141,7 +141,7 @@ namespace Vega.Audio
 	{
 		#region Fields
 		// OpenAL library handle
-		public static EmbeddedLibrary Lib => AL.Lib;
+		public static NativeLibraryHandle Lib => AL.Lib;
 
 		// Last library error
 		public static int LastError { get; private set; } = ALC.NO_ERROR;
@@ -241,14 +241,14 @@ namespace Vega.Audio
 
 		static ALC()
 		{
-			_GetError = LoadFunc<Delegates.GetError>();
-			_GetString = LoadFunc<Delegates.GetString>();
+			_GetError = Lib.LoadFunction<Delegates.alcGetError>();
+			_GetString = Lib.LoadFunction<Delegates.alcGetString>();
 
-			_OpenDevice = LoadFunc<Delegates.OpenDevice>();
-			_CloseDevice = LoadFunc<Delegates.CloseDevice>();
-			_CreateContext = LoadFunc<Delegates.CreateContext>();
-			_MakeContextCurrent = LoadFunc<Delegates.MakeContextCurrent>();
-			_DestroyContext = LoadFunc<Delegates.DestroyContext>();
+			_OpenDevice = Lib.LoadFunction<Delegates.alcOpenDevice>();
+			_CloseDevice = Lib.LoadFunction<Delegates.alcCloseDevice>();
+			_CreateContext = Lib.LoadFunction<Delegates.alcCreateContext>();
+			_MakeContextCurrent = Lib.LoadFunction<Delegates.alcMakeContextCurrent>();
+			_DestroyContext = Lib.LoadFunction<Delegates.alcDestroyContext>();
 		}
 	}
 }
