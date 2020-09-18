@@ -49,7 +49,7 @@ namespace Vega
 			{
 				var osName = Environment.OSVersion.VersionString;
 				Family = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? OSFamily.Windows :
-					RuntimeInformation.IsOSPlatform(OSPlatform.macOS) ? OSFamily.MacOS :
+					RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? OSFamily.MacOS :
 					RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? OSFamily.LinuxDesktop :
 					throw new PlatformNotSupportedException($"Cannot load Vega on platform '{osName}'");
 				Version = Environment.OSVersion.Version;
@@ -117,7 +117,7 @@ namespace Vega
 		/// </summary>
 		Windows,
 		/// <summary>
-		/// Apple desktop Mac OSX.
+		/// Apple desktop macOS.
 		/// </summary>
 		MacOS,
 		/// <summary>
