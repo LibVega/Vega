@@ -30,5 +30,15 @@
 	<EmbeddedResource Include="..\Dependencies\Native\openal.win" Link="Lib\openal.win" />
     <EmbeddedResource Include="..\Dependencies\Native\glfw3.mac" Link="Lib\glfw3.mac" />
   </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.18.1" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Reference Include="VVK">
+      <HintPath>..\Dependencies\Managed\VVK.dll</HintPath>
+    </Reference>
+  </ItemGroup>
 
 </Project>
