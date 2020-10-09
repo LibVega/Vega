@@ -7,14 +7,10 @@
 			<InputAssemblies Include="$(OutputPath)\VVK.dll" />
 		</ItemGroup>
 
-		<ItemGroup>
-			<DoNotInternalize Include="Vega" />
-		</ItemGroup>
-
 		<ILRepack 
 			Parallel="true"
 			Internalize="true"
-			InternalizeExclude="@(DoNotInternalize)"
+			DebugInfo="true"
 			InputAssemblies="@(InputAssemblies)"
 			TargetKind="Dll"
 			OutputFile="$(OutputPath)\$(AssemblyName).dll"
