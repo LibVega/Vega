@@ -61,6 +61,7 @@ namespace Vega
 		private static readonly Delegates.glfwSetWindowIconifyCallback _GlfwSetWindowIconifyCallback;
 		private static readonly Delegates.glfwGetPhysicalDevicePresentationSupport _GlfwGetPhysicalDevicePresentationSupport;
 		private static readonly Delegates.glfwCreateWindowSurface _GlfwCreateWindowSurface;
+		private static readonly Delegates.glfwGetRequiredInstanceExtensions _GlfwGetRequiredInstanceExtensions;
 		#endregion // Delegate Fields
 
 		#region Public Delegate Types
@@ -185,6 +186,8 @@ namespace Vega
 			public delegate int glfwGetPhysicalDevicePresentationSupport(IntPtr instance, IntPtr device, uint family);
 			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
 			public delegate int glfwCreateWindowSurface(IntPtr instance, IntPtr window, IntPtr alloc, out IntPtr surface);
+			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
+			public delegate IntPtr glfwGetRequiredInstanceExtensions(out uint count);
 		}
 		#endregion // API Delegate Types
 	}

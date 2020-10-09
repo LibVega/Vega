@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using Vega.Audio;
+using Vega.Graphics;
 
 namespace Vega
 {
@@ -26,9 +27,23 @@ namespace Vega
 		internal readonly AudioDriver AudioDriver;
 
 		/// <summary>
+		/// The application name.
+		/// </summary>
+		public readonly string AppName;
+		/// <summary>
+		/// The application version.
+		/// </summary>
+		public readonly Version AppVersion;
+
+		/// <summary>
 		/// The hub used to manage all core event messages, can be extended to additionally handle user messages.
 		/// </summary>
 		public readonly EventHub Events;
+
+		/// <summary>
+		/// The graphics controller for the core instance.
+		/// </summary>
+		public readonly GraphicsService Graphics;
 
 		/// <summary>
 		/// Reports if the application is in a frame (between <see cref="BeginFrame"/> and <see cref="EndFrame"/>).
@@ -59,7 +74,8 @@ namespace Vega
 		/// Constructs a new core object instance, which initializes the global resources for the application.
 		/// </summary>
 		/// <param name="name">The name of the application, cannot be empty or only whitespace.</param>
-		public Core(string name)
+		/// <param name="version">The application version.</param>
+		public Core(string name, Version version)
 		{
 			if (String.IsNullOrWhiteSpace(name)) {
 				throw new ArgumentException("Application name cannot be empty", nameof(name));
@@ -68,6 +84,9 @@ namespace Vega
 				throw new InvalidOperationException("Cannot create more than one Core instance");
 			}
 			Instance = this;
+
+			AppName = name;
+			AppVersion = version;
 
 			// Initialize event hub and logging
 			Events = new();
@@ -80,6 +99,9 @@ namespace Vega
 
 			// Initialize the dependencies
 			Glfw.Init();
+
+			// Initialize graphics services
+			Graphics = new(this);
 
 			// Initialize audio
 			AudioDriver = new AudioDriver(this);
@@ -251,6 +273,9 @@ namespace Vega
 
 				// Shutdown audio
 				AudioDriver.Dispose();
+
+				// Shutdown graphics
+				Graphics.Dispose();
 
 				CoroutineManager.Cleanup();
 				Events.ClearAll();

@@ -137,6 +137,16 @@ namespace Vega
 				_GlfwSetWindowTitle(window, (IntPtr)tptr);
 			}
 		}
+
+		public static unsafe string[] GetRequiredInstanceExtensions()
+		{
+			var exts = (byte**)_GlfwGetRequiredInstanceExtensions(out var count).ToPointer();
+			var ret = new string[count];
+			for (uint i = 0; i < count; ++i) {
+				ret[i] = Marshal.PtrToStringAnsi(new IntPtr(exts[i]))!;
+			}
+			return ret;
+		}
 		#endregion // API Function Wrappers
 
 		#region Init/Term
@@ -228,6 +238,7 @@ namespace Vega
 			_GlfwSetWindowIconifyCallback = Lib.LoadFunction<Delegates.glfwSetWindowIconifyCallback>();
 			_GlfwGetPhysicalDevicePresentationSupport = Lib.LoadFunction<Delegates.glfwGetPhysicalDevicePresentationSupport>();
 			_GlfwCreateWindowSurface = Lib.LoadFunction<Delegates.glfwCreateWindowSurface>();
+			_GlfwGetRequiredInstanceExtensions = Lib.LoadFunction<Delegates.glfwGetRequiredInstanceExtensions>();
 		}
 
 		[StructLayout(LayoutKind.Explicit, Size=6*sizeof(int))]
