@@ -22,6 +22,9 @@ namespace Vega
 		/// </summary>
 		public static Core? Instance { get; private set; } = null;
 
+		// The validation enable flag for graphics
+		private static bool _EnableGraphicsValidation = false;
+
 		#region Members
 		// The audio driver associated with this instance
 		internal readonly AudioDriver AudioDriver;
@@ -101,7 +104,7 @@ namespace Vega
 			Glfw.Init();
 
 			// Initialize graphics services
-			Graphics = new(this);
+			Graphics = new(this, _EnableGraphicsValidation);
 
 			// Initialize audio
 			AudioDriver = new AudioDriver(this);
@@ -255,6 +258,15 @@ namespace Vega
 		// Remove the window from the internal list
 		internal void RemoveWindow(Window win) => _windows.Remove(win);
 		#endregion // Window
+
+		/// <summary>
+		/// Enables graphics validation layers on the next core instance to be created. Valildation layers provide
+		/// graphics debugging, but cause a noticeable slowdown for graphics operations.
+		/// <para>
+		/// When validation is enabled, you can listen for <see cref="DebugMessageEvent"/>s on the event hub.
+		/// </para>
+		/// </summary>
+		public static void EnableGraphicsValidation() => _EnableGraphicsValidation = true;
 
 		#region IDisposable
 		public void Dispose()

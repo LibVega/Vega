@@ -5,12 +5,15 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using VVK;
+using static Vega.InternalLog;
 
 namespace Vega.Graphics
 {
-	public sealed class GraphicsService
+	public unsafe sealed class GraphicsService
 	{
 		#region Fields
 		/// <summary>
@@ -25,19 +28,56 @@ namespace Vega.Graphics
 		internal bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
 
-		internal GraphicsService(Core core)
+		internal GraphicsService(Core core, bool validation)
 		{
 			if (!Glfw.VulkanSupported()) {
 				throw new PlatformNotSupportedException("The Vulkan runtime is not available on this platform");
 			}
 			Core = core;
 
+			// Get the required layers and extensions
+			var reqExts = Glfw.GetRequiredInstanceExtensions().ToList();
+			List<string> reqLayers = new();
+			if (validation) {
+				if (!VulkanInstance.Extensions.Contains(Vk.Constants.EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+					LWARN("Required extension not present for graphics validation", this);
+					validation = false;
+				}
+				else if (!VulkanInstance.Layers.Contains("VK_LAYER_KHRONOS_validation") &&
+						 !VulkanInstance.Layers.Contains("VK_LAYER_LUNARG_validation")) {
+					LWARN("Required layer not present for graphics validation", this);
+					validation = false;
+				}
+				else {
+					reqExts.Add(Vk.Constants.EXT_DEBUG_UTILS_EXTENSION_NAME);
+					reqLayers.Add(VulkanInstance.Layers.Contains("VK_LAYER_KHRONOS_validation")
+						? "VK_LAYER_KHRONOS_validation" : "VK_LAYER_LUNARG_validation");
+				}
+			}
+
 			// Create Vulkan Instance
-			var required = Glfw.GetRequiredInstanceExtensions().ToList();
 			Instance = VulkanInstance.Create(
 				core.AppName, core.AppVersion,
 				"Vega", GetType().Assembly.GetName().Version!,
-				Vk.Version.VK_VERSION_1_0, required);
+				Vk.Version.VK_VERSION_1_0, reqExts, reqLayers);
+
+			// Register with debug reports
+			if (validation) {
+				Instance.OnDebugUtilMessage += (severity, type, data) => {
+					var evt = new DebugMessageEvent { 
+						Severity = (DebugMessageSeverity)severity,
+						Type = (DebugMessageType)type,
+						Message = Marshal.PtrToStringAnsi(new IntPtr(data->Message)) ?? String.Empty,
+						MessageId = data->MessageIdNumber
+					};
+					Vk.EXT.DebugUtilsObjectNameInfo* next = data->Objects;
+					for (uint i = 0; i < data->ObjectCount; ++i) {
+						evt.ObjectNames.Add(Marshal.PtrToStringAnsi(new IntPtr(next->ObjectName)) ?? String.Empty);
+						next = (Vk.EXT.DebugUtilsObjectNameInfo*)next->pNext;
+					}
+					core.Events.Publish(this, evt);
+				};
+			}
 		}
 		~GraphicsService()
 		{
