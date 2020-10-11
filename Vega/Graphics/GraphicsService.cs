@@ -23,6 +23,7 @@ namespace Vega.Graphics
 
 		// Vulkan objects
 		internal readonly VulkanInstance Instance;
+		internal readonly VulkanPhysicalDevice PhysicalDevice;
 		internal Vk.Version ApiVersion => Instance.ApiVersion;
 
 		internal bool IsDisposed { get; private set; } = false;
@@ -60,6 +61,9 @@ namespace Vega.Graphics
 				core.AppName, core.AppVersion,
 				"Vega", GetType().Assembly.GetName().Version!,
 				Vk.Version.VK_VERSION_1_0, reqExts, reqLayers);
+			if (Instance.PhysicalDevices.Count == 0) {
+				throw new PlatformNotSupportedException("No devices found that support Vulkan");
+			}
 
 			// Register with debug reports
 			if (validation) {
@@ -75,9 +79,29 @@ namespace Vega.Graphics
 						evt.ObjectNames.Add(Marshal.PtrToStringAnsi(new IntPtr(next->ObjectName)) ?? String.Empty);
 						next = (Vk.EXT.DebugUtilsObjectNameInfo*)next->pNext;
 					}
-					core.Events.Publish(this, evt);
+					Core.Events.Publish(this, evt);
 				};
 			}
+
+			// Select physical device, first by events, then first discrete, then any
+			VulkanPhysicalDevice? pdev = null;
+			foreach (var device in Instance.PhysicalDevices) {
+				var evt = new DeviceDiscoveryEvent {
+					DeviceName = device.Name,
+					IsDiscrete = device.Properties.DeviceType == Vk.PhysicalDeviceType.DiscreteGpu,
+					MemorySize = new DataSize((long)device.TotalDeviceMemory),
+					Use = false
+				};
+				Core.Events.Publish(this, evt);
+				if (evt.Use) {
+					pdev = device;
+				}
+			}
+			PhysicalDevice = pdev 
+				?? Instance.PhysicalDevices.FirstOrDefault(
+					dev => dev.Properties.DeviceType == Vk.PhysicalDeviceType.DiscreteGpu)
+				?? Instance.PhysicalDevices[0];
+			LINFO($"Selected device '{PhysicalDevice.Name}'");
 		}
 		~GraphicsService()
 		{

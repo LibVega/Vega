@@ -22,6 +22,11 @@ namespace Vega
 		/// </summary>
 		public static Core? Instance { get; private set; } = null;
 
+		/// <summary>
+		/// The hub used to manage all core event messages, can be extended to additionally handle user messages.
+		/// </summary>
+		public static readonly EventHub Events = new();
+
 		// The validation enable flag for graphics
 		private static bool _EnableGraphicsValidation = false;
 
@@ -37,11 +42,6 @@ namespace Vega
 		/// The application version.
 		/// </summary>
 		public readonly Version AppVersion;
-
-		/// <summary>
-		/// The hub used to manage all core event messages, can be extended to additionally handle user messages.
-		/// </summary>
-		public readonly EventHub Events;
 
 		/// <summary>
 		/// The graphics controller for the core instance.
@@ -90,9 +90,6 @@ namespace Vega
 
 			AppName = name;
 			AppVersion = version;
-
-			// Initialize event hub and logging
-			Events = new();
 
 			// Attach to exit events
 			Console.CancelKeyPress += (_, e) => {

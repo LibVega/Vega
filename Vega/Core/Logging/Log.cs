@@ -34,7 +34,7 @@ namespace Vega
 			var evt = _ThreadEvent.Value!;
 			evt.Message = msg;
 			evt.Level = LogLevel.Debug;
-			Core.Instance?.Events.Publish(sender, evt);
+			Core.Events.Publish(sender, evt);
 		}
 
 		/// <summary>
@@ -47,7 +47,7 @@ namespace Vega
 			var evt = _ThreadEvent.Value!;
 			evt.Message = msg;
 			evt.Level = LogLevel.Info;
-			Core.Instance?.Events.Publish(sender, evt);
+			Core.Events.Publish(sender, evt);
 		}
 
 		/// <summary>
@@ -60,7 +60,7 @@ namespace Vega
 			var evt = _ThreadEvent.Value!;
 			evt.Message = msg;
 			evt.Level = LogLevel.Warning;
-			Core.Instance?.Events.Publish(sender, evt);
+			Core.Events.Publish(sender, evt);
 		}
 
 		/// <summary>
@@ -73,7 +73,7 @@ namespace Vega
 			var evt = _ThreadEvent.Value!;
 			evt.Message = msg;
 			evt.Level = LogLevel.Error;
-			Core.Instance?.Events.Publish(sender, evt);
+			Core.Events.Publish(sender, evt);
 		}
 
 		/// <summary>
@@ -86,7 +86,7 @@ namespace Vega
 			var evt = _ThreadEvent.Value!;
 			evt.Message = msg;
 			evt.Level = LogLevel.Fatal;
-			Core.Instance?.Events.Publish(sender, evt);
+			Core.Events.Publish(sender, evt);
 		}
 
 		/// <summary>
@@ -101,7 +101,7 @@ namespace Vega
 			evt.Message = msg ?? ex.Message;
 			evt.Level = LogLevel.Exception;
 			evt.Exception = ex;
-			Core.Instance?.Events.Publish(sender, evt);
+			Core.Events.Publish(sender, evt);
 			evt.Exception = null;
 		}
 	}
@@ -124,7 +124,7 @@ namespace Vega
 				var evt = _ThreadEvent.Value!;
 				evt.Message = msg;
 				evt.Level = LogLevel.Debug;
-				Core.Instance?.Events.Publish(sender, evt); 
+				Core.Events.Publish(sender, evt); 
 			}
 		}
 
@@ -135,7 +135,7 @@ namespace Vega
 				var evt = _ThreadEvent.Value!;
 				evt.Message = msg;
 				evt.Level = LogLevel.Info;
-				Core.Instance?.Events.Publish(sender, evt); 
+				Core.Events.Publish(sender, evt); 
 			}
 		}
 
@@ -146,7 +146,7 @@ namespace Vega
 				var evt = _ThreadEvent.Value!;
 				evt.Message = msg;
 				evt.Level = LogLevel.Warning;
-				Core.Instance?.Events.Publish(sender, evt); 
+				Core.Events.Publish(sender, evt); 
 			}
 		}
 
@@ -157,7 +157,7 @@ namespace Vega
 				var evt = _ThreadEvent.Value!;
 				evt.Message = msg;
 				evt.Level = LogLevel.Error;
-				Core.Instance?.Events.Publish(sender, evt); 
+				Core.Events.Publish(sender, evt); 
 			}
 		}
 
@@ -168,7 +168,7 @@ namespace Vega
 				var evt = _ThreadEvent.Value!;
 				evt.Message = msg;
 				evt.Level = LogLevel.Fatal;
-				Core.Instance?.Events.Publish(sender, evt); 
+				Core.Events.Publish(sender, evt); 
 			}
 		}
 
@@ -180,7 +180,7 @@ namespace Vega
 				evt.Message = msg ?? ex.Message;
 				evt.Level = LogLevel.Exception;
 				evt.Exception = ex;
-				Core.Instance?.Events.Publish(sender, evt);
+				Core.Events.Publish(sender, evt);
 				evt.Exception = null; 
 			}
 		}

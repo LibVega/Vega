@@ -111,10 +111,10 @@ namespace Vega
 			_writer.Flush();
 		}
 
-		public override void HandleLogEvent(object? sender, TimeSpan time, LogEvent? @event)
+		public unsafe override void HandleLogEvent(object? sender, TimeSpan time, LogEvent? @event)
 		{
 			// Build tag
-			char[] tag = { 
+			var tag = stackalloc char[19] { 
 				'[', 'H', 'H', ':', 'M', 'M', ':', 'S', 'S', '.', 's', 's', ']', '[', 'X', ']', ':', ' ', ' '
 			};
 			tag[1]  = (char)(((time.Hours % 100) / 10) + '0');
@@ -126,21 +126,22 @@ namespace Vega
 			tag[10] = (char)((time.Milliseconds / 100) + '0');
 			tag[11] = (char)(((time.Milliseconds % 100) / 10) + '0');
 			tag[14] = GetLevelTag(@event?.Level);
+			ReadOnlySpan<char> tagSpan = new(tag, 19);
 
 			// Write message
 			if (@event != null) {
 				if (@event.Level == LogLevel.Exception) {
-					_writer.Write(tag);
+					_writer.Write(tagSpan);
 					_writer.Write($"({@event.Exception?.GetType().Name ?? ""})  ");
 					_writer.WriteLine(@event.Message);
 				}
 				else {
-					_writer.Write(tag);
+					_writer.Write(tagSpan);
 					_writer.WriteLine(@event.Message);
 				}
 			}
 			else {
-				_writer.Write(tag);
+				_writer.Write(tagSpan);
 				_writer.WriteLine("null");
 			}
 			_writer.Flush();
