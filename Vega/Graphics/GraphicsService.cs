@@ -5,16 +5,22 @@
  */
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
 using VVK;
 using static Vega.InternalLog;
 
 namespace Vega.Graphics
 {
-	public unsafe sealed class GraphicsService
+	/// <summary>
+	/// Manages the top-level execution and resource management of the graphics system.
+	/// </summary>
+	public unsafe sealed partial class GraphicsService
 	{
+		/// <summary>
+		/// The maximum number of concurrently executed graphics frames. This gives the number of frames that resources
+		/// must be kept alive to ensure they are not destroyed while in use.
+		/// </summary>
+		public const uint MAX_FRAMES = 3;
+
 		#region Fields
 		/// <summary>
 		/// The core instance controlling this graphics service.
@@ -24,7 +30,16 @@ namespace Vega.Graphics
 		// Vulkan objects
 		internal readonly VulkanInstance Instance;
 		internal readonly VulkanPhysicalDevice PhysicalDevice;
+		internal readonly VulkanDevice Device;
+		internal readonly VulkanQueue GraphicsQueue;
 		internal Vk.Version ApiVersion => Instance.ApiVersion;
+
+		/// <summary>
+		/// The frame index used for resource synchronization.
+		/// </summary>
+		public uint FrameIndex { get; private set; } = 0;
+		// If the graphics service is in the frame
+		internal bool InFrame { get; private set; } = false;
 
 		internal bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
@@ -36,77 +51,32 @@ namespace Vega.Graphics
 			}
 			Core = core;
 
-			// Get the required layers and extensions
-			var reqExts = Glfw.GetRequiredInstanceExtensions().ToList();
-			List<string> reqLayers = new();
-			if (validation) {
-				if (!VulkanInstance.Extensions.Contains(Vk.Constants.EXT_DEBUG_UTILS_EXTENSION_NAME)) {
-					LWARN("Required extension not present for graphics validation", this);
-					validation = false;
-				}
-				else if (!VulkanInstance.Layers.Contains("VK_LAYER_KHRONOS_validation") &&
-						 !VulkanInstance.Layers.Contains("VK_LAYER_LUNARG_validation")) {
-					LWARN("Required layer not present for graphics validation", this);
-					validation = false;
-				}
-				else {
-					reqExts.Add(Vk.Constants.EXT_DEBUG_UTILS_EXTENSION_NAME);
-					reqLayers.Add(VulkanInstance.Layers.Contains("VK_LAYER_KHRONOS_validation")
-						? "VK_LAYER_KHRONOS_validation" : "VK_LAYER_LUNARG_validation");
-				}
-			}
-
-			// Create Vulkan Instance
-			Instance = VulkanInstance.Create(
-				core.AppName, core.AppVersion,
-				"Vega", GetType().Assembly.GetName().Version!,
-				Vk.Version.VK_VERSION_1_0, reqExts, reqLayers);
-			if (Instance.PhysicalDevices.Count == 0) {
-				throw new PlatformNotSupportedException("No devices found that support Vulkan");
-			}
-
-			// Register with debug reports
-			if (validation) {
-				Instance.OnDebugUtilMessage += (severity, type, data) => {
-					var evt = new DebugMessageEvent { 
-						Severity = (DebugMessageSeverity)severity,
-						Type = (DebugMessageType)type,
-						Message = Marshal.PtrToStringAnsi(new IntPtr(data->Message)) ?? String.Empty,
-						MessageId = data->MessageIdNumber
-					};
-					Vk.EXT.DebugUtilsObjectNameInfo* next = data->Objects;
-					for (uint i = 0; i < data->ObjectCount; ++i) {
-						evt.ObjectNames.Add(Marshal.PtrToStringAnsi(new IntPtr(next->ObjectName)) ?? String.Empty);
-						next = (Vk.EXT.DebugUtilsObjectNameInfo*)next->pNext;
-					}
-					Core.Events.Publish(this, evt);
-				};
-			}
-
-			// Select physical device, first by events, then first discrete, then any
-			VulkanPhysicalDevice? pdev = null;
-			foreach (var device in Instance.PhysicalDevices) {
-				var evt = new DeviceDiscoveryEvent {
-					DeviceName = device.Name,
-					IsDiscrete = device.Properties.DeviceType == Vk.PhysicalDeviceType.DiscreteGpu,
-					MemorySize = new DataSize((long)device.TotalDeviceMemory),
-					Use = false
-				};
-				Core.Events.Publish(this, evt);
-				if (evt.Use) {
-					pdev = device;
-				}
-			}
-			PhysicalDevice = pdev 
-				?? Instance.PhysicalDevices.FirstOrDefault(
-					dev => dev.Properties.DeviceType == Vk.PhysicalDeviceType.DiscreteGpu)
-				?? Instance.PhysicalDevices[0];
+			// Create the instance and select the device to use
+			InitializeVulkanInstance(this, validation, out Instance, out PhysicalDevice);
 			LINFO($"Selected device '{PhysicalDevice.Name}'");
+			CreateVulkanDevice(this, out Device, out GraphicsQueue);
+			LINFO($"Created Vulkan device instance (GQ=[{GraphicsQueue.FamilyIndex}:{GraphicsQueue.QueueIndex}])");
 		}
 		~GraphicsService()
 		{
 			dispose(false);
 		}
+
+		#region Frames
+		// Performs graphics operations for the start of the frame
+		internal void BeginFrame()
+		{
+			InFrame = true;
+		}
+
+		// Performs graphics operations for the end of the frame
+		internal void EndFrame()
+		{
+			// Advance frame
+			InFrame = false;
+			FrameIndex = (FrameIndex + 1) % MAX_FRAMES;
+		}
+		#endregion // Frames
 
 		#region Disposable
 		internal void Dispose()
@@ -119,7 +89,10 @@ namespace Vega.Graphics
 		{
 			if (!IsDisposed) {
 				if (disposing) {
+					Device.Dispose();
+					LINFO("Destroyed Vulkan device");
 					Instance.Dispose();
+					LINFO("Destroyed Vulkan instance");
 				}
 			}
 			IsDisposed = true;

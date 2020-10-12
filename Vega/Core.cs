@@ -131,6 +131,9 @@ namespace Vega
 
 			AppTime.Frame();
 
+			// Start the graphics frame
+			Graphics.BeginFrame();
+
 			// Run window frames
 			foreach (var win in _windows) {
 				win.BeginFrame();
@@ -164,6 +167,10 @@ namespace Vega
 				win.EndFrame();
 			}
 
+			// End the graphics frame
+			Graphics.EndFrame();
+
+			// Tick end routines
 			CoroutineManager.Tick(CoroutinePolicy.End);
 		}
 		#endregion // Frame
