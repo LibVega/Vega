@@ -5,7 +5,6 @@
  */
 
 using System;
-using VVK;
 using static Vega.InternalLog;
 
 namespace Vega.Graphics
@@ -27,12 +26,14 @@ namespace Vega.Graphics
 		/// </summary>
 		public readonly Core Core;
 
-		// Vulkan objects
-		internal readonly VulkanInstance Instance;
-		internal readonly VulkanPhysicalDevice PhysicalDevice;
-		internal readonly VulkanDevice Device;
-		internal readonly VulkanQueue GraphicsQueue;
-		internal Vk.Version ApiVersion => Instance.ApiVersion;
+		// Vulkan objects/values
+		internal readonly Vk.Instance Instance;
+		internal readonly Vk.EXT.DebugUtilsMessenger? DebugUtils;
+		internal readonly Vk.PhysicalDevice PhysicalDevice;
+		internal readonly Vk.PhysicalDeviceProperties DeviceProperties;
+		internal readonly Vk.Device Device;
+		internal readonly Vk.Queue GraphicsQueue;
+		internal Vk.Version ApiVersion => Instance.Functions.CoreVersion;
 
 		/// <summary>
 		/// The frame index used for resource synchronization.
@@ -52,10 +53,11 @@ namespace Vega.Graphics
 			Core = core;
 
 			// Create the instance and select the device to use
-			InitializeVulkanInstance(this, validation, out Instance, out PhysicalDevice);
-			LINFO($"Selected device '{PhysicalDevice.Name}'");
+			InitializeVulkanInstance(this, validation, out Instance, out DebugUtils, out PhysicalDevice);
+			PhysicalDevice.GetPhysicalDeviceProperties(out DeviceProperties);
+			LINFO($"Selected device '{DeviceProperties.DeviceName}'");
 			CreateVulkanDevice(this, out Device, out GraphicsQueue);
-			LINFO($"Created Vulkan device instance (GQ=[{GraphicsQueue.FamilyIndex}:{GraphicsQueue.QueueIndex}])");
+			LINFO("Created Vulkan device instance");
 		}
 		~GraphicsService()
 		{
@@ -89,9 +91,11 @@ namespace Vega.Graphics
 		{
 			if (!IsDisposed) {
 				if (disposing) {
-					Device.Dispose();
+					Device.DeviceWaitIdle();
+					Device.DestroyDevice(null);
 					LINFO("Destroyed Vulkan device");
-					Instance.Dispose();
+					DebugUtils?.DestroyDebugUtilsMessengerEXT(null);
+					Instance.DestroyInstance(null);
 					LINFO("Destroyed Vulkan instance");
 				}
 			}
