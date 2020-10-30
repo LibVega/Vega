@@ -5,6 +5,7 @@
  */
 
 using System;
+using Vega.Graphics;
 using Vega.Input;
 
 namespace Vega
@@ -37,6 +38,9 @@ namespace Vega
 		#region Fields
 		// GLFW window handle
 		internal IntPtr Handle { get; private set; } = IntPtr.Zero;
+
+		// Swapchain handle
+		internal readonly Swapchain Swapchain;
 
 		#region Properties
 		/// <summary>
@@ -291,6 +295,9 @@ namespace Vega
 			// Setup input
 			_keyboard = new Keyboard(this);
 			_mouse = new Mouse(this);
+
+			// Create the swapchain
+			Swapchain = new Swapchain(this);
 		}
 		~Window()
 		{
@@ -473,6 +480,7 @@ namespace Vega
 		private void dispose(bool disposing)
 		{
 			if (!IsDisposed) {
+				Swapchain?.Dispose();
 				Glfw.DestroyWindow(Handle);
 				Core.Instance?.RemoveWindow(this);
 			}

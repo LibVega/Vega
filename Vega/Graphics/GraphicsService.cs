@@ -33,6 +33,7 @@ namespace Vega.Graphics
 		internal readonly Vk.PhysicalDeviceProperties DeviceProperties;
 		internal readonly Vk.Device Device;
 		internal readonly Vk.Queue GraphicsQueue;
+		internal readonly uint GraphicsQueueIndex;
 		internal Vk.Version ApiVersion => Instance.Functions.CoreVersion;
 
 		/// <summary>
@@ -56,7 +57,7 @@ namespace Vega.Graphics
 			InitializeVulkanInstance(this, validation, out Instance, out DebugUtils, out PhysicalDevice);
 			PhysicalDevice.GetPhysicalDeviceProperties(out DeviceProperties);
 			LINFO($"Selected device '{DeviceProperties.DeviceName}'");
-			CreateVulkanDevice(this, out Device, out GraphicsQueue);
+			CreateVulkanDevice(this, out Device, out GraphicsQueue, out GraphicsQueueIndex);
 			LINFO("Created Vulkan device instance");
 		}
 		~GraphicsService()

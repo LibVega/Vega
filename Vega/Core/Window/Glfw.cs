@@ -147,6 +147,13 @@ namespace Vega
 			}
 			return ret;
 		}
+
+		public static Vk.Result CreateWindowSurface(Vk.Instance instance, IntPtr window, out Vk.Handle<Vk.KHR.Surface> surf)
+		{
+			var res = _GlfwCreateWindowSurface(instance.Handle.PtrHandle, window, IntPtr.Zero, out var HANDLE);
+			surf = new((res == (int)Vk.Result.Success) ? HANDLE : IntPtr.Zero);
+			return (Vk.Result)res;
+		}
 		#endregion // API Function Wrappers
 
 		#region Init/Term

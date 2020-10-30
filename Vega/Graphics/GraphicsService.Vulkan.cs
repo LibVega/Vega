@@ -141,7 +141,8 @@ namespace Vega.Graphics
 				?? pdevs[0];
 		}
 
-		private static void CreateVulkanDevice(GraphicsService service, out Vk.Device device, out Vk.Queue gQueue)
+		private static void CreateVulkanDevice(GraphicsService service, out Vk.Device device, out Vk.Queue gQueue,
+			out uint gQueueIndex)
 		{
 			// Populate the features
 			Vk.PhysicalDeviceFeatures feats = new();
@@ -183,6 +184,7 @@ namespace Vega.Graphics
 
 			// Get the queue
 			device.GetDeviceQueue(gQueueInfo.QueueFamilyIndex, 0, out gQueue!);
+			gQueueIndex = gQueueInfo.QueueFamilyIndex;
 		}
 
 		private static Vk.Bool32 DebugMessageCallback(
