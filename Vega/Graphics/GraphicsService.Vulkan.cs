@@ -8,7 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Vk;
+using Vk.Extras;
 using static Vega.InternalLog;
 
 namespace Vega.Graphics
@@ -136,7 +136,7 @@ namespace Vega.Graphics
 			physDevice = pdev
 				?? pdevs.FirstOrDefault(dev => {
 					dev.GetPhysicalDeviceProperties(out var props);
-					return props.DeviceType == PhysicalDeviceType.DiscreteGpu;
+					return props.DeviceType == Vk.PhysicalDeviceType.DiscreteGpu;
 				})
 				?? pdevs[0];
 		}
@@ -146,6 +146,26 @@ namespace Vega.Graphics
 		{
 			// Populate the features
 			Vk.PhysicalDeviceFeatures feats = new();
+
+			// Get the extensions
+			string[] exts = { };
+			{
+				uint ecnt = 0;
+				service.PhysicalDevice.EnumerateDeviceExtensionProperties(null, &ecnt, null);
+				var extptr = stackalloc Vk.ExtensionProperties[(int)ecnt];
+				exts = new string[ecnt];
+				service.PhysicalDevice.EnumerateDeviceExtensionProperties(null, &ecnt, extptr);
+				for (uint i = 0; i < ecnt; ++i) {
+					exts[i] = extptr[i].ExtensionName;
+				}
+			}
+
+			// Check and populate extensions
+			using var extList = new Vk.NativeStringList();
+			if (!exts.Contains(Vk.Constants.KHR_SWAPCHAIN_EXTENSION_NAME)) {
+				throw new PlatformNotSupportedException("Selected device does not support swapchain operations");
+			}
+			extList.Add(Vk.Constants.KHR_SWAPCHAIN_EXTENSION_NAME);
 
 			// Enumerate queue families
 			List<Vk.QueueFamilyProperties> queueFams = new();
@@ -180,6 +200,8 @@ namespace Vega.Graphics
 			dci.EnabledFeatures = &feats;
 			dci.QueueCreateInfoCount = 1;
 			dci.QueueCreateInfos = &gQueueInfo;
+			dci.EnabledExtensionCount = extList.Count;
+			dci.EnabledExtensionNames = extList.Data;
 			service.PhysicalDevice.CreateDevice(&dci, null, out device!).Throw("Failed to create Vulkan device");
 
 			// Get the queue

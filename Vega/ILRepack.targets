@@ -7,16 +7,18 @@
 			<InputAssemblies Include="$(OutputPath)\VVK.dll" />
 		</ItemGroup>
 
+		<!--
 		<ILRepack 
 			Parallel="true"
 			Internalize="true"
-			DebugInfo="true"
+			DebugInfo="false"
 			InputAssemblies="@(InputAssemblies)"
 			TargetKind="Dll"
 			OutputFile="$(OutputPath)\$(AssemblyName).dll"
 			LogFile="$(OutputPath)\ILRepack.log"
 			Verbose="true"
 		/>
+		-->
 		
 	</Target>
 </Project>
