@@ -150,7 +150,89 @@ namespace Vega.Graphics
 			dispose(false);
 		}
 
-		#region Build
+		public void Present()
+		{
+			// Check attached renderer, or just clear for no attached renderer
+			Vk.Semaphore renderSem = Vk.Semaphore.Null;
+			object? renderer = null;
+			if (renderer is not null) {
+				// TODO
+			}
+			else {
+				renderSem = _sync.ClearSemaphores[_swapchainInfo.ImageIndex];
+				var ssem = renderSem.Handle;
+				var wsem = _acquireSemaphores[_swapchainInfo.ImageIndex].Handle;
+				Vk.PipelineStageFlags WAIT_STAGE = Vk.PipelineStageFlags.Transfer;
+				var cmd = _sync.Cmds[_swapchainInfo.ImageIndex].Handle;
+
+				Vk.SubmitInfo.New(out var si);
+				si.WaitSemaphoreCount = 1;
+				si.WaitSemaphores = &wsem;
+				si.WaitDstStageMask = &WAIT_STAGE;
+				si.CommandBufferCount = 1;
+				si.CommandBuffers = &cmd;
+				si.SignalSemaphoreCount = 1;
+				si.SignalSemaphores = &ssem;
+				Core.Instance!.Graphics.SubmitToGraphicsQueue(&si, _sync.RenderFences[_swapchainInfo.SyncIndex])
+					.Throw("Failed to submit window clear commands");
+			}
+
+			// Submit for presentation
+			Vk.Result res;
+			{
+				var rsem = renderSem.Handle;
+				var sc = Handle.Handle;
+				var iidx = _swapchainInfo.ImageIndex;
+				Vk.KHR.PresentInfo.New(out var pi);
+				pi.WaitSemaphoreCount = 1;
+				pi.WaitSemaphores = &rsem;
+				pi.SwapchainCount = 1;
+				pi.Swapchains = &sc;
+				pi.ImageIndices = &iidx;
+				res = Core.Instance!.Graphics.SubmitToGraphicsQueue(&pi);
+			}
+			_swapchainInfo.SyncIndex = (_swapchainInfo.SyncIndex + 1) % GraphicsService.MAX_FRAMES;
+			if (_swapchainInfo.Dirty || (res == Vk.Result.SuboptimalKhr) || (res == Vk.Result.OutOfDateKhr)) {
+				rebuild(); // Also acquires next image
+			}
+			else if (res != Vk.Result.Success) {
+				throw new Vk.Extras.ResultException(res, "Failed to present to window");
+			}
+			else if (!acquire()) {
+				throw new Exception("Failed to acquire window surface after presentation");
+			}
+		}
+
+		private bool acquire()
+		{
+			// Wait for in-flight clear fence
+			var currFence = _sync.RenderFences[_swapchainInfo.SyncIndex].Handle;
+			_device.WaitForFences(1, &currFence, true, UInt64.MaxValue);
+
+			// Try to acquire the next image
+			uint iidx = 0;
+			var asem = _acquireSemaphores[_swapchainInfo.SyncIndex];
+			var res = Handle.AcquireNextImageKHR(UInt64.MaxValue, asem, null, &iidx);
+			if ((res == Vk.Result.SuboptimalKhr) || (res == Vk.Result.OutOfDateKhr)) {
+				_swapchainInfo.Dirty = true;
+				return false;
+			}
+			else if (res != Vk.Result.Success) {
+				throw new Vk.Extras.ResultException(res, "Failed to acquire window surface");
+			}
+			_swapchainInfo.ImageIndex = iidx;
+
+			// Wait for out-of-order fences and reset the fence for the new image
+			if (_mappedFences[iidx]) {
+				var mapFence = _mappedFences[iidx]!.Handle;
+				_device.WaitForFences(1, &mapFence, true, UInt64.MaxValue);
+			}
+			_mappedFences[iidx] = _sync.RenderFences[_swapchainInfo.SyncIndex];
+			var resFence = _mappedFences[iidx]!.Handle;
+			_device.ResetFences(1, &resFence);
+			return true;
+		}
+
 		private void rebuild()
 		{
 			Stopwatch timer = Stopwatch.StartNew();
@@ -273,14 +355,16 @@ namespace Vega.Graphics
 				}
 			}
 
-			// TODO: Acquire after rebuild
+			// Acquire after rebuild
+			if (!acquire()) {
+				throw new Exception("Failed to acquire swapchain after rebuild");
+			}
 
 			LINFO($"Rebuilt swapchain (old={oldSize}) (new={newSize}) (time={timer.Elapsed.TotalMilliseconds}ms) " +
-				$"(wait={waitTime.TotalMilliseconds}ms)");
+				$"(wait={waitTime.TotalMilliseconds}ms) (mode={_surfaceInfo.Mode})");
 
 			// TODO: Inform attached renderer of swapchain resize
 		}
-		#endregion // Build
 
 		#region IDisposable
 		public void Dispose()

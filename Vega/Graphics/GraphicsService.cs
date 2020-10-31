@@ -34,6 +34,7 @@ namespace Vega.Graphics
 		internal readonly Vk.Device Device;
 		internal readonly Vk.Queue GraphicsQueue;
 		internal readonly uint GraphicsQueueIndex;
+		private readonly FastMutex _graphicsQueueLock = new();
 		internal Vk.Version ApiVersion => Instance.Functions.CoreVersion;
 
 		/// <summary>
@@ -80,6 +81,34 @@ namespace Vega.Graphics
 			FrameIndex = (FrameIndex + 1) % MAX_FRAMES;
 		}
 		#endregion // Frames
+
+		#region Commands
+		// Submits a set of commands to the graphics queue
+		internal Vk.Result SubmitToGraphicsQueue(in Vk.SubmitInfo si, Vk.Handle<Vk.Fence> fence)
+		{
+			using (var _ = _graphicsQueueLock.AcquireUNSAFE()) {
+				fixed (Vk.SubmitInfo* siptr = &si) {
+					return GraphicsQueue.QueueSubmit(1, siptr, fence);
+				}
+			}
+		}
+
+		// Submits a set of commands to the graphics queue
+		internal Vk.Result SubmitToGraphicsQueue(Vk.SubmitInfo* si, Vk.Handle<Vk.Fence> fence)
+		{
+			using (var _ = _graphicsQueueLock.AcquireUNSAFE()) {
+				return GraphicsQueue.QueueSubmit(1, si, fence);
+			}
+		}
+
+		// Presents a swapchain
+		internal Vk.Result SubmitToGraphicsQueue(Vk.KHR.PresentInfo* pi)
+		{
+			using (var _ = _graphicsQueueLock.AcquireUNSAFE()) {
+				return GraphicsQueue.QueuePresentKHR(pi);
+			}
+		}
+		#endregion // Commands
 
 		#region Disposable
 		internal void Dispose()

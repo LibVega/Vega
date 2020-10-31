@@ -13,7 +13,7 @@ namespace Vega
 	/// Implements a fast, FIFO-guaranteed critical section locking mechanism. Uses spin-locks, so use should be
 	/// limited to instances where the wait time will be very short.
 	/// </summary>
-	public sealed class FifoLock
+	public sealed class FastMutex
 	{
 		#region Fields
 		private ulong _acquire;
@@ -28,7 +28,7 @@ namespace Vega
 		/// <summary>
 		/// Constructs a new lock object.
 		/// </summary>
-		public FifoLock() => _acquire = _release = 0;
+		public FastMutex() => _acquire = _release = 0;
 
 		/// <summary>
 		/// Acquires the lock, or blocks until it is able to do so.
@@ -56,6 +56,31 @@ namespace Vega
 		public void Unlock()
 		{
 			Interlocked.Increment(ref _release);
+		}
+
+		// Acquire a stack-only lock on the mutex
+		internal FastLock AcquireUNSAFE() => new FastLock(this);
+	}
+
+	// Stack-only dispoable lock on a mutex for using statements
+	// This *MUST* only be used with using statements, as if they fall out of scope they will never release the mutex
+	// They are internal for this very reason, too high a chance for very bad things to happen with misuse
+	internal ref struct FastLock
+	{
+		// Mutex handle
+		private FastMutex? _mutex;
+
+		internal FastLock(FastMutex mutex)
+		{
+			_mutex = mutex;
+			_mutex.Lock();
+		}
+
+		// Releases the lock, if held.
+		public void Dispose()
+		{
+			_mutex?.Unlock();
+			_mutex = null;
 		}
 	}
 }
