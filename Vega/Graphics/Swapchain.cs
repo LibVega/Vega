@@ -40,6 +40,8 @@ namespace Vega.Graphics
 		// Surface objects
 		public readonly Vk.KHR.Surface Surface;
 		private SurfaceInfo _surfaceInfo;
+		public bool Vsync => _surfaceInfo.Mode == Vk.KHR.PresentMode.FifoKHR;
+		public bool VsyncOnly => !_surfaceInfo.HasImmediate && !_surfaceInfo.HasMailbox;
 
 		// Swapchain objects
 		public Vk.KHR.Swapchain Handle { get; private set; }
@@ -50,7 +52,7 @@ namespace Vega.Graphics
 		private Vk.Fence?[] _mappedFences;
 
 		// Sync objects
-		private SyncObjects _sync;
+		private CommandObjects _cmd;
 
 		public bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
@@ -115,26 +117,26 @@ namespace Vega.Graphics
 			// Create command objects
 			Vk.CommandPoolCreateInfo.New(out var cpci);
 			cpci.QueueFamilyIndex = gs.GraphicsQueueIndex;
-			_device.CreateCommandPool(&cpci, null, out _sync.Pool!).Throw("Swapchain command pool");
-			_sync.ClearSemaphores = new Vk.Semaphore[GraphicsService.MAX_FRAMES];
-			_sync.RenderFences = new Vk.Fence[GraphicsService.MAX_FRAMES];
+			_device.CreateCommandPool(&cpci, null, out _cmd.Pool!).Throw("Swapchain command pool");
+			_cmd.ClearSemaphores = new Vk.Semaphore[GraphicsService.MAX_FRAMES];
+			_cmd.RenderFences = new Vk.Fence[GraphicsService.MAX_FRAMES];
 			for (uint i = 0; i < GraphicsService.MAX_FRAMES; ++i) {
 				Vk.SemaphoreCreateInfo.New(out var sci);
-				_device.CreateSemaphore(&sci, null, out _sync.ClearSemaphores[i]!).Throw("Swapchain clear semaphore");
+				_device.CreateSemaphore(&sci, null, out _cmd.ClearSemaphores[i]!).Throw("Swapchain clear semaphore");
 				Vk.FenceCreateInfo.New(out var fci);
 				fci.Flags = Vk.FenceCreateFlags.Signaled;
-				_device.CreateFence(&fci, null, out _sync.RenderFences[i]!).Throw("Swapchain render fence");
+				_device.CreateFence(&fci, null, out _cmd.RenderFences[i]!).Throw("Swapchain render fence");
 			}
 			{
 				Vk.CommandBufferAllocateInfo.New(out var cbai);
-				cbai.CommandPool = _sync.Pool;
+				cbai.CommandPool = _cmd.Pool;
 				cbai.Level = Vk.CommandBufferLevel.Primary;
 				cbai.CommandBufferCount = GraphicsService.MAX_FRAMES;
 				var cmdPtr = stackalloc Vk.Handle<Vk.CommandBuffer>[(int)GraphicsService.MAX_FRAMES];
 				_device.AllocateCommandBuffers(&cbai, cmdPtr).Throw("Swapchain command buffers");
-				_sync.Cmds = new Vk.CommandBuffer[GraphicsService.MAX_FRAMES];
+				_cmd.Cmds = new Vk.CommandBuffer[GraphicsService.MAX_FRAMES];
 				for (uint i = 0; i < GraphicsService.MAX_FRAMES; ++i) {
-					_sync.Cmds[i] = new Vk.CommandBuffer(_sync.Pool, cmdPtr[i]);
+					_cmd.Cmds[i] = new Vk.CommandBuffer(_cmd.Pool, cmdPtr[i]);
 				}
 			}
 
@@ -150,6 +152,18 @@ namespace Vega.Graphics
 			dispose(false);
 		}
 
+		public void SetVsync(bool vsync)
+		{
+			if (vsync == Vsync) return;
+
+			var old = _surfaceInfo.Mode;
+			_surfaceInfo.Mode =
+				(vsync || VsyncOnly) ? Vk.KHR.PresentMode.FifoKHR :
+				_surfaceInfo.HasMailbox ? Vk.KHR.PresentMode.MailboxKHR : Vk.KHR.PresentMode.ImmediateKHR;
+
+			_swapchainInfo.Dirty = _surfaceInfo.Mode != old;
+		}
+
 		public void Present()
 		{
 			// Check attached renderer, or just clear for no attached renderer
@@ -159,11 +173,11 @@ namespace Vega.Graphics
 				// TODO
 			}
 			else {
-				renderSem = _sync.ClearSemaphores[_swapchainInfo.ImageIndex];
+				renderSem = _cmd.ClearSemaphores[_swapchainInfo.ImageIndex];
 				var ssem = renderSem.Handle;
 				var wsem = _acquireSemaphores[_swapchainInfo.ImageIndex].Handle;
 				Vk.PipelineStageFlags WAIT_STAGE = Vk.PipelineStageFlags.Transfer;
-				var cmd = _sync.Cmds[_swapchainInfo.ImageIndex].Handle;
+				var cmd = _cmd.Cmds[_swapchainInfo.ImageIndex].Handle;
 
 				Vk.SubmitInfo.New(out var si);
 				si.WaitSemaphoreCount = 1;
@@ -173,7 +187,7 @@ namespace Vega.Graphics
 				si.CommandBuffers = &cmd;
 				si.SignalSemaphoreCount = 1;
 				si.SignalSemaphores = &ssem;
-				Core.Instance!.Graphics.SubmitToGraphicsQueue(&si, _sync.RenderFences[_swapchainInfo.SyncIndex])
+				Core.Instance!.Graphics.SubmitToGraphicsQueue(&si, _cmd.RenderFences[_swapchainInfo.SyncIndex])
 					.Throw("Failed to submit window clear commands");
 			}
 
@@ -206,7 +220,7 @@ namespace Vega.Graphics
 		private bool acquire()
 		{
 			// Wait for in-flight clear fence
-			var currFence = _sync.RenderFences[_swapchainInfo.SyncIndex].Handle;
+			var currFence = _cmd.RenderFences[_swapchainInfo.SyncIndex].Handle;
 			_device.WaitForFences(1, &currFence, true, UInt64.MaxValue);
 
 			// Try to acquire the next image
@@ -227,7 +241,7 @@ namespace Vega.Graphics
 				var mapFence = _mappedFences[iidx]!.Handle;
 				_device.WaitForFences(1, &mapFence, true, UInt64.MaxValue);
 			}
-			_mappedFences[iidx] = _sync.RenderFences[_swapchainInfo.SyncIndex];
+			_mappedFences[iidx] = _cmd.RenderFences[_swapchainInfo.SyncIndex];
 			var resFence = _mappedFences[iidx]!.Handle;
 			_device.ResetFences(1, &resFence);
 			return true;
@@ -323,9 +337,9 @@ namespace Vega.Graphics
 			_swapchainInfo.ImageCount = imgCount;
 
 			// Build the new clear commands
-			_sync.Pool.ResetCommandPool(Vk.CommandPoolResetFlags.NoFlags);
+			_cmd.Pool.ResetCommandPool(Vk.CommandPoolResetFlags.NoFlags);
 			uint iidx = 0;
-			foreach (var cmd in _sync.Cmds) {
+			foreach (var cmd in _cmd.Cmds) {
 				Vk.ImageMemoryBarrier.New(out var srcimb);
 				srcimb.DstAccessMask = Vk.AccessFlags.MemoryWrite;
 				srcimb.OldLayout = Vk.ImageLayout.Undefined;
@@ -361,7 +375,7 @@ namespace Vega.Graphics
 			}
 
 			LINFO($"Rebuilt swapchain (old={oldSize}) (new={newSize}) (time={timer.Elapsed.TotalMilliseconds}ms) " +
-				$"(wait={waitTime.TotalMilliseconds}ms) (mode={_surfaceInfo.Mode})");
+				$"(wait={waitTime.TotalMilliseconds}ms) (mode={_surfaceInfo.Mode}) (count={imgCount})");
 
 			// TODO: Inform attached renderer of swapchain resize
 		}
@@ -389,13 +403,13 @@ namespace Vega.Graphics
 				LINFO("Destroyed window swapchain");
 
 				// Sync/Command objects
-				foreach (var sem in _sync.ClearSemaphores) {
+				foreach (var sem in _cmd.ClearSemaphores) {
 					sem.DestroySemaphore(null);
 				}
-				foreach (var fence in _sync.RenderFences) {
+				foreach (var fence in _cmd.RenderFences) {
 					fence.DestroyFence(null);
 				}
-				_sync.Pool.DestroyCommandPool(null);
+				_cmd.Pool.DestroyCommandPool(null);
 
 				Surface?.DestroySurfaceKHR(null);
 				LINFO("Destroyed window surface");
@@ -424,7 +438,7 @@ namespace Vega.Graphics
 		}
 
 		// Contains objects for syncronization
-		private struct SyncObjects
+		private struct CommandObjects
 		{
 			public Vk.CommandPool Pool;
 			public Vk.CommandBuffer[] Cmds;

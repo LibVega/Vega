@@ -103,6 +103,16 @@ namespace Vega
 			}
 		}
 		private bool _floating;
+
+		/// <summary>
+		/// The vertical sync (VSync) state of the window. Note that not all platforms may support non-vsync modes.
+		/// All windows start with vsync enabled by default.
+		/// </summary>
+		public bool VerticalSync
+		{
+			get => Swapchain.Vsync;
+			set => Swapchain.SetVsync(value);
+		}
 		#endregion // Properties
 
 		#region Status
@@ -466,7 +476,7 @@ namespace Vega
 
 		internal void EndFrame()
 		{
-
+			Swapchain.Present();
 		}
 		#endregion // Frame
 

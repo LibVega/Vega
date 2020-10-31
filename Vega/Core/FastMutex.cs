@@ -35,7 +35,7 @@ namespace Vega
 		/// </summary>
 		public void Lock()
 		{
-			var ticket = Interlocked.Increment(ref _acquire);
+			var ticket = Interlocked.Increment(ref _acquire) - 1;
 			while (ticket != Interlocked.Read(ref _release)) { ; }
 		}
 
