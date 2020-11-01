@@ -16,43 +16,25 @@ namespace Vega.Graphics
 	public unsafe sealed partial class GraphicsService
 	{
 		private static void InitializeVulkanInstance(
-			GraphicsService service, bool validation, out Vk.Instance instance, out Vk.EXT.DebugUtilsMessenger? debug, 
-			out Vk.PhysicalDevice physDevice)
+			GraphicsService service, bool validation, out Vk.InstanceData instanceData, 
+			out Vk.EXT.DebugUtilsMessenger? debug, out Vk.PhysicalDeviceData deviceData)
 		{
-			// Get instance extensions and layers
-			List<string> instExts = new(), instLayers = new();
-			{
-				uint instCount = 0;
-				Vk.Instance.EnumerateInstanceExtensionProperties(null, &instCount, null).Throw();
-				var extPtr = stackalloc Vk.ExtensionProperties[(int)instCount];
-				Vk.Instance.EnumerateInstanceExtensionProperties(null, &instCount, extPtr).Throw();
-				for (uint i = 0; i < instCount; ++i) {
-					instExts.Add(extPtr[i].ExtensionName);
-				}
-				Vk.Instance.EnumerateInstanceLayerProperties(&instCount, null).Throw();
-				var layPtr = stackalloc Vk.LayerProperties[(int)instCount];
-				Vk.Instance.EnumerateInstanceLayerProperties(&instCount, layPtr).Throw();
-				for (uint i = 0; i < instCount; ++i) {
-					instLayers.Add(layPtr[i].LayerName);
-				}
-			}
-
 			// Get the required layers and extensions
 			var reqExts = Glfw.GetRequiredInstanceExtensions().ToList();
 			List<string> reqLayers = new();
 			if (validation) {
-				if (!instExts.Contains(Vk.Constants.EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+				if (!Vk.InstanceData.ExtensionNames.Contains(Vk.Constants.EXT_DEBUG_UTILS_EXTENSION_NAME)) {
 					LWARN("Required extension not present for graphics validation");
 					validation = false;
 				}
-				else if (!instLayers.Contains("VK_LAYER_KHRONOS_validation") &&
-						 !instLayers.Contains("VK_LAYER_LUNARG_validation")) {
+				else if (!Vk.InstanceData.LayerNames.Contains("VK_LAYER_KHRONOS_validation") &&
+						 !Vk.InstanceData.LayerNames.Contains("VK_LAYER_LUNARG_validation")) {
 					LWARN("Required layer not present for graphics validation");
 					validation = false;
 				}
 				else {
 					reqExts.Add(Vk.Constants.EXT_DEBUG_UTILS_EXTENSION_NAME);
-					reqLayers.Add(instLayers.Contains("VK_LAYER_KHRONOS_validation")
+					reqLayers.Add(Vk.InstanceData.LayerNames.Contains("VK_LAYER_KHRONOS_validation")
 						? "VK_LAYER_KHRONOS_validation" : "VK_LAYER_LUNARG_validation");
 				}
 			}
@@ -76,7 +58,11 @@ namespace Vega.Graphics
 			ici.EnabledExtensionNames = extList.Data;
 			ici.EnabledLayerCount = layList.Count;
 			ici.EnabledLayerNames = layList.Data;
-			Vk.Instance.CreateInstance(&ici, null, out instance!).Throw("Failed to create Vulkan instance");
+			Vk.Instance.CreateInstance(&ici, null, out var instance).Throw("Failed to create Vulkan instance");
+			instanceData = new(instance);
+			if (instanceData.PhysicalDevices.Count == 0) {
+				throw new PlatformNotSupportedException("No graphics devices on the system support Vulkan");
+			}
 
 			// Register with debug reports
 			if (validation) {
@@ -97,48 +83,34 @@ namespace Vega.Graphics
 				debug = null;
 			}
 
-			// Get the physical devices
-			List<Vk.PhysicalDevice> pdevs = new();
-			{
-				uint pdevCount = 0;
-				instance.EnumeratePhysicalDevices(&pdevCount, null).Throw();
-				var pdevPtr = stackalloc Vk.Handle<Vk.PhysicalDevice>[(int)pdevCount];
-				instance.EnumeratePhysicalDevices(&pdevCount, pdevPtr).Throw();
-				for (uint i = 0; i < pdevCount; ++i) {
-					pdevs.Add(new(instance, pdevPtr[i]));
-				}
-			}
-			if (pdevs.Count == 0) {
-				throw new PlatformNotSupportedException("No graphics devices on the system support Vulkan");
-			}
-
 			// Select physical device, first by events, then first discrete, then any
-			Vk.PhysicalDevice? pdev = null;
-			foreach (var device in pdevs) {
-				device.GetPhysicalDeviceProperties(out var props);
-				device.GetPhysicalDeviceMemoryProperties(out var memProps);
-				ulong totalMem = 0;
-				for (uint mi = 0; mi < memProps.MemoryHeapCount; ++mi) {
-					totalMem += (&memProps.MemoryHeaps_0)[mi].Size;
-				}
+			Vk.PhysicalDevice pdev = Vk.PhysicalDevice.Null;
+			foreach (var device in instanceData.PhysicalDevices) {
+				var data = new Vk.PhysicalDeviceData(device);
 
 				var evt = new DeviceDiscoveryEvent {
-					DeviceName = props.DeviceName,
-					IsDiscrete = props.DeviceType == Vk.PhysicalDeviceType.DiscreteGpu,
-					MemorySize = new DataSize((long)totalMem),
+					DeviceName = data.DeviceName,
+					IsDiscrete = data.IsDiscrete,
+					MemorySize = new DataSize((long)data.TotalLocalMemory.Value),
 					Use = false
 				};
 				Core.Events.Publish(evt);
 				if (evt.Use) {
 					pdev = device;
+					deviceData = data;
 				}
 			}
-			physDevice = pdev
-				?? pdevs.FirstOrDefault(dev => {
+			if (!pdev) {
+				pdev = instanceData.PhysicalDevices.FirstOrDefault(dev => {
 					dev.GetPhysicalDeviceProperties(out var props);
 					return props.DeviceType == Vk.PhysicalDeviceType.DiscreteGpu;
 				})
-				?? pdevs[0];
+				?? instanceData.PhysicalDevices[0];
+				deviceData = new(pdev);
+			}
+			else {
+				deviceData = new(Vk.PhysicalDevice.Null); // Never Reached
+			}
 		}
 
 		private static void CreateVulkanDevice(GraphicsService service, out Vk.Device device, out Vk.Queue gQueue,
@@ -147,50 +119,25 @@ namespace Vega.Graphics
 			// Populate the features
 			Vk.PhysicalDeviceFeatures feats = new();
 
-			// Get the extensions
-			string[] exts = { };
-			{
-				uint ecnt = 0;
-				service.PhysicalDevice.EnumerateDeviceExtensionProperties(null, &ecnt, null);
-				var extptr = stackalloc Vk.ExtensionProperties[(int)ecnt];
-				exts = new string[ecnt];
-				service.PhysicalDevice.EnumerateDeviceExtensionProperties(null, &ecnt, extptr);
-				for (uint i = 0; i < ecnt; ++i) {
-					exts[i] = extptr[i].ExtensionName;
-				}
-			}
-
 			// Check and populate extensions
 			using var extList = new Vk.NativeStringList();
-			if (!exts.Contains(Vk.Constants.KHR_SWAPCHAIN_EXTENSION_NAME)) {
+			if (!service.DeviceData.ExtensionNames.Contains(Vk.Constants.KHR_SWAPCHAIN_EXTENSION_NAME)) {
 				throw new PlatformNotSupportedException("Selected device does not support swapchain operations");
 			}
 			extList.Add(Vk.Constants.KHR_SWAPCHAIN_EXTENSION_NAME);
-
-			// Enumerate queue families
-			List<Vk.QueueFamilyProperties> queueFams = new();
-			{
-				uint qcount = 0;
-				service.PhysicalDevice.GetPhysicalDeviceQueueFamilyProperties(&qcount, null);
-				var qptr = stackalloc Vk.QueueFamilyProperties[(int)qcount];
-				service.PhysicalDevice.GetPhysicalDeviceQueueFamilyProperties(&qcount, qptr);
-				for (uint i = 0; i < qcount; ++i) {
-					queueFams.Add(qptr[i]);
-				}
-			}
 
 			// Create the queues
 			float QUEUE_PRIORITIES = 1;
 			Vk.DeviceQueueCreateInfo.New(out var gQueueInfo);
 			gQueueInfo.QueueCount = 1;
 			gQueueInfo.QueuePriorities = &QUEUE_PRIORITIES;
-			foreach (var props in queueFams) {
+			foreach (var props in service.DeviceData.QueueFamilies) {
 				if ((props.QueueFlags & Vk.QueueFlags.Graphics) > 0) {
 					break;
 				}
 				++gQueueInfo.QueueFamilyIndex;
 			}
-			if (gQueueInfo.QueueFamilyIndex == queueFams.Count) {
+			if (gQueueInfo.QueueFamilyIndex == service.DeviceData.QueueFamilyCount) {
 				// Shouldn't happen per spec, but still check
 				throw new PlatformNotSupportedException("Selected device does not support graphics operations.");
 			}

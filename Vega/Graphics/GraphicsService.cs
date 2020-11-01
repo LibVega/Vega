@@ -28,9 +28,10 @@ namespace Vega.Graphics
 
 		// Vulkan objects/values
 		internal readonly Vk.Instance Instance;
+		internal readonly Vk.InstanceData InstanceData;
 		internal readonly Vk.EXT.DebugUtilsMessenger? DebugUtils;
 		internal readonly Vk.PhysicalDevice PhysicalDevice;
-		internal readonly Vk.PhysicalDeviceProperties DeviceProperties;
+		internal readonly Vk.PhysicalDeviceData DeviceData;
 		internal readonly Vk.Device Device;
 		internal readonly Vk.Queue GraphicsQueue;
 		internal readonly uint GraphicsQueueIndex;
@@ -55,9 +56,10 @@ namespace Vega.Graphics
 			Core = core;
 
 			// Create the instance and select the device to use
-			InitializeVulkanInstance(this, validation, out Instance, out DebugUtils, out PhysicalDevice);
-			PhysicalDevice.GetPhysicalDeviceProperties(out DeviceProperties);
-			LINFO($"Selected device '{DeviceProperties.DeviceName}'");
+			InitializeVulkanInstance(this, validation, out InstanceData, out DebugUtils, out DeviceData);
+			Instance = InstanceData.Instance;
+			PhysicalDevice = DeviceData.PhysicalDevice;
+			LINFO($"Selected device '{DeviceData.DeviceName}'");
 			CreateVulkanDevice(this, out Device, out GraphicsQueue, out GraphicsQueueIndex);
 			LINFO("Created Vulkan device instance");
 		}

@@ -80,10 +80,10 @@ namespace Vega.Graphics
 				uint count = 0;
 				_physicalDevice.GetPhysicalDeviceSurfaceFormatsKHR(Surface, &count, null);
 				sFmts = new Vk.KHR.SurfaceFormat[count];
-				_physicalDevice.GetPhysicalDeviceSurfaceFormatsKHR(Surface, out count, sFmts);
+				_physicalDevice.GetPhysicalDeviceSurfaceFormatsKHR(Surface, sFmts);
 				_physicalDevice.GetPhysicalDeviceSurfacePresentModesKHR(Surface, &count, null);
 				sModes = new Vk.KHR.PresentMode[count];
-				_physicalDevice.GetPhysicalDeviceSurfacePresentModesKHR(Surface, out count, sModes);
+				_physicalDevice.GetPhysicalDeviceSurfacePresentModesKHR(Surface, sModes);
 			}
 			if (sFmts.Length == 0 || sModes.Length == 0) {
 				throw new PlatformNotSupportedException("Window context does not support presentation operations");
@@ -132,12 +132,7 @@ namespace Vega.Graphics
 				cbai.CommandPool = _cmd.Pool;
 				cbai.Level = Vk.CommandBufferLevel.Primary;
 				cbai.CommandBufferCount = GraphicsService.MAX_FRAMES;
-				var cmdPtr = stackalloc Vk.Handle<Vk.CommandBuffer>[(int)GraphicsService.MAX_FRAMES];
-				_device.AllocateCommandBuffers(&cbai, cmdPtr).Throw("Swapchain command buffers");
-				_cmd.Cmds = new Vk.CommandBuffer[GraphicsService.MAX_FRAMES];
-				for (uint i = 0; i < GraphicsService.MAX_FRAMES; ++i) {
-					_cmd.Cmds[i] = new Vk.CommandBuffer(_cmd.Pool, cmdPtr[i]);
-				}
+				_device.AllocateCommandBuffers(cbai, out _cmd.Cmds).Throw("Swapchain command buffers");
 			}
 
 			// Do initial build
