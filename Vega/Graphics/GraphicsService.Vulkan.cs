@@ -170,7 +170,7 @@ namespace Vega.Graphics
 				MessageId = data->MessageIdNumber
 			};
 			Vk.EXT.DebugUtilsObjectNameInfo* next = data->Objects;
-			for (uint i = 0; i < data->ObjectCount; ++i) {
+			while (next != null) {
 				evt.ObjectNames.Add(Marshal.PtrToStringAnsi(new IntPtr(next->ObjectName)) ?? String.Empty);
 				next = (Vk.EXT.DebugUtilsObjectNameInfo*)next->pNext;
 			}

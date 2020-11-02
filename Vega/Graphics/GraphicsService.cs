@@ -38,6 +38,9 @@ namespace Vega.Graphics
 		private readonly FastMutex _graphicsQueueLock = new();
 		internal Vk.Version ApiVersion => Instance.Functions.CoreVersion;
 
+		// Resources
+		internal readonly ResourceManager Resources;
+
 		/// <summary>
 		/// The frame index used for resource synchronization.
 		/// </summary>
@@ -62,6 +65,9 @@ namespace Vega.Graphics
 			LINFO($"Selected device '{DeviceData.DeviceName}'");
 			CreateVulkanDevice(this, out Device, out GraphicsQueue, out GraphicsQueueIndex);
 			LINFO("Created Vulkan device instance");
+
+			// Prepare resources
+			Resources = new(this);
 		}
 		~GraphicsService()
 		{
@@ -124,6 +130,9 @@ namespace Vega.Graphics
 			if (!IsDisposed) {
 				if (disposing) {
 					Device.DeviceWaitIdle();
+
+					Resources.Dispose();
+
 					Device.DestroyDevice(null);
 					LINFO("Destroyed Vulkan device");
 					DebugUtils?.DestroyDebugUtilsMessengerEXT(null);
