@@ -35,15 +35,9 @@
     <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.18.1" />
   </ItemGroup>
   
-  <ItemGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <Reference Include="VVK-Debug">
-      <HintPath>..\Dependencies\Managed\Debug\VVK.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-  
-  <ItemGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <Reference Include="VVK-Release">
-      <HintPath>..\Dependencies\Managed\Release\VVK.dll</HintPath>
+  <ItemGroup>
+    <Reference Include="VVK">
+      <HintPath>..\Dependencies\Managed\VVK.dll</HintPath>
     </Reference>
   </ItemGroup>
 
