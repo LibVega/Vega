@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Runtime.Intrinsics.X86;
 
 namespace Vega.Graphics
 {
@@ -21,6 +22,16 @@ namespace Vega.Graphics
 		private readonly MemoryIndex MemoryUpload;
 		private readonly MemoryIndex MemoryDynamic;
 		private readonly MemoryIndex? MemoryTransient;
+
+		#region Thread Local Resources
+		// Per-thread management values
+		[ThreadStatic]
+		private static uint? _ThreadIndex = null; // Index of current thread into global resource lists
+		private static ulong _IndexMask = UInt64.MaxValue; // Mask of available thread ids (bit=1 is available)
+		private static readonly object _IndexLock = new();
+		public bool IsThreadRegistered => _ThreadIndex.HasValue;
+		public bool IsMainThread => _ThreadIndex.HasValue && (_ThreadIndex.Value == 0);
+		#endregion // Thread Local Resources
 
 		// If this manager is disposed
 		public bool IsDisposed { get; private set; } = false;
@@ -74,6 +85,18 @@ namespace Vega.Graphics
 		{
 			dispose(false);
 		}
+
+		#region Frames
+		public void BeginFrame()
+		{
+
+		}
+
+		public void EndFrame()
+		{
+
+		}
+		#endregion // Frames
 
 		#region Memory
 		public MemoryAllocation? AllocateMemoryDevice(in Vk.MemoryRequirements req)
@@ -164,6 +187,37 @@ namespace Vega.Graphics
 				: null;
 		}
 		#endregion // Memory
+
+		#region Threading
+		public void RegisterThread()
+		{
+			if (_ThreadIndex.HasValue) {
+				throw new InvalidOperationException("Cannot double register a thread for graphics operations");
+			}
+
+			// Get the thread id
+			lock (_IndexLock) {
+				if (_IndexMask == 0) {
+					throw new InvalidOperationException("No available slots for a new graphics thread");
+				}
+				_ThreadIndex = (uint)Lzcnt.X64.LeadingZeroCount(_IndexMask);
+				_IndexMask &= ~(1u << (int)_ThreadIndex.Value); // Clear the bit (mark as used)
+			}
+		}
+
+		public void UnregisterThread()
+		{
+			if (!_ThreadIndex.HasValue) {
+				throw new InvalidOperationException("Cannot unregister a thread that is not registered for graphics operations");
+			}
+
+			// Release the thread id
+			lock (_IndexLock) {
+				_IndexMask |= (1u << (int)_ThreadIndex.Value); // Set the bit (mark as unused)
+				_ThreadIndex = null;
+			}
+		}
+		#endregion // Threading
 
 		#region IDisposable
 		public void Dispose()

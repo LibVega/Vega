@@ -40,6 +40,15 @@ namespace Vega.Graphics
 
 		// Resources
 		internal readonly ResourceManager Resources;
+		/// <summary>
+		/// Gets if the calling thread is registered with the graphics service, and is able to perform graphics
+		/// operations.
+		/// </summary>
+		public bool IsThreadRegistered => Resources.IsThreadRegistered;
+		/// <summary>
+		/// Gets if the calling thread is the main graphics thread.
+		/// </summary>
+		public bool IsMainThread => Resources.IsMainThread;
 
 		/// <summary>
 		/// The frame index used for resource synchronization.
@@ -68,6 +77,7 @@ namespace Vega.Graphics
 
 			// Prepare resources
 			Resources = new(this);
+			Resources.RegisterThread();
 		}
 		~GraphicsService()
 		{
@@ -78,6 +88,7 @@ namespace Vega.Graphics
 		// Performs graphics operations for the start of the frame
 		internal void BeginFrame()
 		{
+			Resources.BeginFrame();
 			InFrame = true;
 		}
 
@@ -87,6 +98,8 @@ namespace Vega.Graphics
 			// Advance frame
 			InFrame = false;
 			FrameIndex = (FrameIndex + 1) % MAX_FRAMES;
+
+			Resources.EndFrame();
 		}
 		#endregion // Frames
 
@@ -118,6 +131,21 @@ namespace Vega.Graphics
 		}
 		#endregion // Commands
 
+		#region Threading
+		/// <summary>
+		/// Performs initialization required for the calling thread to perform graphics operations. Attempting to
+		/// perform graphics operations on unregistered threads will cause an exception. The main thread is always
+		/// registered.
+		/// </summary>
+		public void RegisterThread() => Resources.RegisterThread();
+
+		/// <summary>
+		/// Unregisters a threads previously called with <see cref="RegisterThread"/>, performing cleanup and releasing
+		/// graphics resources for the thread. After this call, the calling thread must not perform graphics operations.
+		/// </summary>
+		public void UnregisterThread() => Resources.UnregisterThread();
+		#endregion // Threading
+
 		#region Disposable
 		internal void Dispose()
 		{
@@ -131,6 +159,7 @@ namespace Vega.Graphics
 				if (disposing) {
 					Device.DeviceWaitIdle();
 
+					Resources.UnregisterThread();
 					Resources.Dispose();
 
 					Device.DestroyDevice(null);
