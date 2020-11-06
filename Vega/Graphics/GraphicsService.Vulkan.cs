@@ -15,6 +15,30 @@ namespace Vega.Graphics
 {
 	public unsafe sealed partial class GraphicsService
 	{
+		#region Feature Checks
+		/// <summary>
+		/// Checks if the given MSAA level is supported by the current platform.
+		/// </summary>
+		/// <param name="msaa">The MSAA level to check.</param>
+		public bool IsMSAASupported(MSAA msaa) =>
+			(DeviceData.Properties.Limits.FramebufferColorSampleCounts & (Vk.SampleCountFlags)msaa) > 0;
+
+		/// <summary>
+		/// Gets the maximum MSAA level supported by the current platform.
+		/// </summary>
+		public MSAA MaxMSAA
+		{
+			get {
+				var sup = DeviceData.Properties.Limits.FramebufferColorSampleCounts;
+				if ((sup & Vk.SampleCountFlags.E16) > 0) return MSAA.X16;
+				if ((sup & Vk.SampleCountFlags.E8) > 0) return MSAA.X8;
+				if ((sup & Vk.SampleCountFlags.E4) > 0) return MSAA.X4;
+				if ((sup & Vk.SampleCountFlags.E2) > 0) return MSAA.X2;
+				return MSAA.X1;
+			}
+		}
+		#endregion // Feature Checks
+
 		private static void InitializeVulkanInstance(
 			GraphicsService service, bool validation, out Vk.InstanceData instanceData, 
 			out Vk.EXT.DebugUtilsMessenger? debug, out Vk.PhysicalDeviceData deviceData)
