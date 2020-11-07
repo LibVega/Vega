@@ -42,6 +42,7 @@ namespace Vega.Graphics
 		private SurfaceInfo _surfaceInfo;
 		public bool Vsync => _surfaceInfo.Mode == Vk.KHR.PresentMode.FifoKHR;
 		public bool VsyncOnly => !_surfaceInfo.HasImmediate && !_surfaceInfo.HasMailbox;
+		public Vk.Format SurfaceFormat => _surfaceInfo.Format.Format;
 
 		// Swapchain objects
 		public Vk.KHR.Swapchain Handle { get; private set; }

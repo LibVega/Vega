@@ -41,6 +41,10 @@ namespace Vega
 
 		// Swapchain handle
 		internal readonly Swapchain Swapchain;
+		/// <summary>
+		/// Gets the format of the window display surface.
+		/// </summary>
+		public TexelFormat SurfaceFormat => (TexelFormat)Swapchain.SurfaceFormat;
 
 		#region Properties
 		/// <summary>

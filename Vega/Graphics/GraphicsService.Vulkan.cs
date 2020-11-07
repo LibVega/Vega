@@ -21,7 +21,9 @@ namespace Vega.Graphics
 		/// </summary>
 		/// <param name="msaa">The MSAA level to check.</param>
 		public bool IsMSAASupported(MSAA msaa) =>
-			(DeviceData.Properties.Limits.FramebufferColorSampleCounts & (Vk.SampleCountFlags)msaa) > 0;
+			(DeviceData.Properties.Limits.FramebufferColorSampleCounts & 
+			 DeviceData.Properties.Limits.FramebufferDepthSampleCounts & 
+			 (Vk.SampleCountFlags)msaa) > 0;
 
 		/// <summary>
 		/// Gets the maximum MSAA level supported by the current platform.
@@ -29,7 +31,8 @@ namespace Vega.Graphics
 		public MSAA MaxMSAA
 		{
 			get {
-				var sup = DeviceData.Properties.Limits.FramebufferColorSampleCounts;
+				var sup = DeviceData.Properties.Limits.FramebufferColorSampleCounts &
+					DeviceData.Properties.Limits.FramebufferDepthSampleCounts;
 				if ((sup & Vk.SampleCountFlags.E16) > 0) return MSAA.X16;
 				if ((sup & Vk.SampleCountFlags.E8) > 0) return MSAA.X8;
 				if ((sup & Vk.SampleCountFlags.E4) > 0) return MSAA.X4;
