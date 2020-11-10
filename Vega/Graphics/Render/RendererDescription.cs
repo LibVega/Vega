@@ -12,7 +12,6 @@ namespace Vega.Graphics
 {
 	/// <summary>
 	/// Describes the render targets and subpass layout required to create a <see cref="Renderer"/> instance.
-	/// Instances are immutable once <see cref="Build(out string?)"/> is called.
 	/// </summary>
 	public sealed class RendererDescription
 	{
@@ -24,10 +23,13 @@ namespace Vega.Graphics
 		private readonly List<AttachmentDescription> _attachments;
 
 		/// <summary>
-		/// Gets if this description has been built (validated). Once built, a description cannot be
-		/// changed. An unbuilt description cannot be used to create a <see cref="Renderer"/>.
+		/// The number of attachments in the description.
 		/// </summary>
-		public bool IsBuilt { get; private set; } = false;
+		public int AttachmentCount => _attachments.Count;
+		/// <summary>
+		/// The number of subpasses in the renderer (taken from attachment 0).
+		/// </summary>
+		public int SubpassCount => (_attachments.Count > 0) ? _attachments[0].TimelineSize : 0;
 		#endregion // Fields
 
 		/// <summary>
@@ -51,23 +53,61 @@ namespace Vega.Graphics
 		}
 
 		/// <summary>
-		/// Attempts to build the description, which validates the contents and creates some additional internal
-		/// values so it can be used by <see cref="Renderer"/> instances.
+		/// Checks if the renderer description is valid and consistent.
 		/// </summary>
 		/// <param name="error">A human-readable message of the build error, or <c>null</c> on success.</param>
 		/// <param name="window">The optional window against which validity checks are performed.</param>
-		/// <returns>
-		/// If the description was build successfully, <c>false</c> will provide an error in <paramref name="error"/>.
-		/// </returns>
-		public bool Build(out string? error, Window? window)
+		/// <returns>If the description was built successfully.</returns>
+		public bool TryValidate(out string? error, Window? window)
 		{
-			if (IsBuilt) {
-				error = null;
-				return true;
+			// Check counts
+			if (_attachments.Count == 0) {
+				error = "no attachments";
+				return false;
+			}
+			if (_attachments.Skip(1).Any(a => a.TimelineSize != _attachments[0].TimelineSize)) {
+				error = $"subpass count mismatch (counts=[{String.Join(", ", _attachments.Select(a => a.TimelineSize))}])";
+				return false;
+			}
+
+			// Check individual attachments
+			for (int i = 0; i < _attachments.Count; ++i) {
+				if (!_attachments[i].TryValidate(out var aerr)) {
+					error = $"invalid attachment {i} - {aerr}";
+					return false;
+				}
+			}
+
+			// Subpass checks
+			for (int si = 0; si < SubpassCount; ++si) {
+				// Check MSAA outputs
+				var msaaOut = _attachments
+					.Where(att => att.Timeline[si] == AttachmentUse.Output)
+					.Select(att => att.MSAA && (si <= att.ResolveSubpass.GetValueOrDefault(UInt32.MaxValue)))
+					.Distinct();
+				if (msaaOut.Count() != 1) {
+					error = $"cannot mix MSAA and non-MSAA attachments in subpass {si} output";
+					return false;
+				}
+			}
+
+			// Window validation
+			if (window is not null) {
+				if (_attachments[0].Format != window.SurfaceFormat) {
+					error = "attachment 0 and window surface format mismatch";
+					return false;
+				}
+				if (!_attachments[0].Preserve) {
+					error = "attachment 0 must be preserved if used as the window surface";
+					return false;
+				}
+				if (_attachments[0].MSAA && !_attachments[0].ResolveSubpass.HasValue) {
+					error = "attachment 0 must be resolved if used as the window surface";
+					return false;
+				}
 			}
 
 			// Update and Return
-			IsBuilt = true;
 			error = null;
 			return true;
 		}

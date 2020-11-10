@@ -24,10 +24,6 @@ namespace Vega.Graphics
 		/// <summary>
 		/// The attachment is read from as an input attachment in the subpass.
 		/// </summary>
-		Input,
-		/// <summary>
-		/// The attachment is used as a resolve target for another output target.
-		/// </summary>
-		Resolve
+		Input
 	}
 }
