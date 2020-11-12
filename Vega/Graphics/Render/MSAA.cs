@@ -46,6 +46,6 @@ namespace Vega.Graphics
 		/// populated.
 		/// </summary>
 		/// <param name="msaa">The MSAA level to check.</param>
-		public static bool IsSupported(this MSAA msaa) => Core.Instance?.Graphics.IsMSAASupported(msaa) ?? false;
+		public static bool IsSupported(this MSAA msaa) => Core.Instance?.Graphics.Limits.IsMSAASupported(msaa) ?? false;
 	}
 }

@@ -86,7 +86,16 @@ namespace Vega.Graphics
 					.Select(att => att.MSAA && (si <= att.ResolveSubpass.GetValueOrDefault(UInt32.MaxValue)))
 					.Distinct();
 				if (msaaOut.Count() != 1) {
-					error = $"cannot mix MSAA and non-MSAA attachments in subpass {si} output";
+					error = $"cannot mix MSAA and non-MSAA output attachments in subpass {si}";
+					return false;
+				}
+
+				// Check depth attachments
+				var depthOut = _attachments
+					.Where(att => att.Timeline[si] == AttachmentUse.Output)
+					.Where(att => att.Format.IsDepthFormat());
+				if (depthOut.Count() > 1) {
+					error = $"cannot have multiple depth/stencil attachments in subpass {si}";
 					return false;
 				}
 			}

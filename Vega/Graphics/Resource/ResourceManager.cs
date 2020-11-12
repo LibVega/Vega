@@ -22,6 +22,8 @@ namespace Vega.Graphics
 		private readonly MemoryIndex MemoryUpload;
 		private readonly MemoryIndex MemoryDynamic;
 		private readonly MemoryIndex? MemoryTransient;
+		// Gets if the system supports transient memory
+		public bool HasTransientMemory => MemoryTransient.HasValue;
 
 		#region Thread Local Resources
 		// Per-thread management values

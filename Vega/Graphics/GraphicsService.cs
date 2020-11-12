@@ -38,6 +38,11 @@ namespace Vega.Graphics
 		private readonly FastMutex _graphicsQueueLock = new();
 		internal Vk.Version ApiVersion => Instance.Functions.CoreVersion;
 
+		/// <summary>
+		/// The limits for the selected graphics device and driver.
+		/// </summary>
+		public readonly GraphicsLimits Limits;
+
 		// Resources
 		internal readonly ResourceManager Resources;
 		/// <summary>
@@ -74,6 +79,7 @@ namespace Vega.Graphics
 			LINFO($"Selected device '{DeviceData.DeviceName}'");
 			CreateVulkanDevice(this, out Device, out GraphicsQueue, out GraphicsQueueIndex);
 			LINFO("Created Vulkan device instance");
+			Limits = new(DeviceData);
 
 			// Prepare resources
 			Resources = new(this);
