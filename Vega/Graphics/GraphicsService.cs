@@ -106,6 +106,8 @@ namespace Vega.Graphics
 			InFrame = false;
 			FrameIndex = (FrameIndex + 1) % MAX_FRAMES;
 
+			// Run resource processing for the frame
+			GraphicsQueue.UpdateContexts();
 			Resources.EndFrame();
 		}
 		#endregion // Frames
@@ -140,6 +142,8 @@ namespace Vega.Graphics
 
 					Resources.UnregisterThread();
 					Resources.Dispose();
+
+					GraphicsQueue.Dispose();
 
 					Device.DestroyDevice(null);
 					LINFO("Destroyed Vulkan device");

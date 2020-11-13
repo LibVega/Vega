@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 
 namespace Vega.Graphics
 {
@@ -13,6 +14,8 @@ namespace Vega.Graphics
 	//    "tracked" submissions are tracked with contexts, and are used for general recycled command buffers
 	internal unsafe sealed class DeviceQueue : IDisposable
 	{
+		private const int GROW_SIZE = 16;
+
 		#region Fields
 		// The associated graphics service
 		public readonly GraphicsService Graphics;
@@ -23,6 +26,11 @@ namespace Vega.Graphics
 
 		// Sync objects
 		private readonly object _submitLock = new();
+
+		// Submit context objects
+		private readonly Stack<SubmitContext> _available = new(100);
+		private readonly Queue<SubmitContext> _pending = new(100);
+		private readonly FastMutex _poolMutex = new();
 
 		#region Info
 		// The number of Submit*() calls over the queue lifetime
@@ -40,14 +48,79 @@ namespace Vega.Graphics
 			Graphics = gs;
 			Queue = queue;
 			FamilyIndex = index;
+
+			growPool();
 		}
 		~DeviceQueue()
 		{
 			dispose(false);
 		}
 
+		#region Context Management
+		// Gets a free submit context, automatically moving it to the pending queue
+		private SubmitContext allocateContext()
+		{
+			using (var _ = _poolMutex.AcquireUNSAFE()) {
+				if (_available.TryPop(out var ctx)) {
+					_pending.Enqueue(ctx);
+					return ctx;
+				}
+				else {
+					growPool();
+					_pending.Enqueue(ctx = _available.Pop());
+					return ctx;
+				}
+			}
+		}
+
+		// Called at the end of the frame to find and return completed command buffers
+		public void UpdateContexts()
+		{
+			if (_pending.Count == 0) {
+				return;
+			}
+
+			using (var _ = _poolMutex.AcquireUNSAFE()) {
+				// Exit once we find an unfinished context, as the future ones likely aren't done either
+				while (_pending.TryPeek(out var ctx) && ctx.TryRelease()) {
+					_available.Push(_pending.Dequeue());
+				}
+			}
+		}
+
+		// Allocates more submission contexts (REQUIRES EXTERNAL SYNCHRONIZATION)
+		private void growPool()
+		{
+			for (int i = 0; i < GROW_SIZE; ++i) {
+				_available.Push(new(this));
+			}
+		}
+		#endregion // Context Management
+
+		#region Tracked Submits
+		// Submit a single command buffer with no semaphores
+		public Vk.Result Submit(CommandBuffer cmd)
+		{
+			var ctx = allocateContext();
+			ctx.Prepare(cmd);
+
+			Vk.Handle<Vk.CommandBuffer> cmdHandle = cmd.Cmd;
+			Vk.SubmitInfo si = new(
+				waitSemaphoreCount: 0,
+				waitSemaphores: null,
+				waitDstStageMask: null,
+				commandBufferCount: 1,
+				commandBuffers: &cmdHandle,
+				signalSemaphoreCount: 0,
+				signalSemaphores: null
+			);
+			lock (_submitLock) {
+				return Queue.QueueSubmit(1, &si, ctx.Fence);
+			}
+		}
+		#endregion // Tracked Submits
+
 		#region Raw Submits
-		// Raw, pre-prepared submission
 		public Vk.Result SubmitRaw(in Vk.SubmitInfo si, Vk.Handle<Vk.Fence> fence)
 		{
 			SubmitCount += 1;
@@ -59,7 +132,6 @@ namespace Vega.Graphics
 			}
 		}
 
-		// Raw, pre-prepared submission
 		public Vk.Result SubmitRaw(Vk.SubmitInfo* si, Vk.Handle<Vk.Fence> fence)
 		{
 			SubmitCount += 1;
@@ -69,7 +141,6 @@ namespace Vega.Graphics
 			}
 		}
 
-		// Surface presentation
 		public Vk.Result Present(Vk.KHR.PresentInfo* pi)
 		{
 			lock (_submitLock) {
