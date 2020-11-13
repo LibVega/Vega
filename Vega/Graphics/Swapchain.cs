@@ -73,7 +73,8 @@ namespace Vega.Graphics
 			Glfw.CreateWindowSurface(gs.Instance, window.Handle, out var surfaceHandle)
 				.Throw("Failed to create window surface");
 			Surface = new(gs.Instance, surfaceHandle);
-			_physicalDevice.GetPhysicalDeviceSurfaceSupportKHR(gs.GraphicsQueueIndex, Surface, out var presentSupport);
+			_physicalDevice
+				.GetPhysicalDeviceSurfaceSupportKHR(gs.GraphicsQueue.FamilyIndex, Surface, out var presentSupport);
 			if (!presentSupport) {
 				throw new PlatformNotSupportedException("Selected device does not support window presentation");
 			}
@@ -121,7 +122,7 @@ namespace Vega.Graphics
 
 			// Create command objects
 			Vk.CommandPoolCreateInfo.New(out var cpci);
-			cpci.QueueFamilyIndex = gs.GraphicsQueueIndex;
+			cpci.QueueFamilyIndex = gs.GraphicsQueue.FamilyIndex;
 			_device.CreateCommandPool(&cpci, null, out _cmd.Pool!).Throw("Swapchain command pool");
 			_cmd.ClearSemaphores = new Vk.Semaphore[GraphicsService.MAX_FRAMES];
 			_cmd.RenderFences = new Vk.Fence[GraphicsService.MAX_FRAMES];
@@ -187,7 +188,7 @@ namespace Vega.Graphics
 				si.CommandBuffers = &cmd;
 				si.SignalSemaphoreCount = 1;
 				si.SignalSemaphores = &ssem;
-				Core.Instance!.Graphics.SubmitToGraphicsQueue(&si, _cmd.RenderFences[_swapchainInfo.SyncIndex])
+				Core.Instance!.Graphics.GraphicsQueue.SubmitRaw(&si, _cmd.RenderFences[_swapchainInfo.SyncIndex])
 					.Throw("Failed to submit window clear commands");
 			}
 
@@ -203,7 +204,7 @@ namespace Vega.Graphics
 				pi.SwapchainCount = 1;
 				pi.Swapchains = &sc;
 				pi.ImageIndices = &iidx;
-				res = Core.Instance!.Graphics.SubmitToGraphicsQueue(&pi);
+				res = Core.Instance!.Graphics.GraphicsQueue.Present(&pi);
 			}
 			_swapchainInfo.SyncIndex = (_swapchainInfo.SyncIndex + 1) % GraphicsService.MAX_FRAMES;
 			if (_swapchainInfo.Dirty || (res == Vk.Result.SuboptimalKhr) || (res == Vk.Result.OutOfDateKhr)) {

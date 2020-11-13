@@ -33,10 +33,10 @@ namespace Vega.Graphics
 		internal readonly Vk.PhysicalDevice PhysicalDevice;
 		internal readonly Vk.PhysicalDeviceData DeviceData;
 		internal readonly Vk.Device Device;
-		internal readonly Vk.Queue GraphicsQueue;
-		internal readonly uint GraphicsQueueIndex;
-		private readonly FastMutex _graphicsQueueLock = new();
 		internal Vk.Version ApiVersion => Instance.Functions.CoreVersion;
+
+		// Queue objects
+		internal readonly DeviceQueue GraphicsQueue;
 
 		/// <summary>
 		/// The limits for the selected graphics device and driver.
@@ -77,7 +77,8 @@ namespace Vega.Graphics
 			Instance = InstanceData.Instance;
 			PhysicalDevice = DeviceData.PhysicalDevice;
 			LINFO($"Selected device '{DeviceData.DeviceName}'");
-			CreateVulkanDevice(this, out Device, out GraphicsQueue, out GraphicsQueueIndex);
+			CreateVulkanDevice(this, out Device, out var graphicsQueue, out var graphicsQueueIndex);
+			GraphicsQueue = new(this, graphicsQueue, graphicsQueueIndex);
 			LINFO("Created Vulkan device instance");
 			Limits = new(DeviceData);
 
@@ -108,34 +109,6 @@ namespace Vega.Graphics
 			Resources.EndFrame();
 		}
 		#endregion // Frames
-
-		#region Commands
-		// Submits a set of commands to the graphics queue
-		internal Vk.Result SubmitToGraphicsQueue(in Vk.SubmitInfo si, Vk.Handle<Vk.Fence> fence)
-		{
-			using (var _ = _graphicsQueueLock.AcquireUNSAFE()) {
-				fixed (Vk.SubmitInfo* siptr = &si) {
-					return GraphicsQueue.QueueSubmit(1, siptr, fence);
-				}
-			}
-		}
-
-		// Submits a set of commands to the graphics queue
-		internal Vk.Result SubmitToGraphicsQueue(Vk.SubmitInfo* si, Vk.Handle<Vk.Fence> fence)
-		{
-			using (var _ = _graphicsQueueLock.AcquireUNSAFE()) {
-				return GraphicsQueue.QueueSubmit(1, si, fence);
-			}
-		}
-
-		// Presents a swapchain
-		internal Vk.Result SubmitToGraphicsQueue(Vk.KHR.PresentInfo* pi)
-		{
-			using (var _ = _graphicsQueueLock.AcquireUNSAFE()) {
-				return GraphicsQueue.QueuePresentKHR(pi);
-			}
-		}
-		#endregion // Commands
 
 		#region Threading
 		/// <summary>

@@ -43,7 +43,7 @@ namespace Vega.Graphics
 			// Create the pools
 			Vk.CommandPoolCreateInfo cpci = new(
 				flags: Vk.CommandPoolCreateFlags.ResetCommandBuffer, 
-				queueFamilyIndex: gs.GraphicsQueueIndex
+				queueFamilyIndex: gs.GraphicsQueue.FamilyIndex
 			);
 			gs.Device.CreateCommandPool(&cpci, null, out _pool)
 				.Throw("Failed to create transient command pool");
