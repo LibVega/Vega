@@ -12,6 +12,8 @@ namespace Vega.Graphics
 	// Performs management and tracking for memory, per-thread, and per-frame Vulkan resources
 	internal unsafe sealed class ResourceManager : IDisposable
 	{
+		public const int MAX_THREADS = sizeof(ulong) * 8;
+
 		#region Fields
 		// The service using this resource manager
 		public readonly GraphicsService Graphics;
@@ -33,6 +35,9 @@ namespace Vega.Graphics
 		private static readonly object _IndexLock = new();
 		public bool IsThreadRegistered => _ThreadIndex.HasValue;
 		public bool IsMainThread => _ThreadIndex.HasValue && (_ThreadIndex.Value == 0);
+
+		// Command pools
+		private readonly CommandPool?[] _commandPools = new CommandPool?[MAX_THREADS];
 		#endregion // Thread Local Resources
 
 		// If this manager is disposed
@@ -205,6 +210,9 @@ namespace Vega.Graphics
 				_ThreadIndex = (uint)Lzcnt.X64.LeadingZeroCount(_IndexMask);
 				_IndexMask &= ~(1u << (int)_ThreadIndex.Value); // Clear the bit (mark as used)
 			}
+
+			// Create thread resources
+			_commandPools[_ThreadIndex.Value] = new(Graphics);
 		}
 
 		public void UnregisterThread()
@@ -213,11 +221,18 @@ namespace Vega.Graphics
 				throw new InvalidOperationException("Cannot unregister a thread that is not registered for graphics operations");
 			}
 
+			// Destroy thread resources
+			_commandPools[_ThreadIndex.Value]!.Dispose();
+			_commandPools[_ThreadIndex.Value] = null;
+
 			// Release the thread id
 			lock (_IndexLock) {
 				_IndexMask |= (1u << (int)_ThreadIndex.Value); // Set the bit (mark as unused)
 				_ThreadIndex = null;
 			}
+
+			// This should happen relatively infrequently, and after this call there will be a good amount to release
+			GC.Collect();
 		}
 		#endregion // Threading
 
@@ -231,7 +246,10 @@ namespace Vega.Graphics
 		private void dispose(bool disposing)
 		{
 			if (!IsDisposed) {
-
+				// Destroy threaded resources
+				foreach (var pool in _commandPools) {
+					pool?.Dispose();
+				}
 			}
 			IsDisposed = true;
 		}
