@@ -15,8 +15,8 @@ namespace Vega.Graphics
 	public sealed class Renderer : IDisposable
 	{
 		#region Fields
-		// The framebuffer for this renderer
-		internal readonly Framebuffer Framebuffer;
+		// The renderpass and framebuffers for this renderer
+		internal readonly RenderPass RenderPass;
 
 		/// <summary>
 		/// The current size of the renderer targets.
@@ -53,8 +53,8 @@ namespace Vega.Graphics
 			}
 
 			// Create framebuffer
-			Framebuffer = new Framebuffer(this, desc, null);
-			Framebuffer.Rebuild(size, msaa);
+			RenderPass = new RenderPass(this, desc, null);
+			RenderPass.Rebuild(size, msaa);
 			Size = size;
 			MSAA = msaa;
 		}
@@ -77,8 +77,8 @@ namespace Vega.Graphics
 			}
 
 			// Create framebuffer
-			Framebuffer = new Framebuffer(this, desc, window);
-			Framebuffer.Rebuild(window.Size, msaa);
+			RenderPass = new RenderPass(this, desc, window);
+			RenderPass.Rebuild(window.Size, msaa);
 			Size = window.Size;
 			MSAA = msaa;
 		}
@@ -98,7 +98,7 @@ namespace Vega.Graphics
 		{
 			if (!IsDisposed) {
 				if (disposing) {
-					Framebuffer.Dispose();
+					RenderPass.Dispose();
 				}
 			}
 			IsDisposed = true;

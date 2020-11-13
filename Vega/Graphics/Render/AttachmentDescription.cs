@@ -104,6 +104,10 @@ namespace Vega.Graphics
 					error = $"resolve subpass must use AttachmentUse.Output";
 					return false;
 				}
+				if (Format.IsDepthFormat()) {
+					error = $"cannot resolve depth attachments";
+					return false;
+				}
 			}
 			else if (MSAA && Preserve) {
 				error = "attachment is preserved, but is never resolved";

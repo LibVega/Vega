@@ -51,6 +51,7 @@ namespace Vega.Graphics
 		private Vk.ImageView[] _imageViews;
 		private Vk.Semaphore[] _acquireSemaphores;
 		private Vk.Fence?[] _mappedFences;
+		public uint ImageIndex => _swapchainInfo.ImageIndex;
 
 		// Sync objects
 		private CommandObjects _cmd;
