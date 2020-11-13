@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Vk.Extras;
@@ -47,11 +48,13 @@ namespace Vega.Graphics
 		// Swapchain objects
 		public Vk.KHR.Swapchain Handle { get; private set; }
 		private SwapchainInfo _swapchainInfo;
-		private Vk.Image[] _images;
-		private Vk.ImageView[] _imageViews;
-		private Vk.Semaphore[] _acquireSemaphores;
-		private Vk.Fence?[] _mappedFences;
+		private readonly Vk.Image[] _images;
+		private readonly Vk.ImageView[] _imageViews;
+		private readonly Vk.Semaphore[] _acquireSemaphores;
+		private readonly Vk.Fence?[] _mappedFences;
 		public uint ImageIndex => _swapchainInfo.ImageIndex;
+		public uint ImageCount => _swapchainInfo.ImageCount;
+		public IReadOnlyList<Vk.ImageView> ImageViews => _imageViews;
 
 		// Sync objects
 		private CommandObjects _cmd;
@@ -76,8 +79,8 @@ namespace Vega.Graphics
 			}
 
 			// Get surface info
-			Vk.KHR.SurfaceFormat[] sFmts = { };
-			Vk.KHR.PresentMode[] sModes = { };
+			Vk.KHR.SurfaceFormat[] sFmts;
+			Vk.KHR.PresentMode[] sModes;
 			{
 				uint count = 0;
 				_physicalDevice.GetPhysicalDeviceSurfaceFormatsKHR(Surface, &count, null);
@@ -374,7 +377,8 @@ namespace Vega.Graphics
 			LINFO($"Rebuilt swapchain (old={oldSize}) (new={newSize}) (time={timer.Elapsed.TotalMilliseconds}ms) " +
 				$"(wait={waitTime.TotalMilliseconds}ms) (mode={_surfaceInfo.Mode}) (count={imgCount})");
 
-			// TODO: Inform attached renderer of swapchain resize
+			// Inform attached renderer of swapchain resize
+			Window.Renderer?.OnSwapchainResize(newSize);
 		}
 
 		#region IDisposable

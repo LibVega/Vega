@@ -6,7 +6,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Vk.Extras;
 
@@ -138,16 +137,14 @@ namespace Vega.Graphics
 			freeResources();
 
 			// Build new images
-			if (Window is null) { // Offscreen buffer
-				var att = Attachments[0];
-				MakeImage(att.Format, size, att.MSAA ? msaa : MSAA.X1, att.Preserve, att.Input, 
-					out att.Image, out att.View, out att.Memory);
-			}
 			var buildCount = (msaa != MSAA.X1) ? Attachments.Count : NonResolveCount;
-			for (int i = 1; i < buildCount; ++i) {
-				var att = Attachments[i];
-				MakeImage(att.Format, size, att.MSAA ? msaa : MSAA.X1, att.Preserve, att.Input,
-					out att.Image, out att.View, out att.Memory);
+			for (int i = 0; i < buildCount; ++i) {
+				var isWindow = (Window is not null) && (((msaa == MSAA.X1) && (i == 0)) || ((msaa != MSAA.X1) && (i == NonResolveCount)));
+				if (!isWindow) {
+					var att = Attachments[i];
+					MakeImage(att.Format, size, att.MSAA ? msaa : MSAA.X1, att.Preserve, att.Input,
+						out att.Image, out att.View, out att.Memory);
+				}
 			}
 
 			// Recreate the MSAA renderpass, if needed
@@ -158,6 +155,49 @@ namespace Vega.Graphics
 				MakeRenderpass(Attachments, Window is not null, msaa, out var newHandle);
 				MSAAHandle = newHandle;
 				LastMSAA = msaa;
+			}
+
+			// Recreate the framebuffer(s)
+			if (Window is not null) {
+				var attptr = stackalloc Vk.Handle<Vk.ImageView>[buildCount];
+				for (int i = 0; i < buildCount; ++i) {
+					attptr[i] = Attachments[i].View;
+				}
+				Vk.FramebufferCreateInfo fbci = new(
+					flags: Vk.FramebufferCreateFlags.NoFlags,
+					renderPass: (msaa != MSAA.X1) ? MSAAHandle : Handle,
+					attachmentCount: (uint)buildCount,
+					attachments: attptr,
+					width: size.Width,
+					height: size.Height,
+					layers: 1
+				);
+
+				foreach (var view in Window.Swapchain.ImageViews) {
+					if (!view) continue;
+					attptr[(msaa == MSAA.X1) ? 0 : NonResolveCount] = view;
+					gs.Device.CreateFramebuffer(&fbci, null, out var fbhandle)
+						.Throw("Failed to create window surface frambuffer");
+					Framebuffers.Add(fbhandle);
+				}
+			}
+			else {
+				var attptr = stackalloc Vk.Handle<Vk.ImageView>[buildCount];
+				for (int i = 0; i < buildCount; ++i) {
+					attptr[i] = Attachments[i].View;
+				}
+				Vk.FramebufferCreateInfo fbci = new(
+					flags: Vk.FramebufferCreateFlags.NoFlags,
+					renderPass: (msaa != MSAA.X1) ? MSAAHandle : Handle,
+					attachmentCount: (uint)buildCount,
+					attachments: attptr,
+					width: size.Width,
+					height: size.Height,
+					layers: 1
+				);
+				gs.Device.CreateFramebuffer(&fbci, null, out var fbhandle)
+					.Throw("Failed to create offscreen framebuffer");
+				Framebuffers.Add(fbhandle);
 			}
 		}
 
@@ -363,6 +403,8 @@ namespace Vega.Graphics
 			}
 
 			// Build the dependencies
+			// TODO: This is likely creating more dependencies than necessary (slow down point)
+			//       We need a better heuristic for creating dependencies
 			var sdeps = new HashSet<Vk.SubpassDependency>(COMPARER);
 			foreach (var att in attachments.Take(acount)) {
 				var realuses = (useMsaa ? att.MSAAUses : att.Uses)
@@ -469,7 +511,7 @@ namespace Vega.Graphics
 		public class SubpassDependencyComparer : IEqualityComparer<Vk.SubpassDependency>
 		{
 			public bool Equals(Vk.SubpassDependency x, Vk.SubpassDependency y) => x == y;
-			public int GetHashCode([DisallowNull] Vk.SubpassDependency obj) => obj.GetHashCode();
+			public int GetHashCode(Vk.SubpassDependency obj) => obj.GetHashCode();
 		}
 	}
 }

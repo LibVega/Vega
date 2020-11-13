@@ -5,6 +5,8 @@
  */
 
 using System;
+using System.Diagnostics;
+using static Vega.InternalLog;
 
 namespace Vega.Graphics
 {
@@ -17,6 +19,15 @@ namespace Vega.Graphics
 		#region Fields
 		// The renderpass and framebuffers for this renderer
 		internal readonly RenderPass RenderPass;
+
+		/// <summary>
+		/// The window associated with the renderer, if this is not an offscreen renderer.
+		/// </summary>
+		public readonly Window? Window;
+		/// <summary>
+		/// Gets if this renderer is performing offscreen rendering operations.
+		/// </summary>
+		public bool IsOffscreen => Window is null;
 
 		/// <summary>
 		/// The current size of the renderer targets.
@@ -46,6 +57,7 @@ namespace Vega.Graphics
 			if (size.Area == 0) {
 				throw new ArgumentException("Cannot use a zero size for a renderer", nameof(size));
 			}
+			Window = null;
 
 			// Validate description
 			if (!desc.TryValidate(out var descErr, null)) {
@@ -71,6 +83,12 @@ namespace Vega.Graphics
 		/// <param name="msaa">The initial MSAA of the renderer, if supported.</param>
 		public Renderer(RendererDescription desc, Window window, MSAA msaa = MSAA.X1)
 		{
+			// Check window
+			if (window.Renderer is not null) {
+				throw new InvalidOperationException("Cannot create a Renderer for a window that already has a renderer");
+			}
+			Window = window;
+
 			// Validate description
 			if (!desc.TryValidate(out var descErr, window)) {
 				throw new ArgumentException("Invalid renderer description: " + descErr!, nameof(desc));
@@ -81,11 +99,90 @@ namespace Vega.Graphics
 			RenderPass.Rebuild(window.Size, msaa);
 			Size = window.Size;
 			MSAA = msaa;
+
+			// Assign as official window renderer
+			Window.Renderer = this;
 		}
 		~Renderer()
 		{
 			dispose(false);
 		}
+
+		#region Settings
+		/// <summary>
+		/// Sets the new size of the renderer targets. This is a no-op if the size is not changing. Calling this
+		/// on a window-attached renderer will generate an exception.
+		/// </summary>
+		/// <param name="newSize">The new size of the offscreen render target.</param>
+		public void SetSize(Extent2D newSize)
+		{
+			if (!IsOffscreen) {
+				throw new InvalidOperationException("Cannot call SetSize on a renderer attached to a window");
+			}
+			if (newSize == Size) {
+				return; // Skip expensive rebuild (important check)
+			}
+
+			var timer = Stopwatch.StartNew();
+			RenderPass.Rebuild(newSize, MSAA);
+			LINFO($"Rebuilt renderer ({Size} -> {newSize}) (elapsed = {timer.Elapsed.TotalMilliseconds}ms)", this);
+			Size = newSize;
+		}
+
+		/// <summary>
+		/// Sets the new MSAA setting on the renderer targets. This is a no-op if the msaa is not changing. Attempting
+		/// to set a non-one MSAA on a renderer that doesn't support MSAA will generate an exception.
+		/// </summary>
+		/// <param name="msaa">The new msaa setting.</param>
+		public void SetMSAA(MSAA msaa)
+		{
+			if (!RenderPass.HasMSAA) {
+				throw new InvalidOperationException("Cannot call SetMSAA on non-msaa renderer instance");
+			}
+			if (msaa == MSAA) {
+				return; // Skip expensive rebuild (important check)
+			}
+
+			var timer = Stopwatch.StartNew();
+			RenderPass.Rebuild(Size, msaa);
+			LINFO($"Rebuilt renderer ({MSAA} -> {msaa}) (elapsed = {timer.Elapsed.TotalMilliseconds}ms)", this);
+			MSAA = msaa;
+		}
+
+		/// <summary>
+		/// Sets the size and MSAA setting of the renderer in one operation. This is significantly more efficient than
+		/// setting them separately in cases where both are changing at the same time.
+		/// </summary>
+		/// <param name="newSize">The new size of the renderer.</param>
+		/// <param name="msaa">The new msaa setting for the renderer.</param>
+		public void SetSizeAndMSAA(Extent2D newSize, MSAA msaa)
+		{
+			if (!IsOffscreen) {
+				throw new InvalidOperationException("Cannot call SetSizeAndMSAA on a renderer attached to a window");
+			}
+			if (!RenderPass.HasMSAA) {
+				throw new InvalidOperationException("Cannot call SetSizeAndMSAA on non-msaa renderer instance");
+			}
+			if ((Size == newSize) && (msaa == MSAA)) {
+				return; // Skip expensive rebuild (important check)
+			}
+
+			var timer = Stopwatch.StartNew();
+			RenderPass.Rebuild(newSize, msaa);
+			LINFO($"Rebuilt renderer ({Size} -> {newSize}) ({MSAA} -> {msaa}) (elapsed = {timer.Elapsed.TotalMilliseconds}ms)", this);
+			Size = newSize;
+			MSAA = msaa;
+		}
+
+		// Called by the swapchain when resizing
+		internal void OnSwapchainResize(Extent2D newSize)
+		{
+			var timer = Stopwatch.StartNew();
+			RenderPass.Rebuild(newSize, MSAA);
+			LINFO($"Rebuilt window renderer ({Size} -> {newSize}) (elapsed = {timer.Elapsed.TotalMilliseconds}ms)", this);
+			Size = newSize;
+		}
+		#endregion // Settings
 
 		#region IDisposable
 		public void Dispose()
@@ -99,6 +196,9 @@ namespace Vega.Graphics
 			if (!IsDisposed) {
 				if (disposing) {
 					RenderPass.Dispose();
+					if (Window is not null) {
+						Window.Renderer = null;
+					}
 				}
 			}
 			IsDisposed = true;

@@ -45,6 +45,10 @@ namespace Vega
 		/// Gets the format of the window display surface.
 		/// </summary>
 		public TexelFormat SurfaceFormat => (TexelFormat)Swapchain.SurfaceFormat;
+		/// <summary>
+		/// The Renderer attached to this window, if any.
+		/// </summary>
+		public Renderer? Renderer { get; internal set; }
 
 		#region Properties
 		/// <summary>
@@ -312,6 +316,7 @@ namespace Vega
 
 			// Create the swapchain
 			Swapchain = new Swapchain(this);
+			Renderer = null;
 		}
 		~Window()
 		{
