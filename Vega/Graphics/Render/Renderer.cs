@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Vk.Extras;
 using static Vega.InternalLog;
 
 namespace Vega.Graphics
@@ -24,6 +25,13 @@ namespace Vega.Graphics
 		#region Fields
 		// The renderpass and framebuffers for this renderer
 		internal readonly RenderPass RenderPass;
+		/// <summary>
+		/// The number of subpasses for the renderer.
+		/// </summary>
+		public int SubpassCount => RenderPass.SubpassCount;
+		// Gets the current msaa-aware render pass object
+		internal Vk.RenderPass CurrentRenderPassHandle =>
+			(MSAA != MSAA.X1) ? RenderPass.MSAAHandle : RenderPass.Handle;
 
 		/// <summary>
 		/// The associated graphics service.
@@ -187,7 +195,7 @@ namespace Vega.Graphics
 				clears[i] = ClearValues[i].ToVk();
 			}
 			Vk.RenderPassBeginInfo rpbi = new(
-				renderPass: (MSAA != MSAA.X1) ? RenderPass.MSAAHandle : RenderPass.Handle,
+				renderPass: CurrentRenderPassHandle,
 				framebuffer: RenderPass.CurrentFramebuffer,
 				renderArea: new(new(0, 0), new(Size.Width, Size.Height)),
 				clearValueCount: (uint)RenderPass.NonResolveCount,
@@ -234,7 +242,7 @@ namespace Vega.Graphics
 
 			// End command buffer
 			_cmd!.Cmd.EndRenderPass();
-			_cmd.Cmd.EndCommandBuffer();
+			_cmd.Cmd.EndCommandBuffer().Throw("Failed to build renderer command buffer");
 
 			// Wait for the last render task
 			if (LastRenderFence) {
@@ -268,7 +276,11 @@ namespace Vega.Graphics
 
 		#region Commands
 		// Adds the given list to the set of tracked lists
-		internal void TrackList(CommandList list) => _ownedLists.Add(list);
+		internal void TrackList(CommandList list)
+		{
+			_ownedLists.Add(list);
+			_secondaryBuffers.Add(list.Buffer!);
+		}
 
 		/// <summary>
 		/// Submits the given command list to be executed at the current recoding location of the renderer.
@@ -290,10 +302,9 @@ namespace Vega.Graphics
 				throw new InvalidOperationException("Cannot submit a command list outside of its expected subpass");
 			}
 
-			// Submit and track commands
+			// Submit commands
 			var handle = list.Buffer!.Cmd.Handle;
 			_cmd!.Cmd.ExecuteCommands(1, &handle);
-			_secondaryBuffers.Add(list.Buffer);
 		}
 		#endregion // Commands
 
