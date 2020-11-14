@@ -1,4 +1,7 @@
 # Vega
+
+[![Build Status](https://travis-ci.com/VegaLib/Vega.svg?branch=master)](https://travis-ci.com/VegaLib/Vega)
+
 Vulkan-powered .NET 5 framework for games, visualizations, and other multimedia apps. 
 
 This library is inflenced primarily by the [Monogame](https://www.monogame.net/) project, but designed to map more closely to the underlying graphics API (Vulkan). The result is a library that can be picked up by relative beginners, but also rewards developers who are willing to get a bit dirty with optimizations and lower-level operations.
