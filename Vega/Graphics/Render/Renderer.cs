@@ -64,6 +64,8 @@ namespace Vega.Graphics
 
 		// Command buffer for current recording
 		private CommandBuffer? _cmd = null;
+		// The fence used to submit the last render command
+		internal Vk.Fence LastRenderFence = Vk.Fence.Null;
 		#endregion // Render Pass Data
 
 		/// <summary>
@@ -211,8 +213,21 @@ namespace Vega.Graphics
 			_cmd!.Cmd.EndRenderPass();
 			_cmd.Cmd.EndCommandBuffer();
 
+			// Wait for the last render task
+			if (LastRenderFence) {
+				var fhandle = LastRenderFence.Handle;
+				Graphics.Device.WaitForFences(1, &fhandle, Vk.Bool32.True, UInt64.MaxValue);
+			}
+
 			// Submit
-			Graphics.GraphicsQueue.Submit(_cmd);
+			if (Window is null) {
+				LastRenderFence = Graphics.GraphicsQueue.Submit(_cmd);
+			}
+			else {
+				LastRenderFence = Graphics.GraphicsQueue.Submit(_cmd,
+					Window.Swapchain.CurrentAcquireSemaphore, Vk.PipelineStageFlags.ColorAttachmentOutput,
+					Window.Swapchain.CurrentRenderSemaphore);
+			}
 
 			// Set values
 			_cmd = null;

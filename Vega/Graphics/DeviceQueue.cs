@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Microsoft Public License (Ms-PL) - Copyright (c) 2020 Sean Moss
  * This file is subject to the terms and conditions of the Microsoft Public License, the text of which can be found in
  * the 'LICENSE' file at the root of this repository, or online at <https://opensource.org/licenses/MS-PL>.
@@ -99,26 +99,52 @@ namespace Vega.Graphics
 		#endregion // Context Management
 
 		#region Tracked Submits
-		// Submit a single command buffer with no semaphores
-		public Vk.Fence Submit(CommandBuffer cmd)
+		// Submit a single command buffer with optional signal semaphore
+		public Vk.Fence Submit(CommandBuffer cmd, Vk.Semaphore? signalSem = null)
 		{
 			var ctx = allocateContext();
 			ctx.Prepare(cmd);
 
-			Vk.Handle<Vk.CommandBuffer> cmdHandle = cmd.Cmd;
+			SubmitCount += 1;
+			BufferCount += 1;
+			var cmdHandle = cmd.Cmd.Handle;
+			var semHandle = signalSem ? signalSem!.Handle : Vk.Handle<Vk.Semaphore>.Null;
 			Vk.SubmitInfo si = new(
 				waitSemaphoreCount: 0,
 				waitSemaphores: null,
 				waitDstStageMask: null,
 				commandBufferCount: 1,
 				commandBuffers: &cmdHandle,
-				signalSemaphoreCount: 0,
-				signalSemaphores: null
+				signalSemaphoreCount: signalSem ? 1 : 0,
+				signalSemaphores: &semHandle
 			);
-			lock (_submitLock) {
-				Queue.QueueSubmit(1, &si, ctx.Fence).Throw("Failed to submit command buffer");
-				return ctx.Fence;
-			}
+			SubmitRaw(&si, ctx.Fence);
+			return ctx.Fence;
+		}
+
+		// Submit a single command buffer with wait semaphore, and optional signal semaphore
+		public Vk.Fence Submit(CommandBuffer cmd, Vk.Semaphore waitSem, Vk.PipelineStageFlags waitStages, 
+			Vk.Semaphore? signalSem = null)
+		{
+			var ctx = allocateContext();
+			ctx.Prepare(cmd);
+
+			SubmitCount += 1;
+			BufferCount += 1;
+			var cmdHandle = cmd.Cmd.Handle;
+			var waitHandle = waitSem ? waitSem.Handle : Vk.Handle<Vk.Semaphore>.Null;
+			var sigHandle = signalSem ? signalSem!.Handle : Vk.Handle<Vk.Semaphore>.Null;
+			Vk.SubmitInfo si = new(
+				waitSemaphoreCount: waitSem ? 1 : 0,
+				waitSemaphores: &waitHandle,
+				waitDstStageMask: &waitStages,
+				commandBufferCount: 1,
+				commandBuffers: &cmdHandle,
+				signalSemaphoreCount: signalSem ? 1 : 0,
+				signalSemaphores: &sigHandle
+			);
+			SubmitRaw(&si, ctx.Fence);
+			return ctx.Fence;
 		}
 		#endregion // Tracked Submits
 

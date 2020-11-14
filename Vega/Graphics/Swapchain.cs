@@ -55,9 +55,11 @@ namespace Vega.Graphics
 		public uint ImageIndex => _swapchainInfo.ImageIndex;
 		public uint ImageCount => _swapchainInfo.ImageCount;
 		public IReadOnlyList<Vk.ImageView> ImageViews => _imageViews;
+		public Vk.Semaphore CurrentAcquireSemaphore => _acquireSemaphores[_swapchainInfo.ImageIndex];
 
 		// Sync objects
 		private CommandObjects _cmd;
+		public Vk.Semaphore CurrentRenderSemaphore => _cmd.ClearSemaphores[_swapchainInfo.ImageIndex];
 
 		public bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
@@ -168,14 +170,8 @@ namespace Vega.Graphics
 		public void Present()
 		{
 			// Check attached renderer, or just clear for no attached renderer
-			Vk.Semaphore renderSem = Vk.Semaphore.Null;
-			object? renderer = null;
-			if (renderer is not null) {
-				// TODO
-			}
-			else {
-				renderSem = _cmd.ClearSemaphores[_swapchainInfo.ImageIndex];
-				var ssem = renderSem.Handle;
+			if (Window.Renderer is null) {
+				var ssem = CurrentRenderSemaphore.Handle;
 				var wsem = _acquireSemaphores[_swapchainInfo.ImageIndex].Handle;
 				Vk.PipelineStageFlags WAIT_STAGE = Vk.PipelineStageFlags.Transfer;
 				var cmd = _cmd.Cmds[_swapchainInfo.ImageIndex].Handle;
@@ -195,7 +191,7 @@ namespace Vega.Graphics
 			// Submit for presentation
 			Vk.Result res;
 			{
-				var rsem = renderSem.Handle;
+				var rsem = CurrentRenderSemaphore.Handle;
 				var sc = Handle.Handle;
 				var iidx = _swapchainInfo.ImageIndex;
 				Vk.KHR.PresentInfo.New(out var pi);
@@ -221,8 +217,10 @@ namespace Vega.Graphics
 		private bool acquire()
 		{
 			// Wait for in-flight clear fence
-			var currFence = _cmd.RenderFences[_swapchainInfo.SyncIndex].Handle;
-			_device.WaitForFences(1, &currFence, true, UInt64.MaxValue);
+			if (Window.Renderer is null) {
+				var currFence = _cmd.RenderFences[_swapchainInfo.SyncIndex].Handle;
+				_device.WaitForFences(1, &currFence, true, UInt64.MaxValue); 
+			}
 
 			// Try to acquire the next image
 			uint iidx = 0;
@@ -238,13 +236,15 @@ namespace Vega.Graphics
 			_swapchainInfo.ImageIndex = iidx;
 
 			// Wait for out-of-order fences and reset the fence for the new image
-			if (_mappedFences[iidx]) {
-				var mapFence = _mappedFences[iidx]!.Handle;
-				_device.WaitForFences(1, &mapFence, true, UInt64.MaxValue);
+			if (Window.Renderer is null) {
+				if (_mappedFences[iidx]) {
+					var mapFence = _mappedFences[iidx]!.Handle;
+					_device.WaitForFences(1, &mapFence, true, UInt64.MaxValue);
+				}
+				_mappedFences[iidx] = _cmd.RenderFences[_swapchainInfo.SyncIndex];
+				var resFence = _mappedFences[iidx]!.Handle;
+				_device.ResetFences(1, &resFence); 
 			}
-			_mappedFences[iidx] = _cmd.RenderFences[_swapchainInfo.SyncIndex];
-			var resFence = _mappedFences[iidx]!.Handle;
-			_device.ResetFences(1, &resFence);
 			return true;
 		}
 
