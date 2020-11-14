@@ -321,11 +321,12 @@ namespace Vega.Graphics
 				var preserve = att.Preserve && (!useMsaa || !att.ResolveAttachment.HasValue);
 				var lastUse = (useMsaa ? att.MSAAUses : att.Uses).Where(use => use != Attachment.Use.None).Last();
 				var isWindow = window && ((!useMsaa && (ai == 0)) || (useMsaa && (ai == attachments[0].ResolveAttachment!.Value)));
+				var isResolve = att.MSAAAttachment.HasValue;
 				var tmp = adesc[ai] = new(
 					flags: Vk.AttachmentDescriptionFlags.NoFlags,
 					format: (Vk.Format)att.Format,
 					samples: att.MSAA ? (Vk.SampleCountFlags)msaa : Vk.SampleCountFlags.E1,
-					loadOp: Vk.AttachmentLoadOp.Clear,
+					loadOp: isResolve ? Vk.AttachmentLoadOp.DontCare : Vk.AttachmentLoadOp.Clear,
 					storeOp: preserve ? Vk.AttachmentStoreOp.Store : Vk.AttachmentStoreOp.DontCare,
 					stencilLoadOp: Vk.AttachmentLoadOp.Clear,
 					stencilStoreOp: (att.Format.HasStencilComponent() && preserve)

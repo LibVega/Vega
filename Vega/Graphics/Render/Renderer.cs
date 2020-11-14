@@ -46,6 +46,11 @@ namespace Vega.Graphics
 		/// </summary>
 		public MSAA MSAA { get; private set; }
 
+		/// <summary>
+		/// The values used to clear the renderer attachments.
+		/// </summary>
+		public readonly ClearValue[] ClearValues;
+
 		#region Render Pass Data
 		/// <summary>
 		/// The current renderer subpass index, or <c>null</c> if not recording.
@@ -75,6 +80,9 @@ namespace Vega.Graphics
 		#endregion // Fields
 
 		/// <summary>
+		/// <para>
+		/// <em>WARNING: NOT YET IMPLEMENTED</em>
+		/// </para>
 		/// Creates a new Renderer for submitting draw commands to an offscreen buffer. Offscreen Renderer instances
 		/// must be manually rebuilt to change the size or anti-aliasing attributes.
 		/// </summary>
@@ -83,7 +91,10 @@ namespace Vega.Graphics
 		/// <param name="msaa">The initial MSAA of the renderer, if supported.</param>
 		public Renderer(RendererDescription desc, Extent2D size, MSAA msaa = MSAA.X1)
 		{
+			throw new NotImplementedException("Offscreen renderers are not yet fully implemented");
+
 			// Validate size
+#pragma warning disable CS0162 // Unreachable code detected
 			if (size.Area == 0) {
 				throw new ArgumentException("Cannot use a zero size for a renderer", nameof(size));
 			}
@@ -100,6 +111,8 @@ namespace Vega.Graphics
 			RenderPass.Rebuild(size, msaa);
 			Size = size;
 			MSAA = msaa;
+			ClearValues = new ClearValue[RenderPass.NonResolveCount];
+#pragma warning restore CS0162 // Unreachable code detected
 		}
 		/// <summary>
 		/// Creates a new Renderer for submitting draw commands to a window surface. Window Renderer instances will be
@@ -131,6 +144,7 @@ namespace Vega.Graphics
 			RenderPass.Rebuild(window.Size, msaa);
 			Size = window.Size;
 			MSAA = msaa;
+			ClearValues = new ClearValue[RenderPass.NonResolveCount];
 
 			// Assign as official window renderer
 			Window.Renderer = this;
@@ -161,13 +175,15 @@ namespace Vega.Graphics
 			_cmd.Cmd.BeginCommandBuffer(&cbbi);
 
 			// Start render pass
-			var attCount = (MSAA != MSAA.X1) ? RenderPass.Attachments.Count : RenderPass.NonResolveCount;
-			var clears = stackalloc Vk.ClearValue[attCount];
+			var clears = stackalloc Vk.ClearValue[RenderPass.NonResolveCount];
+			for (int i = 0; i < RenderPass.NonResolveCount; ++i) {
+				clears[i] = ClearValues[i].ToVk();
+			}
 			Vk.RenderPassBeginInfo rpbi = new(
 				renderPass: (MSAA != MSAA.X1) ? RenderPass.MSAAHandle : RenderPass.Handle,
 				framebuffer: RenderPass.CurrentFramebuffer,
 				renderArea: new(new(0, 0), new(Size.Width, Size.Height)),
-				clearValueCount: (uint)attCount,
+				clearValueCount: (uint)RenderPass.NonResolveCount,
 				clearValues: clears
 			);
 			_cmd.Cmd.BeginRenderPass(&rpbi, Vk.SubpassContents.SecondaryCommandBuffers);
