@@ -1,5 +1,6 @@
 # Vega
 
+[![License](https://img.shields.io/badge/License-Ms--PL-blue)](https://github.com/VegaLib/Vega/blob/master/LICENSE)
 [![Build Status](https://travis-ci.com/VegaLib/Vega.svg?branch=master)](https://travis-ci.com/VegaLib/Vega)
 
 Vulkan-powered .NET 5 framework for games, visualizations, and other multimedia apps. 
