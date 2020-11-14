@@ -93,17 +93,30 @@ namespace Vega.Graphics
 			dispose(false);
 		}
 
-		#region Frames
-		public void BeginFrame()
-		{
-
-		}
-
 		public void EndFrame()
 		{
 
 		}
-		#endregion // Frames
+
+		#region Commands
+		// Get a free primary level command buffer for the current thread
+		public CommandBuffer AllocatePrimaryCommandBuffer()
+		{
+			if (!IsThreadRegistered) {
+				throw new InvalidOperationException("Attempt to allocate command buffer on non-graphics thread");
+			}
+			return _commandPools[_ThreadIndex!.Value]!.AllocatePrimary();
+		}
+
+		// Get a free secondary level command buffer for the current thread
+		public CommandBuffer AllocateSecondaryCommandBuffer()
+		{
+			if (!IsThreadRegistered) {
+				throw new InvalidOperationException("Attempt to allocate command buffer on non-graphics thread");
+			}
+			return _commandPools[_ThreadIndex!.Value]!.AllocateSecondary();
+		}
+		#endregion // Commands
 
 		#region Memory
 		public MemoryAllocation? AllocateMemoryDevice(in Vk.MemoryRequirements req)

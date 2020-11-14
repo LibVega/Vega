@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using Vk.Extras;
 
 namespace Vega.Graphics
 {
@@ -99,7 +100,7 @@ namespace Vega.Graphics
 
 		#region Tracked Submits
 		// Submit a single command buffer with no semaphores
-		public Vk.Result Submit(CommandBuffer cmd)
+		public Vk.Fence Submit(CommandBuffer cmd)
 		{
 			var ctx = allocateContext();
 			ctx.Prepare(cmd);
@@ -115,7 +116,8 @@ namespace Vega.Graphics
 				signalSemaphores: null
 			);
 			lock (_submitLock) {
-				return Queue.QueueSubmit(1, &si, ctx.Fence);
+				Queue.QueueSubmit(1, &si, ctx.Fence).Throw("Failed to submit command buffer");
+				return ctx.Fence;
 			}
 		}
 		#endregion // Tracked Submits
@@ -159,7 +161,15 @@ namespace Vega.Graphics
 		private void dispose(bool disposing)
 		{
 			if (!IsDisposed) {
-
+				if (disposing) {
+					Graphics.Device.DeviceWaitIdle();
+				}
+				foreach (var ctx in _available) {
+					ctx.Destroy();
+				}
+				foreach (var ctx in _pending) {
+					ctx.Destroy();
+				}
 			}
 			IsDisposed = true;
 		}

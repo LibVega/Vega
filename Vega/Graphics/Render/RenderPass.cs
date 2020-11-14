@@ -39,6 +39,8 @@ namespace Vega.Graphics
 		public Vk.Framebuffer CurrentFramebuffer => (Window is not null) 
 			? Framebuffers[(int)Window.Swapchain.ImageIndex]
 			: Framebuffers[0];
+		// The number of subpasses
+		public int SubpassCount => Attachments[0].Uses.Count;
 
 		// Renderpass data/objects
 		// Non-MSAA renderpass

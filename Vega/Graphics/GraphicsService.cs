@@ -59,8 +59,6 @@ namespace Vega.Graphics
 		/// The frame index used for resource synchronization.
 		/// </summary>
 		public uint FrameIndex { get; private set; } = 0;
-		// If the graphics service is in the frame
-		internal bool InFrame { get; private set; } = false;
 
 		internal bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
@@ -91,26 +89,16 @@ namespace Vega.Graphics
 			dispose(false);
 		}
 
-		#region Frames
-		// Performs graphics operations for the start of the frame
-		internal void BeginFrame()
-		{
-			Resources.BeginFrame();
-			InFrame = true;
-		}
-
-		// Performs graphics operations for the end of the frame
+		// Performs end-frame graphics operations, such as advancing the graphics frame index and managing resources
 		internal void EndFrame()
 		{
 			// Advance frame
-			InFrame = false;
 			FrameIndex = (FrameIndex + 1) % MAX_FRAMES;
 
 			// Run resource processing for the frame
 			GraphicsQueue.UpdateContexts();
 			Resources.EndFrame();
 		}
-		#endregion // Frames
 
 		#region Threading
 		/// <summary>

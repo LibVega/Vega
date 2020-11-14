@@ -131,9 +131,6 @@ namespace Vega
 
 			AppTime.Frame();
 
-			// Start the graphics frame
-			Graphics.BeginFrame();
-
 			// Run window frames
 			foreach (var win in _windows) {
 				win.BeginFrame();

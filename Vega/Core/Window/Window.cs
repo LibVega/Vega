@@ -485,6 +485,15 @@ namespace Vega
 
 		internal void EndFrame()
 		{
+			if (Renderer is not null) {
+				if (Renderer.IsRecording) {
+					throw new InvalidOperationException("Window renderers must be submitted before ending the application frame");
+				}
+				if (Renderer.LastEndFrame != AppTime.FrameCount) {
+					throw new InvalidOperationException("Window renderers must be recorded exactly once per frame");
+				}
+			}
+
 			Swapchain.Present();
 		}
 		#endregion // Frame

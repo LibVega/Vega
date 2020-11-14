@@ -12,14 +12,22 @@ namespace Vega.Graphics
 {
 	/// <summary>
 	/// Represents a target (either an offscreen image or a window) for rendering commands. Manages the rendering
-	/// state and command submission for the target.
+	/// state and command submission for the target. 
+	/// <para>
+	/// A renderer can only be used at most once per frame, and window renderers <em>must</em> be used <em>exactly 
+	/// once</em> per frame.
+	/// </para>
 	/// </summary>
-	public sealed class Renderer : IDisposable
+	public unsafe sealed class Renderer : IDisposable
 	{
 		#region Fields
 		// The renderpass and framebuffers for this renderer
 		internal readonly RenderPass RenderPass;
 
+		/// <summary>
+		/// The associated graphics service.
+		/// </summary>
+		public readonly GraphicsService Graphics;
 		/// <summary>
 		/// The window associated with the renderer, if this is not an offscreen renderer.
 		/// </summary>
@@ -37,6 +45,26 @@ namespace Vega.Graphics
 		/// The current MSAA setting for the renderer. Only applies to attachments that support MSAA.
 		/// </summary>
 		public MSAA MSAA { get; private set; }
+
+		#region Render Pass Data
+		/// <summary>
+		/// The current renderer subpass index, or <c>null</c> if not recording.
+		/// </summary>
+		public uint? PassIndex { get; private set; } = null;
+		/// <summary>
+		/// Gets if the renderer is currently recording.
+		/// </summary>
+		public bool IsRecording => PassIndex.HasValue;
+		/// <summary>
+		/// The value of <see cref="AppTime.FrameCount"/> when the renderer was last submitted.
+		/// </summary>
+		public ulong LastEndFrame { get; private set; } = 0;
+		// The frame index for the last Start() call
+		private ulong _startFrame = 0;
+
+		// Command buffer for current recording
+		private CommandBuffer? _cmd = null;
+		#endregion // Render Pass Data
 
 		/// <summary>
 		/// Gets if the renderer has been disposed.
@@ -57,6 +85,7 @@ namespace Vega.Graphics
 			if (size.Area == 0) {
 				throw new ArgumentException("Cannot use a zero size for a renderer", nameof(size));
 			}
+			Graphics = Core.Instance!.Graphics;
 			Window = null;
 
 			// Validate description
@@ -87,6 +116,7 @@ namespace Vega.Graphics
 			if (window.Renderer is not null) {
 				throw new InvalidOperationException("Cannot create a Renderer for a window that already has a renderer");
 			}
+			Graphics = Core.Instance!.Graphics;
 			Window = window;
 
 			// Validate description
@@ -107,6 +137,89 @@ namespace Vega.Graphics
 		{
 			dispose(false);
 		}
+
+		#region Begin/End
+		/// <summary>
+		/// Starts recording commands to the renderer. This cannot be called if already recording. Window renderers
+		/// cannot be started twice in a single frame.
+		/// </summary>
+		public void Begin()
+		{
+			// Validate
+			if (PassIndex.HasValue) {
+				throw new InvalidOperationException("Cannot call Begin() on a Renderer that is already recording");
+			}
+			if ((Window is not null) && (LastEndFrame == AppTime.FrameCount)) {
+				throw new InvalidOperationException("Cannot call Begin() on a window Renderer more than once per frame");
+			}
+
+			// Start command buffer
+			_cmd = Graphics.Resources.AllocatePrimaryCommandBuffer();
+			Vk.CommandBufferBeginInfo cbbi = new(Vk.CommandBufferUsageFlags.OneTimeSubmit, null);
+			_cmd.Cmd.BeginCommandBuffer(&cbbi);
+
+			// Start render pass
+			var attCount = (MSAA != MSAA.X1) ? RenderPass.Attachments.Count : RenderPass.NonResolveCount;
+			var clears = stackalloc Vk.ClearValue[attCount];
+			Vk.RenderPassBeginInfo rpbi = new(
+				renderPass: (MSAA != MSAA.X1) ? RenderPass.MSAAHandle : RenderPass.Handle,
+				framebuffer: RenderPass.CurrentFramebuffer,
+				renderArea: new(new(0, 0), new(Size.Width, Size.Height)),
+				clearValueCount: (uint)attCount,
+				clearValues: clears
+			);
+			_cmd.Cmd.BeginRenderPass(&rpbi, Vk.SubpassContents.SecondaryCommandBuffers);
+
+			// Set values
+			_startFrame = AppTime.FrameCount;
+			PassIndex = 0;
+		}
+
+		/// <summary>
+		/// Moves the renderer to the next subpass, performing transitions and resolve operations as needed.
+		/// </summary>
+		public void NextSubpass()
+		{
+			// Validate
+			if (!PassIndex.HasValue) {
+				throw new InvalidOperationException("Cannot call NextSubpass() on Renderer that is not recording");
+			}
+			if (PassIndex.Value == (RenderPass.SubpassCount - 1)) {
+				throw new InvalidOperationException("NextSubpass() called on renderer on final subpass");
+			}
+
+			// Next subpass command
+			_cmd!.Cmd.NextSubpass(Vk.SubpassContents.SecondaryCommandBuffers);
+			PassIndex += 1;
+		}
+
+		/// <summary>
+		/// Ends command recording, and submits the recorded commands to the device for processing. For window
+		/// renderers, this must be called in the same frame as <see cref="Begin"/>.
+		/// </summary>
+		public void End()
+		{
+			// Validate
+			if (!PassIndex.HasValue) {
+				throw new InvalidOperationException("Cannot call End() on a Renderer that is not recording");
+			}
+			if (PassIndex.Value != (RenderPass.SubpassCount - 1)) {
+				throw new InvalidOperationException("Cannot end a renderer without moving through all subpasses");
+			}
+
+			// End command buffer
+			_cmd!.Cmd.EndRenderPass();
+			_cmd.Cmd.EndCommandBuffer();
+
+			// Submit
+			Graphics.GraphicsQueue.Submit(_cmd);
+
+			// Set values
+			_cmd = null;
+			LastEndFrame = AppTime.FrameCount;
+			PassIndex = null;
+		}
+		#endregion // Begin/End
 
 		#region Settings
 		/// <summary>
