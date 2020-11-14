@@ -78,5 +78,18 @@ namespace Vega.Graphics
 			var fhandle = Fence.Handle;
 			Queue.Graphics.Device.ResetFences(1, &fhandle);
 		}
+
+		// Ditto, but for single primary + multiple secondaries
+		public void Prepare(CommandBuffer buffer, IEnumerable<CommandBuffer> cmds)
+		{
+			if (!IsFinished) {
+				throw new InvalidOperationException("Attempt to re-use a pending SubmitContext");
+			}
+			_commands.Clear();
+			_commands.Add(buffer);
+			_commands.AddRange(cmds);
+			var fhandle = Fence.Handle;
+			Queue.Graphics.Device.ResetFences(1, &fhandle);
+		}
 	}
 }

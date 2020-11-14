@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using static Vega.InternalLog;
 
@@ -71,6 +72,12 @@ namespace Vega.Graphics
 		private CommandBuffer? _cmd = null;
 		// The fence used to submit the last render command
 		internal Vk.Fence LastRenderFence = Vk.Fence.Null;
+
+		// The running set of command lists to invalidate and submit at End()
+		private readonly List<CommandList> _ownedLists = new();
+
+		// The running set of secondary command buffers to submit at End()
+		private readonly List<CommandBuffer> _secondaryBuffers = new();
 		#endregion // Render Pass Data
 
 		/// <summary>
@@ -237,13 +244,20 @@ namespace Vega.Graphics
 
 			// Submit
 			if (Window is null) {
-				LastRenderFence = Graphics.GraphicsQueue.Submit(_cmd);
+				LastRenderFence = Graphics.GraphicsQueue.Submit(_cmd, _secondaryBuffers);
 			}
 			else {
-				LastRenderFence = Graphics.GraphicsQueue.Submit(_cmd,
+				LastRenderFence = Graphics.GraphicsQueue.Submit(_cmd, _secondaryBuffers,
 					Window.Swapchain.CurrentAcquireSemaphore, Vk.PipelineStageFlags.ColorAttachmentOutput,
 					Window.Swapchain.CurrentRenderSemaphore);
 			}
+			_secondaryBuffers.Clear();
+
+			// Invalidate lists
+			foreach (var list in _ownedLists) {
+				list.Invalidate();
+			}
+			_ownedLists.Clear();
 
 			// Set values
 			_cmd = null;
@@ -251,6 +265,37 @@ namespace Vega.Graphics
 			PassIndex = null;
 		}
 		#endregion // Begin/End
+
+		#region Commands
+		// Adds the given list to the set of tracked lists
+		internal void TrackList(CommandList list) => _ownedLists.Add(list);
+
+		/// <summary>
+		/// Submits the given command list to be executed at the current recoding location of the renderer.
+		/// </summary>
+		/// <param name="list">The list of commands to execute.</param>
+		public void Submit(CommandList list)
+		{
+			// Validate state
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot submit a command list to a renderer that is not recording");
+			}
+			if (!list.IsValid) {
+				throw new InvalidOperationException("Cannot submit an invalidated command list to a renderer");
+			}
+			if (!ReferenceEquals(list.Renderer, this)) {
+				throw new InvalidOperationException("Cannot submit a command list to a non-matching renderer");
+			}
+			if (list.Subpass != PassIndex!.Value) {
+				throw new InvalidOperationException("Cannot submit a command list outside of its expected subpass");
+			}
+
+			// Submit and track commands
+			var handle = list.Buffer!.Cmd.Handle;
+			_cmd!.Cmd.ExecuteCommands(1, &handle);
+			_secondaryBuffers.Add(list.Buffer);
+		}
+		#endregion // Commands
 
 		#region Settings
 		/// <summary>

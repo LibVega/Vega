@@ -122,6 +122,29 @@ namespace Vega.Graphics
 			return ctx.Fence;
 		}
 
+		// Submit a primary command buffer with secondaries, optional signal semaphore
+		public Vk.Fence Submit(CommandBuffer cmd, IEnumerable<CommandBuffer> cmds, Vk.Semaphore? signalSem = null)
+		{
+			var ctx = allocateContext();
+			ctx.Prepare(cmd, cmds);
+
+			SubmitCount += 1;
+			BufferCount += (uint)ctx.Commands.Count;
+			var cmdHandle = cmd.Cmd.Handle;
+			var semHandle = signalSem ? signalSem!.Handle : Vk.Handle<Vk.Semaphore>.Null;
+			Vk.SubmitInfo si = new(
+				waitSemaphoreCount: 0,
+				waitSemaphores: null,
+				waitDstStageMask: null,
+				commandBufferCount: 1,
+				commandBuffers: &cmdHandle,
+				signalSemaphoreCount: signalSem ? 1 : 0,
+				signalSemaphores: &semHandle
+			);
+			SubmitRaw(&si, ctx.Fence);
+			return ctx.Fence;
+		}
+
 		// Submit a single command buffer with wait semaphore, and optional signal semaphore
 		public Vk.Fence Submit(CommandBuffer cmd, Vk.Semaphore waitSem, Vk.PipelineStageFlags waitStages, 
 			Vk.Semaphore? signalSem = null)
@@ -131,6 +154,31 @@ namespace Vega.Graphics
 
 			SubmitCount += 1;
 			BufferCount += 1;
+			var cmdHandle = cmd.Cmd.Handle;
+			var waitHandle = waitSem ? waitSem.Handle : Vk.Handle<Vk.Semaphore>.Null;
+			var sigHandle = signalSem ? signalSem!.Handle : Vk.Handle<Vk.Semaphore>.Null;
+			Vk.SubmitInfo si = new(
+				waitSemaphoreCount: waitSem ? 1 : 0,
+				waitSemaphores: &waitHandle,
+				waitDstStageMask: &waitStages,
+				commandBufferCount: 1,
+				commandBuffers: &cmdHandle,
+				signalSemaphoreCount: signalSem ? 1 : 0,
+				signalSemaphores: &sigHandle
+			);
+			SubmitRaw(&si, ctx.Fence);
+			return ctx.Fence;
+		}
+
+		// Submit a primary command buffer with secondaries and a wait semaphore, optional signal semaphore
+		public Vk.Fence Submit(CommandBuffer cmd, IEnumerable<CommandBuffer> cmds, Vk.Semaphore waitSem,
+			Vk.PipelineStageFlags waitStages, Vk.Semaphore? signalSem = null)
+		{
+			var ctx = allocateContext();
+			ctx.Prepare(cmd, cmds);
+
+			SubmitCount += 1;
+			BufferCount += (uint)ctx.Commands.Count;
 			var cmdHandle = cmd.Cmd.Handle;
 			var waitHandle = waitSem ? waitSem.Handle : Vk.Handle<Vk.Semaphore>.Null;
 			var sigHandle = signalSem ? signalSem!.Handle : Vk.Handle<Vk.Semaphore>.Null;
