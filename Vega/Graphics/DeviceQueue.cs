@@ -19,7 +19,7 @@ namespace Vega.Graphics
 
 		#region Fields
 		// The associated graphics service
-		public readonly GraphicsService Graphics;
+		public readonly GraphicsDevice Graphics;
 		// The queue object
 		public readonly Vk.Queue Queue;
 		// The queue family index for the queue
@@ -44,7 +44,7 @@ namespace Vega.Graphics
 		public bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
 
-		public DeviceQueue(GraphicsService gs, Vk.Queue queue, uint index)
+		public DeviceQueue(GraphicsDevice gs, Vk.Queue queue, uint index)
 		{
 			Graphics = gs;
 			Queue = queue;
@@ -236,7 +236,7 @@ namespace Vega.Graphics
 		{
 			if (!IsDisposed) {
 				if (disposing) {
-					Graphics.Device.DeviceWaitIdle();
+					Graphics.VkDevice.DeviceWaitIdle();
 				}
 				foreach (var ctx in _available) {
 					ctx.Destroy();

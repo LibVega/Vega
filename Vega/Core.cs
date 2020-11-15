@@ -44,7 +44,7 @@ namespace Vega
 		/// <summary>
 		/// The graphics controller for the core instance.
 		/// </summary>
-		public readonly GraphicsService Graphics;
+		public readonly GraphicsDevice Graphics;
 
 		/// <summary>
 		/// The list of all open windows in the application.
@@ -133,6 +133,9 @@ namespace Vega
 				win.Keyboard.HandleEvents();
 				win.Mouse.HandleEvents();
 			}
+
+			// Update graphics device
+			Graphics.Update();
 
 			// Update audio engine
 			AudioDriver.Update();

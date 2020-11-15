@@ -13,10 +13,14 @@ using static Vega.InternalLog;
 
 namespace Vega.Graphics
 {
-	public unsafe sealed partial class GraphicsService
+	public unsafe sealed partial class GraphicsDevice
 	{
+		// The version of the library as a Vulkan version
+		private static readonly Vk.Version ENGINE_VERSION = new(typeof(GraphicsDevice).Assembly.GetName().Version!);
+
+		// Create the instance, debug utils (if requested), and select the physical device to use
 		private static void InitializeVulkanInstance(
-			GraphicsService service, bool validation, out Vk.InstanceData instanceData, 
+			bool validation, out Vk.InstanceData instanceData, 
 			out Vk.EXT.DebugUtilsMessenger? debug, out Vk.PhysicalDeviceData deviceData)
 		{
 			// Get the required layers and extensions
@@ -40,24 +44,26 @@ namespace Vega.Graphics
 			}
 
 			// Create application info
-			using var appName = new Vk.NativeString(service.Core.AppName);
+			using var appName = new Vk.NativeString(Core.Instance!.AppName);
 			using var engName = new Vk.NativeString("Vega");
-			Vk.ApplicationInfo.New(out var appInfo);
-			appInfo.ApplicationName = appName.Data;
-			appInfo.ApplicationVersion = new Vk.Version(service.Core.AppVersion);
-			appInfo.EngineName = engName.Data;
-			appInfo.EngineVersion = new Vk.Version(typeof(GraphicsService).Assembly.GetName().Version!);
-			appInfo.ApiVersion = Vk.Version.VK_VERSION_1_0;
+			Vk.ApplicationInfo appInfo = new(
+				applicationName: appName.Data,
+				applicationVersion: new Vk.Version(Core.Instance!.AppVersion),
+				engineName: engName.Data,
+				engineVersion: ENGINE_VERSION,
+				apiVersion: Vk.InstanceData.GetApiVersion() // Select highest supported version by default
+			);
 
 			// Create instance
 			using var extList = new Vk.NativeStringList(reqExts);
 			using var layList = new Vk.NativeStringList(reqLayers);
-			Vk.InstanceCreateInfo.New(out var ici);
-			ici.ApplicationInfo = &appInfo;
-			ici.EnabledExtensionCount = extList.Count;
-			ici.EnabledExtensionNames = extList.Data;
-			ici.EnabledLayerCount = layList.Count;
-			ici.EnabledLayerNames = layList.Data;
+			Vk.InstanceCreateInfo ici = new(
+				applicationInfo: &appInfo,
+				enabledLayerCount: layList.Count,
+				enabledLayerNames: layList.Data,
+				enabledExtensionCount: extList.Count,
+				enabledExtensionNames: extList.Data
+			);
 			Vk.Instance.CreateInstance(&ici, null, out var instance).Throw("Failed to create Vulkan instance");
 			instanceData = new(instance);
 			if (instanceData.PhysicalDevices.Count == 0) {
@@ -66,16 +72,18 @@ namespace Vega.Graphics
 
 			// Register with debug reports
 			if (validation) {
-				Vk.EXT.DebugUtilsMessengerCreateInfo.New(out var dumci);
-				dumci.MessageSeverity =
-					Vk.EXT.DebugUtilsMessageSeverityFlags.InfoEXT |
-					Vk.EXT.DebugUtilsMessageSeverityFlags.WarningEXT |
-					Vk.EXT.DebugUtilsMessageSeverityFlags.ErrorEXT;
-				dumci.MessageType = 
-					Vk.EXT.DebugUtilsMessageTypeFlags.GeneralEXT | 
-					Vk.EXT.DebugUtilsMessageTypeFlags.PerformanceEXT | 
-					Vk.EXT.DebugUtilsMessageTypeFlags.ValidationEXT;
-				dumci.UserCallback = &DebugMessageCallback;
+				Vk.EXT.DebugUtilsMessengerCreateInfo dumci = new(
+					flags: Vk.EXT.DebugUtilsMessengerCreateFlags.NoFlags,
+					messageSeverity: 
+						Vk.EXT.DebugUtilsMessageSeverityFlags.InfoEXT |
+						Vk.EXT.DebugUtilsMessageSeverityFlags.WarningEXT |
+						Vk.EXT.DebugUtilsMessageSeverityFlags.ErrorEXT,
+					messageType:
+						Vk.EXT.DebugUtilsMessageTypeFlags.GeneralEXT |
+						Vk.EXT.DebugUtilsMessageTypeFlags.PerformanceEXT |
+						Vk.EXT.DebugUtilsMessageTypeFlags.ValidationEXT,
+					userCallback: &DebugMessageCallback
+				);
 				instance.CreateDebugUtilsMessengerEXT(&dumci, null, out debug)
 						.Throw("Failed to create Vulkan debug messenger");
 			}
@@ -113,49 +121,54 @@ namespace Vega.Graphics
 			}
 		}
 
-		private static void CreateVulkanDevice(GraphicsService service, out Vk.Device device, out Vk.Queue gQueue,
+		// Create the logical device, and the graphics queue
+		private static void CreateVulkanDevice(Vk.PhysicalDeviceData pdev, out Vk.Device device, out Vk.Queue gQueue,
 			out uint gQueueIndex)
 		{
-			// Populate the features
+			// Populate the features (TODO: add some feature selection to the public API)
 			Vk.PhysicalDeviceFeatures feats = new();
 
 			// Check and populate extensions
 			using var extList = new Vk.NativeStringList();
-			if (!service.DeviceData.ExtensionNames.Contains(Vk.Constants.KHR_SWAPCHAIN_EXTENSION_NAME)) {
+			if (!pdev.ExtensionNames.Contains(Vk.Constants.KHR_SWAPCHAIN_EXTENSION_NAME)) {
 				throw new PlatformNotSupportedException("Selected device does not support swapchain operations");
 			}
 			extList.Add(Vk.Constants.KHR_SWAPCHAIN_EXTENSION_NAME);
 
 			// Create the queues
 			float QUEUE_PRIORITIES = 1;
-			Vk.DeviceQueueCreateInfo.New(out var gQueueInfo);
-			gQueueInfo.QueueCount = 1;
-			gQueueInfo.QueuePriorities = &QUEUE_PRIORITIES;
-			foreach (var props in service.DeviceData.QueueFamilies) {
+			Vk.DeviceQueueCreateInfo gQueueInfo = new(
+				queueFamilyIndex: 0,
+				queueCount: 1,
+				queuePriorities: &QUEUE_PRIORITIES
+			);
+			foreach (var props in pdev.QueueFamilies) {
 				if ((props.QueueFlags & Vk.QueueFlags.Graphics) > 0) {
 					break;
 				}
 				++gQueueInfo.QueueFamilyIndex;
 			}
-			if (gQueueInfo.QueueFamilyIndex == service.DeviceData.QueueFamilyCount) {
+			if (gQueueInfo.QueueFamilyIndex == pdev.QueueFamilyCount) {
 				// Shouldn't happen per spec, but still check
 				throw new PlatformNotSupportedException("Selected device does not support graphics operations.");
 			}
 
 			// Create device
-			Vk.DeviceCreateInfo.New(out var dci);
-			dci.EnabledFeatures = &feats;
-			dci.QueueCreateInfoCount = 1;
-			dci.QueueCreateInfos = &gQueueInfo;
-			dci.EnabledExtensionCount = extList.Count;
-			dci.EnabledExtensionNames = extList.Data;
-			service.PhysicalDevice.CreateDevice(&dci, null, out device!).Throw("Failed to create Vulkan device");
+			Vk.DeviceCreateInfo dci = new(
+				queueCreateInfoCount: 1,
+				queueCreateInfos: &gQueueInfo,
+				enabledExtensionCount: extList.Count,
+				enabledExtensionNames: extList.Data,
+				enabledFeatures: &feats
+			);
+			pdev.PhysicalDevice.CreateDevice(&dci, null, out device!).Throw("Failed to create Vulkan device");
 
 			// Get the queue
 			device.GetDeviceQueue(gQueueInfo.QueueFamilyIndex, 0, out gQueue!);
 			gQueueIndex = gQueueInfo.QueueFamilyIndex;
 		}
 
+		// The callback (FROM UNMANAGED CODE) for Vulkan debug messaging
 		private static Vk.Bool32 DebugMessageCallback(
 			Vk.EXT.DebugUtilsMessageSeverityFlags severity,
 			Vk.EXT.DebugUtilsMessageTypeFlags type,
@@ -166,12 +179,12 @@ namespace Vega.Graphics
 			var evt = new DebugMessageEvent {
 				Severity = (DebugMessageSeverity)severity,
 				Type = (DebugMessageType)type,
-				Message = Marshal.PtrToStringAnsi(new IntPtr(data->Message)) ?? String.Empty,
+				Message = Marshal.PtrToStringAnsi(new IntPtr(data->Message)) ?? String.Empty, // ANSI, not UTF
 				MessageId = data->MessageIdNumber
 			};
 			Vk.EXT.DebugUtilsObjectNameInfo* next = data->Objects;
 			while (next != null) {
-				evt.ObjectNames.Add(Marshal.PtrToStringAnsi(new IntPtr(next->ObjectName)) ?? String.Empty);
+				evt.ObjectNames.Add(Marshal.PtrToStringAnsi(new IntPtr(next->ObjectName)) ?? String.Empty); // ANSI, not UTF
 				next = (Vk.EXT.DebugUtilsObjectNameInfo*)next->pNext;
 			}
 			Core.Events.Publish(Core.Instance?.Graphics, evt);

@@ -20,7 +20,7 @@ namespace Vega.Graphics
 		public const int GROW_SIZE = 10;
 
 		#region Fields
-		public readonly GraphicsService Graphics;
+		public readonly GraphicsDevice Graphics;
 
 		// Pool and buffers
 		private readonly Vk.CommandPool _pool;
@@ -36,7 +36,7 @@ namespace Vega.Graphics
 		public bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
 
-		public CommandPool(GraphicsService gs)
+		public CommandPool(GraphicsDevice gs)
 		{
 			Graphics = gs;
 
@@ -45,7 +45,7 @@ namespace Vega.Graphics
 				flags: Vk.CommandPoolCreateFlags.ResetCommandBuffer, 
 				queueFamilyIndex: gs.GraphicsQueue.FamilyIndex
 			);
-			gs.Device.CreateCommandPool(&cpci, null, out _pool)
+			gs.VkDevice.CreateCommandPool(&cpci, null, out _pool)
 				.Throw("Failed to create transient command pool");
 
 			// Initial allocations
@@ -102,7 +102,7 @@ namespace Vega.Graphics
 				commandBufferCount: GROW_SIZE
 			);
 			var handles = stackalloc Vk.Handle<Vk.CommandBuffer>[GROW_SIZE];
-			Graphics.Device.AllocateCommandBuffers(&cbai, handles)
+			Graphics.VkDevice.AllocateCommandBuffers(&cbai, handles)
 				.Throw("Failed to allocate more command buffers in thread pool");
 			var stack = (level == Vk.CommandBufferLevel.Primary) ? _priAlloc : _secAlloc;
 			for (int i = 0; i < GROW_SIZE; ++i) {

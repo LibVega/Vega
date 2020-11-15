@@ -16,7 +16,7 @@ namespace Vega.Graphics
 
 		#region Fields
 		// The service using this resource manager
-		public readonly GraphicsService Graphics;
+		public readonly GraphicsDevice Graphics;
 
 		// Memory info
 		private readonly MemoryIndex MemoryDevice;
@@ -44,58 +44,53 @@ namespace Vega.Graphics
 		public bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
 
-		public ResourceManager(GraphicsService gs)
+		public ResourceManager(GraphicsDevice gs)
 		{
 			Graphics = gs;
 
 			// Load memory types
 			{
-				var mdev = gs.DeviceData.FindMemoryType(UInt32.MaxValue, 
+				var mdev = gs.VkDeviceData.FindMemoryType(UInt32.MaxValue, 
 					Vk.MemoryPropertyFlags.DeviceLocal,
 					Vk.MemoryPropertyFlags.NoFlags, 
 					Vk.MemoryPropertyFlags.HostVisible);
-				var mhos = gs.DeviceData.FindMemoryType(UInt32.MaxValue,
+				var mhos = gs.VkDeviceData.FindMemoryType(UInt32.MaxValue,
 					Vk.MemoryPropertyFlags.HostVisible | Vk.MemoryPropertyFlags.HostCached,
 					Vk.MemoryPropertyFlags.HostCoherent,
 					Vk.MemoryPropertyFlags.DeviceLocal);
-				var mupl = gs.DeviceData.FindMemoryType(UInt32.MaxValue,
+				var mupl = gs.VkDeviceData.FindMemoryType(UInt32.MaxValue,
 					Vk.MemoryPropertyFlags.HostVisible | Vk.MemoryPropertyFlags.HostCoherent,
 					Vk.MemoryPropertyFlags.NoFlags,
 					Vk.MemoryPropertyFlags.HostCached);
-				var mdyn = gs.DeviceData.FindMemoryType(UInt32.MaxValue,
+				var mdyn = gs.VkDeviceData.FindMemoryType(UInt32.MaxValue,
 					Vk.MemoryPropertyFlags.HostVisible | Vk.MemoryPropertyFlags.HostCoherent,
 					Vk.MemoryPropertyFlags.DeviceLocal,
 					Vk.MemoryPropertyFlags.HostCached);
-				var mtra = gs.DeviceData.FindMemoryType(UInt32.MaxValue,
+				var mtra = gs.VkDeviceData.FindMemoryType(UInt32.MaxValue,
 					Vk.MemoryPropertyFlags.LazilyAllocated | Vk.MemoryPropertyFlags.DeviceLocal,
 					Vk.MemoryPropertyFlags.NoFlags,
 					Vk.MemoryPropertyFlags.HostVisible);
 
 				MemoryDevice = new(
 					mdev.HasValue ? mdev.Value : throw new PlatformNotSupportedException("Device does not report VRAM"),
-					gs.DeviceData.MemoryTypes[(int)mdev.Value].HeapIndex);
+					gs.VkDeviceData.MemoryTypes[(int)mdev.Value].HeapIndex);
 				MemoryHost = new(
 					mhos.HasValue ? mhos.Value : throw new PlatformNotSupportedException("Device does not report DRAM"),
-					gs.DeviceData.MemoryTypes[(int)mhos.Value].HeapIndex);
+					gs.VkDeviceData.MemoryTypes[(int)mhos.Value].HeapIndex);
 				MemoryUpload = new(
 					mupl.HasValue ? mupl.Value : MemoryHost.Type,
-					gs.DeviceData.MemoryTypes[(int)(mupl.HasValue ? mupl.Value : MemoryHost.Type)].HeapIndex);
+					gs.VkDeviceData.MemoryTypes[(int)(mupl.HasValue ? mupl.Value : MemoryHost.Type)].HeapIndex);
 				MemoryDynamic = new(
 					mdyn.HasValue ? mdyn.Value : MemoryUpload.Type,
-					gs.DeviceData.MemoryTypes[(int)(mdyn.HasValue ? mdyn.Value : MemoryUpload.Type)].HeapIndex);
+					gs.VkDeviceData.MemoryTypes[(int)(mdyn.HasValue ? mdyn.Value : MemoryUpload.Type)].HeapIndex);
 				MemoryTransient = !mtra.HasValue ? null : new(
 					mtra.Value,
-					gs.DeviceData.MemoryTypes[(int)mtra.Value].HeapIndex);
+					gs.VkDeviceData.MemoryTypes[(int)mtra.Value].HeapIndex);
 			}
 		}
 		~ResourceManager()
 		{
 			dispose(false);
-		}
-
-		public void EndFrame()
-		{
-
 		}
 
 		#region Commands
@@ -128,11 +123,11 @@ namespace Vega.Graphics
 			Vk.MemoryAllocateInfo.New(out var mai);
 			mai.AllocationSize = req.Size;
 			mai.MemoryTypeIndex = MemoryDevice.Type;
-			var res = Graphics.Device.AllocateMemory(&mai, null, out var mem);
+			var res = Graphics.VkDevice.AllocateMemory(&mai, null, out var mem);
 			if (res == Vk.Result.OutOfHostMemory) throw new OutOfHostMemoryException(new DataSize((long)req.Size.Value));
 			if (res == Vk.Result.OutOfDeviceMemory) throw new OutOfDeviceMemoryException(new DataSize((long)req.Size.Value));
 			return (res == Vk.Result.Success)
-				? new(mem, 0, req.Size, Graphics.DeviceData.MemoryTypes[(int)MemoryDevice.Type].PropertyFlags)
+				? new(mem, 0, req.Size, Graphics.VkDeviceData.MemoryTypes[(int)MemoryDevice.Type].PropertyFlags)
 				: null;
 		}
 
@@ -145,11 +140,11 @@ namespace Vega.Graphics
 			Vk.MemoryAllocateInfo.New(out var mai);
 			mai.AllocationSize = req.Size;
 			mai.MemoryTypeIndex = MemoryHost.Type;
-			var res = Graphics.Device.AllocateMemory(&mai, null, out var mem);
+			var res = Graphics.VkDevice.AllocateMemory(&mai, null, out var mem);
 			if (res == Vk.Result.OutOfHostMemory) throw new OutOfHostMemoryException(new DataSize((long)req.Size.Value));
 			if (res == Vk.Result.OutOfDeviceMemory) throw new OutOfDeviceMemoryException(new DataSize((long)req.Size.Value));
 			return (res == Vk.Result.Success)
-				? new(mem, 0, req.Size, Graphics.DeviceData.MemoryTypes[(int)MemoryHost.Type].PropertyFlags)
+				? new(mem, 0, req.Size, Graphics.VkDeviceData.MemoryTypes[(int)MemoryHost.Type].PropertyFlags)
 				: null;
 		}
 
@@ -162,11 +157,11 @@ namespace Vega.Graphics
 			Vk.MemoryAllocateInfo.New(out var mai);
 			mai.AllocationSize = req.Size;
 			mai.MemoryTypeIndex = MemoryUpload.Type;
-			var res = Graphics.Device.AllocateMemory(&mai, null, out var mem);
+			var res = Graphics.VkDevice.AllocateMemory(&mai, null, out var mem);
 			if (res == Vk.Result.OutOfHostMemory) throw new OutOfHostMemoryException(new DataSize((long)req.Size.Value));
 			if (res == Vk.Result.OutOfDeviceMemory) throw new OutOfDeviceMemoryException(new DataSize((long)req.Size.Value));
 			return (res == Vk.Result.Success)
-				? new(mem, 0, req.Size, Graphics.DeviceData.MemoryTypes[(int)MemoryUpload.Type].PropertyFlags)
+				? new(mem, 0, req.Size, Graphics.VkDeviceData.MemoryTypes[(int)MemoryUpload.Type].PropertyFlags)
 				: null;
 		}
 
@@ -179,11 +174,11 @@ namespace Vega.Graphics
 			Vk.MemoryAllocateInfo.New(out var mai);
 			mai.AllocationSize = req.Size;
 			mai.MemoryTypeIndex = MemoryDynamic.Type;
-			var res = Graphics.Device.AllocateMemory(&mai, null, out var mem);
+			var res = Graphics.VkDevice.AllocateMemory(&mai, null, out var mem);
 			if (res == Vk.Result.OutOfHostMemory) throw new OutOfHostMemoryException(new DataSize((long)req.Size.Value));
 			if (res == Vk.Result.OutOfDeviceMemory) throw new OutOfDeviceMemoryException(new DataSize((long)req.Size.Value));
 			return (res == Vk.Result.Success)
-				? new(mem, 0, req.Size, Graphics.DeviceData.MemoryTypes[(int)MemoryDynamic.Type].PropertyFlags)
+				? new(mem, 0, req.Size, Graphics.VkDeviceData.MemoryTypes[(int)MemoryDynamic.Type].PropertyFlags)
 				: null;
 		}
 
@@ -199,11 +194,11 @@ namespace Vega.Graphics
 			Vk.MemoryAllocateInfo.New(out var mai);
 			mai.AllocationSize = req.Size;
 			mai.MemoryTypeIndex = MemoryTransient.Value.Type;
-			var res = Graphics.Device.AllocateMemory(&mai, null, out var mem);
+			var res = Graphics.VkDevice.AllocateMemory(&mai, null, out var mem);
 			if (res == Vk.Result.OutOfHostMemory) throw new OutOfHostMemoryException(new DataSize((long)req.Size.Value));
 			if (res == Vk.Result.OutOfDeviceMemory) throw new OutOfDeviceMemoryException(new DataSize((long)req.Size.Value));
 			return (res == Vk.Result.Success)
-				? new(mem, 0, req.Size, Graphics.DeviceData.MemoryTypes[(int)MemoryTransient.Value.Type].PropertyFlags)
+				? new(mem, 0, req.Size, Graphics.VkDeviceData.MemoryTypes[(int)MemoryTransient.Value.Type].PropertyFlags)
 				: null;
 		}
 		#endregion // Memory

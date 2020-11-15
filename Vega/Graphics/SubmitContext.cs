@@ -34,7 +34,7 @@ namespace Vega.Graphics
 			Queue = queue;
 
 			Vk.FenceCreateInfo fci = new(Vk.FenceCreateFlags.Signaled);
-			queue.Graphics.Device.CreateFence(&fci, null, out Fence)
+			queue.Graphics.VkDevice.CreateFence(&fci, null, out Fence)
 				.Throw("Failed to create fence for SubmitContext");
 		}
 
@@ -64,7 +64,7 @@ namespace Vega.Graphics
 			_commands.Clear();
 			_commands.AddRange(buffers);
 			var fhandle = Fence.Handle;
-			Queue.Graphics.Device.ResetFences(1, &fhandle);
+			Queue.Graphics.VkDevice.ResetFences(1, &fhandle);
 		}
 
 		// Ditto, but for a single command buffer
@@ -76,7 +76,7 @@ namespace Vega.Graphics
 			_commands.Clear();
 			_commands.Add(buffer);
 			var fhandle = Fence.Handle;
-			Queue.Graphics.Device.ResetFences(1, &fhandle);
+			Queue.Graphics.VkDevice.ResetFences(1, &fhandle);
 		}
 
 		// Ditto, but for single primary + multiple secondaries
@@ -89,7 +89,7 @@ namespace Vega.Graphics
 			_commands.Add(buffer);
 			_commands.AddRange(cmds);
 			var fhandle = Fence.Handle;
-			Queue.Graphics.Device.ResetFences(1, &fhandle);
+			Queue.Graphics.VkDevice.ResetFences(1, &fhandle);
 		}
 	}
 }

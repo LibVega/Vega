@@ -12,38 +12,32 @@ namespace Vega.Graphics
 	/// <summary>
 	/// Manages the top-level execution and resource management of the graphics system.
 	/// </summary>
-	public unsafe sealed partial class GraphicsService
+	public unsafe sealed partial class GraphicsDevice
 	{
-		/// <summary>
-		/// The maximum number of concurrently executed graphics frames. This gives the number of frames that resources
-		/// must be kept alive to ensure they are not destroyed while in use.
-		/// </summary>
-		public const uint MAX_FRAMES = 3;
-
 		#region Fields
 		/// <summary>
 		/// The core instance controlling this graphics service.
 		/// </summary>
 		public readonly Core Core;
 
-		// Vulkan objects/values
-		internal readonly Vk.Instance Instance;
-		internal readonly Vk.InstanceData InstanceData;
-		internal readonly Vk.EXT.DebugUtilsMessenger? DebugUtils;
-		internal readonly Vk.PhysicalDevice PhysicalDevice;
-		internal readonly Vk.PhysicalDeviceData DeviceData;
-		internal readonly Vk.Device Device;
-		internal Vk.Version ApiVersion => Instance.Functions.CoreVersion;
+		#region Vulkan-Like Objects
+		internal readonly Vk.Instance VkInstance;
+		internal readonly Vk.InstanceData VkInstanceData;
+		internal readonly Vk.EXT.DebugUtilsMessenger? VkDebugUtils;
+		internal readonly Vk.PhysicalDevice VkPhysicalDevice;
+		internal readonly Vk.PhysicalDeviceData VkDeviceData;
+		internal readonly Vk.Device VkDevice;
+		internal Vk.Version ApiVersion => VkInstance.Functions.CoreVersion;
 
-		// Queue objects
 		internal readonly DeviceQueue GraphicsQueue;
+		#endregion // Vulkan-Like Objects
 
 		/// <summary>
 		/// The limits for the selected graphics device and driver.
 		/// </summary>
 		public readonly GraphicsLimits Limits;
 
-		// Resources
+		#region Resources
 		internal readonly ResourceManager Resources;
 		/// <summary>
 		/// Gets if the calling thread is registered with the graphics service, and is able to perform graphics
@@ -54,16 +48,12 @@ namespace Vega.Graphics
 		/// Gets if the calling thread is the main graphics thread.
 		/// </summary>
 		public bool IsMainThread => Resources.IsMainThread;
-
-		/// <summary>
-		/// The frame index used for resource synchronization.
-		/// </summary>
-		public uint FrameIndex { get; private set; } = 0;
+		#endregion // Resources
 
 		internal bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
 
-		internal GraphicsService(Core core, bool validation)
+		internal GraphicsDevice(Core core, bool validation)
 		{
 			if (!Glfw.VulkanSupported()) {
 				throw new PlatformNotSupportedException("The Vulkan runtime is not available on this platform");
@@ -71,33 +61,30 @@ namespace Vega.Graphics
 			Core = core;
 
 			// Create the instance and select the device to use
-			InitializeVulkanInstance(this, validation, out InstanceData, out DebugUtils, out DeviceData);
-			Instance = InstanceData.Instance;
-			PhysicalDevice = DeviceData.PhysicalDevice;
-			LINFO($"Selected device '{DeviceData.DeviceName}'");
-			CreateVulkanDevice(this, out Device, out var graphicsQueue, out var graphicsQueueIndex);
+			InitializeVulkanInstance(validation, out VkInstanceData, out VkDebugUtils, out VkDeviceData);
+			VkInstance = VkInstanceData.Instance;
+			VkPhysicalDevice = VkDeviceData.PhysicalDevice;
+			LINFO($"Selected device '{VkDeviceData.DeviceName}'");
+
+			// Create the device and queue objects
+			CreateVulkanDevice(VkDeviceData, out VkDevice, out var graphicsQueue, out var graphicsQueueIndex);
 			GraphicsQueue = new(this, graphicsQueue, graphicsQueueIndex);
 			LINFO("Created Vulkan device instance");
-			Limits = new(DeviceData);
+			Limits = new(VkDeviceData);
 
 			// Prepare resources
 			Resources = new(this);
 			Resources.RegisterThread();
 		}
-		~GraphicsService()
+		~GraphicsDevice()
 		{
 			dispose(false);
 		}
 
-		// Performs end-frame graphics operations, such as advancing the graphics frame index and managing resources
-		internal void EndFrame()
+		// Called once per application frame to perform global resource tracking and cleanup
+		internal void Update()
 		{
-			// Advance frame
-			FrameIndex = (FrameIndex + 1) % MAX_FRAMES;
-
-			// Run resource processing for the frame
 			GraphicsQueue.UpdateContexts();
-			Resources.EndFrame();
 		}
 
 		#region Threading
@@ -126,17 +113,17 @@ namespace Vega.Graphics
 		{
 			if (!IsDisposed) {
 				if (disposing) {
-					Device.DeviceWaitIdle();
+					VkDevice.DeviceWaitIdle();
 
 					Resources.UnregisterThread();
 					Resources.Dispose();
 
 					GraphicsQueue.Dispose();
 
-					Device.DestroyDevice(null);
+					VkDevice.DestroyDevice(null);
 					LINFO("Destroyed Vulkan device");
-					DebugUtils?.DestroyDebugUtilsMessengerEXT(null);
-					Instance.DestroyInstance(null);
+					VkDebugUtils?.DestroyDebugUtilsMessengerEXT(null);
+					VkInstance.DestroyInstance(null);
 					LINFO("Destroyed Vulkan instance");
 				}
 			}
