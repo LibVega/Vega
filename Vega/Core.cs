@@ -31,9 +31,6 @@ namespace Vega
 		private static bool _EnableGraphicsValidation = false;
 
 		#region Members
-		// The audio driver associated with this instance
-		internal readonly AudioDriver AudioDriver;
-
 		/// <summary>
 		/// The application name.
 		/// </summary>
@@ -43,29 +40,26 @@ namespace Vega
 		/// </summary>
 		public readonly Version AppVersion;
 
+		#region Core Objects
 		/// <summary>
 		/// The graphics controller for the core instance.
 		/// </summary>
 		public readonly GraphicsService Graphics;
 
 		/// <summary>
-		/// Reports if the application is in a frame (between <see cref="BeginFrame"/> and <see cref="EndFrame"/>).
-		/// </summary>
-		public bool InFrame { get; private set; } = false;
-		/// <summary>
-		/// Reports if the application has been requested to close. The main application loop should check this.
-		/// </summary>
-		public bool ShouldExit { get; private set; } = false;
-
-		/// <summary>
 		/// The list of all open windows in the application.
 		/// </summary>
 		public IReadOnlyList<Window> Windows => _windows;
 		private readonly List<Window> _windows = new();
+
+		// The audio driver associated with this instance
+		internal readonly AudioDriver AudioDriver;
+		#endregion // Core Objects
+
 		/// <summary>
-		/// Gets the current main window (the oldest open window).
+		/// Reports if the application has been requested to close. The main application loop should check this.
 		/// </summary>
-		public Window? MainWindow => (_windows.Count > 0) ? _windows[0] : null;
+		public bool ShouldExit { get; private set; } = false;
 
 		/// <summary>
 		/// Reports if the core object has been disposed.
@@ -119,56 +113,32 @@ namespace Vega
 
 		#region Frame
 		/// <summary>
-		/// Begins the frame for the main application loop. This performs updates for the windowing and input, and
-		/// prepares the graphics system for a new frame. This cannot be called if a frame is already active.
+		/// Moves the application to the next frame. This performs input event polling, advances <see cref="AppTime"/>,
+		/// ticks coroutines, and performs audio processing.
+		/// <para>
+		/// Failing to call this function will halt logical application advancement.
+		/// </para>
 		/// </summary>
-		public void BeginFrame()
+		public void NextFrame()
 		{
-			if (InFrame) {
-				throw new InvalidOperationException("Cannot call BeginFrame() if a frame is already active");
-			}
-			InFrame = true;
-
 			AppTime.Frame();
 
 			// Run window frames
 			foreach (var win in _windows) {
-				win.BeginFrame();
+				win.Keyboard.NewFrame();
+				win.Mouse.NewFrame();
 			}
 			Glfw.PollEvents();
 			foreach (var win in _windows) {
-				win.Keyboard.ProcessHoldEvents();
+				win.Keyboard.HandleEvents();
 				win.Mouse.HandleEvents();
 			}
 
 			// Update audio engine
 			AudioDriver.Update();
 
-			// Tick begin coroutines
-			CoroutineManager.Tick(CoroutinePolicy.Beginning);
-		}
-
-		/// <summary>
-		/// Ends the current frame for the main application loop. This presents the window contents, and performs
-		/// per-frame cleanup operations. This cannot be called if a frame is not currently active.
-		/// </summary>
-		public void EndFrame()
-		{
-			if (!InFrame) {
-				throw new InvalidOperationException("Cannot call EndFrame() if a frame is not active");
-			}
-			InFrame = false;
-
-			// End window frames
-			foreach (var win in _windows) {
-				win.EndFrame();
-			}
-
-			// End the graphics frame
-			Graphics.EndFrame();
-
-			// Tick end routines
-			CoroutineManager.Tick(CoroutinePolicy.End);
+			// Tick coroutines
+			CoroutineManager.Tick();
 		}
 		#endregion // Frame
 
@@ -243,7 +213,7 @@ namespace Vega
 
 		#region Window
 		/// <summary>
-		/// Creates and opens a new window, with its own render commands and input handling.
+		/// Creates and opens a new window.
 		/// </summary>
 		/// <param name="title">The initial title of the new window.</param>
 		/// <param name="width">The width of the new window.</param>

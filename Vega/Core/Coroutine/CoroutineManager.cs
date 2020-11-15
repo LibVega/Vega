@@ -17,7 +17,7 @@ namespace Vega
 		private static readonly object _NewLock = new();
 		private static bool _Ticking = false; // Cannot add to _Coroutines while ticking
 
-		public static void Tick(CoroutinePolicy policy)
+		public static void Tick()
 		{
 			_Ticking = true;
 
@@ -28,7 +28,6 @@ namespace Vega
 			// Tick all coroutines
 			foreach (var cor in _Coroutines) {
 				if (!cor.Running) continue;
-				if (cor.Policy != policy) continue;
 
 				// Update wait objects
 				if (cor.WaitImpl.Time > 0) {

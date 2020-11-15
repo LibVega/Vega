@@ -11,7 +11,7 @@ using Vega.Input;
 namespace Vega
 {
 	/// <summary>
-	/// Window type moding.
+	/// Window moding values.
 	/// </summary>
 	public enum WindowMode
 	{
@@ -38,17 +38,6 @@ namespace Vega
 		#region Fields
 		// GLFW window handle
 		internal IntPtr Handle { get; private set; } = IntPtr.Zero;
-
-		// Swapchain handle
-		internal readonly Swapchain Swapchain;
-		/// <summary>
-		/// Gets the format of the window display surface.
-		/// </summary>
-		public TexelFormat SurfaceFormat => (TexelFormat)Swapchain.SurfaceFormat;
-		/// <summary>
-		/// The Renderer attached to this window, if any.
-		/// </summary>
-		public Renderer? Renderer { get; internal set; }
 
 		#region Properties
 		/// <summary>
@@ -111,16 +100,6 @@ namespace Vega
 			}
 		}
 		private bool _floating;
-
-		/// <summary>
-		/// The vertical sync (VSync) state of the window. Note that not all platforms may support non-vsync modes.
-		/// All windows start with vsync enabled by default.
-		/// </summary>
-		public bool VerticalSync
-		{
-			get => Swapchain.Vsync;
-			set => Swapchain.SetVsync(value);
-		}
 		#endregion // Properties
 
 		#region Status
@@ -313,10 +292,6 @@ namespace Vega
 			// Setup input
 			_keyboard = new Keyboard(this);
 			_mouse = new Mouse(this);
-
-			// Create the swapchain
-			Swapchain = new Swapchain(this);
-			Renderer = null;
 		}
 		~Window()
 		{
@@ -476,28 +451,6 @@ namespace Vega
 		}
 		#endregion // Window Actions
 
-		#region Frame
-		internal void BeginFrame()
-		{
-			_keyboard.NewFrame();
-			_mouse.NewFrame();
-		}
-
-		internal void EndFrame()
-		{
-			if (Renderer is not null) {
-				if (Renderer.IsRecording) {
-					throw new InvalidOperationException("Window renderers must be submitted before ending the application frame");
-				}
-				if (Renderer.LastEndFrame != AppTime.FrameCount) {
-					throw new InvalidOperationException("Window renderers must be recorded exactly once per frame");
-				}
-			}
-
-			Swapchain.Present();
-		}
-		#endregion // Frame
-
 		#region IDisposable
 		public void Dispose()
 		{
@@ -508,7 +461,6 @@ namespace Vega
 		private void dispose(bool disposing)
 		{
 			if (!IsDisposed) {
-				Swapchain?.Dispose();
 				Glfw.DestroyWindow(Handle);
 				Core.Instance?.RemoveWindow(this);
 			}

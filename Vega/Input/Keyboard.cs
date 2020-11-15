@@ -115,7 +115,7 @@ namespace Vega.Input
 			Array.Copy(_currKeys, _lastKeys, _currKeys.Length);
 		}
 
-		internal void ProcessHoldEvents()
+		internal void HandleEvents()
 		{
 			var elapsed = (float)AppTime.Elapsed.TotalSeconds;
 			foreach (var keys in _pressed) {
