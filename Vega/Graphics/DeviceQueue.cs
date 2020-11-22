@@ -6,7 +6,7 @@
 
 using System;
 using System.Collections.Generic;
-using Vk.Extras;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -21,7 +21,7 @@ namespace Vega.Graphics
 		// The associated graphics service
 		public readonly GraphicsDevice Graphics;
 		// The queue object
-		public readonly Vk.Queue Queue;
+		public readonly VkQueue Queue;
 		// The queue family index for the queue
 		public readonly uint FamilyIndex;
 
@@ -44,7 +44,7 @@ namespace Vega.Graphics
 		public bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
 
-		public DeviceQueue(GraphicsDevice gs, Vk.Queue queue, uint index)
+		public DeviceQueue(GraphicsDevice gs, VkQueue queue, uint index)
 		{
 			Graphics = gs;
 			Queue = queue;
@@ -100,7 +100,7 @@ namespace Vega.Graphics
 
 		#region Tracked Submits
 		// Submit a single command buffer with optional signal semaphore
-		public Vk.Fence Submit(CommandBuffer cmd, Vk.Semaphore? signalSem = null)
+		public VkFence Submit(CommandBuffer cmd, VkSemaphore? signalSem = null)
 		{
 			var ctx = allocateContext();
 			ctx.Prepare(cmd);
@@ -108,8 +108,8 @@ namespace Vega.Graphics
 			SubmitCount += 1;
 			BufferCount += 1;
 			var cmdHandle = cmd.Cmd.Handle;
-			var semHandle = signalSem ? signalSem!.Handle : Vk.Handle<Vk.Semaphore>.Null;
-			Vk.SubmitInfo si = new(
+			var semHandle = signalSem ? signalSem!.Handle : VulkanHandle<VkSemaphore>.Null;
+			VkSubmitInfo si = new(
 				waitSemaphoreCount: 0,
 				waitSemaphores: null,
 				waitDstStageMask: null,
@@ -123,7 +123,7 @@ namespace Vega.Graphics
 		}
 
 		// Submit a primary command buffer with secondaries, optional signal semaphore
-		public Vk.Fence Submit(CommandBuffer cmd, IEnumerable<CommandBuffer> cmds, Vk.Semaphore? signalSem = null)
+		public VkFence Submit(CommandBuffer cmd, IEnumerable<CommandBuffer> cmds, VkSemaphore? signalSem = null)
 		{
 			var ctx = allocateContext();
 			ctx.Prepare(cmd, cmds);
@@ -131,8 +131,8 @@ namespace Vega.Graphics
 			SubmitCount += 1;
 			BufferCount += (uint)ctx.Commands.Count;
 			var cmdHandle = cmd.Cmd.Handle;
-			var semHandle = signalSem ? signalSem!.Handle : Vk.Handle<Vk.Semaphore>.Null;
-			Vk.SubmitInfo si = new(
+			var semHandle = signalSem ? signalSem!.Handle : VulkanHandle<VkSemaphore>.Null;
+			VkSubmitInfo si = new(
 				waitSemaphoreCount: 0,
 				waitSemaphores: null,
 				waitDstStageMask: null,
@@ -146,8 +146,8 @@ namespace Vega.Graphics
 		}
 
 		// Submit a single command buffer with wait semaphore, and optional signal semaphore
-		public Vk.Fence Submit(CommandBuffer cmd, Vk.Semaphore waitSem, Vk.PipelineStageFlags waitStages, 
-			Vk.Semaphore? signalSem = null)
+		public VkFence Submit(CommandBuffer cmd, VkSemaphore waitSem, VkPipelineStageFlags waitStages, 
+			VkSemaphore? signalSem = null)
 		{
 			var ctx = allocateContext();
 			ctx.Prepare(cmd);
@@ -155,9 +155,9 @@ namespace Vega.Graphics
 			SubmitCount += 1;
 			BufferCount += 1;
 			var cmdHandle = cmd.Cmd.Handle;
-			var waitHandle = waitSem ? waitSem.Handle : Vk.Handle<Vk.Semaphore>.Null;
-			var sigHandle = signalSem ? signalSem!.Handle : Vk.Handle<Vk.Semaphore>.Null;
-			Vk.SubmitInfo si = new(
+			var waitHandle = waitSem ? waitSem.Handle : VulkanHandle<VkSemaphore>.Null;
+			var sigHandle = signalSem ? signalSem!.Handle : VulkanHandle<VkSemaphore>.Null;
+			VkSubmitInfo si = new(
 				waitSemaphoreCount: waitSem ? 1 : 0,
 				waitSemaphores: &waitHandle,
 				waitDstStageMask: &waitStages,
@@ -171,8 +171,8 @@ namespace Vega.Graphics
 		}
 
 		// Submit a primary command buffer with secondaries and a wait semaphore, optional signal semaphore
-		public Vk.Fence Submit(CommandBuffer cmd, IEnumerable<CommandBuffer> cmds, Vk.Semaphore waitSem,
-			Vk.PipelineStageFlags waitStages, Vk.Semaphore? signalSem = null)
+		public VkFence Submit(CommandBuffer cmd, IEnumerable<CommandBuffer> cmds, VkSemaphore waitSem,
+			VkPipelineStageFlags waitStages, VkSemaphore? signalSem = null)
 		{
 			var ctx = allocateContext();
 			ctx.Prepare(cmd, cmds);
@@ -180,9 +180,9 @@ namespace Vega.Graphics
 			SubmitCount += 1;
 			BufferCount += (uint)ctx.Commands.Count;
 			var cmdHandle = cmd.Cmd.Handle;
-			var waitHandle = waitSem ? waitSem.Handle : Vk.Handle<Vk.Semaphore>.Null;
-			var sigHandle = signalSem ? signalSem!.Handle : Vk.Handle<Vk.Semaphore>.Null;
-			Vk.SubmitInfo si = new(
+			var waitHandle = waitSem ? waitSem.Handle : VulkanHandle<VkSemaphore>.Null;
+			var sigHandle = signalSem ? signalSem!.Handle : VulkanHandle<VkSemaphore>.Null;
+			VkSubmitInfo si = new(
 				waitSemaphoreCount: waitSem ? 1 : 0,
 				waitSemaphores: &waitHandle,
 				waitDstStageMask: &waitStages,
@@ -197,18 +197,18 @@ namespace Vega.Graphics
 		#endregion // Tracked Submits
 
 		#region Raw Submits
-		public Vk.Result SubmitRaw(in Vk.SubmitInfo si, Vk.Handle<Vk.Fence> fence)
+		public VkResult SubmitRaw(in VkSubmitInfo si, VulkanHandle<VkFence> fence)
 		{
 			SubmitCount += 1;
 			BufferCount += si.CommandBufferCount;
 			lock (_submitLock) {
-				fixed (Vk.SubmitInfo* siptr = &si) {
+				fixed (VkSubmitInfo* siptr = &si) {
 					return Queue.QueueSubmit(1, siptr, fence);
 				}
 			}
 		}
 
-		public Vk.Result SubmitRaw(Vk.SubmitInfo* si, Vk.Handle<Vk.Fence> fence)
+		public VkResult SubmitRaw(VkSubmitInfo* si, VulkanHandle<VkFence> fence)
 		{
 			SubmitCount += 1;
 			BufferCount += si->CommandBufferCount;
@@ -217,7 +217,7 @@ namespace Vega.Graphics
 			}
 		}
 
-		public Vk.Result Present(Vk.KHR.PresentInfo* pi)
+		public VkResult Present(VkPresentInfoKHR* pi)
 		{
 			lock (_submitLock) {
 				return Queue.QueuePresentKHR(pi);

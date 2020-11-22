@@ -5,6 +5,7 @@
  */
 
 using System;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -15,7 +16,7 @@ namespace Vega.Graphics
 	{
 		#region Fields
 		// The actual Vulkan limits
-		internal readonly Vk.PhysicalDeviceData Data;
+		internal readonly Vulkan.VVK.DeviceInfo Info;
 
 		/// <summary>
 		/// Gets the maximum MSAA level supported by the current platform.
@@ -23,12 +24,12 @@ namespace Vega.Graphics
 		public MSAA MaxMSAA
 		{
 			get {
-				var sup = Data.Properties.Limits.FramebufferColorSampleCounts &
-					Data.Properties.Limits.FramebufferDepthSampleCounts;
-				if ((sup & Vk.SampleCountFlags.E16) > 0) return MSAA.X16;
-				if ((sup & Vk.SampleCountFlags.E8) > 0) return MSAA.X8;
-				if ((sup & Vk.SampleCountFlags.E4) > 0) return MSAA.X4;
-				if ((sup & Vk.SampleCountFlags.E2) > 0) return MSAA.X2;
+				var sup = Info.Properties.Limits.FramebufferColorSampleCounts &
+					Info.Properties.Limits.FramebufferDepthSampleCounts;
+				if ((sup & VkSampleCountFlags.E16) > 0) return MSAA.X16;
+				if ((sup & VkSampleCountFlags.E8) > 0) return MSAA.X8;
+				if ((sup & VkSampleCountFlags.E4) > 0) return MSAA.X4;
+				if ((sup & VkSampleCountFlags.E2) > 0) return MSAA.X2;
 				return MSAA.X1;
 			}
 		}
@@ -37,18 +38,18 @@ namespace Vega.Graphics
 		/// The maximum supported size for a Renderer or Window.
 		/// </summary>
 		public Extent2D MaxFramebufferSize =>
-			new(Data.Properties.Limits.MaxFramebufferWidth, Data.Properties.Limits.MaxFramebufferHeight);
+			new(Info.Properties.Limits.MaxFramebufferWidth, Info.Properties.Limits.MaxFramebufferHeight);
 		#endregion // Fields
 
-		internal GraphicsLimits(Vk.PhysicalDeviceData data) => Data = data;
+		internal GraphicsLimits(Vulkan.VVK.DeviceInfo info) => Info = info;
 
 		/// <summary>
 		/// Checks if the given MSAA level is supported by the current platform.
 		/// </summary>
 		/// <param name="msaa">The MSAA level to check.</param>
 		public bool IsMSAASupported(MSAA msaa) =>
-			(Data.Properties.Limits.FramebufferColorSampleCounts &
-			 Data.Properties.Limits.FramebufferDepthSampleCounts &
-			 (Vk.SampleCountFlags)msaa) > 0;
+			(Info.Properties.Limits.FramebufferColorSampleCounts &
+			 Info.Properties.Limits.FramebufferDepthSampleCounts &
+			 (VkSampleCountFlags)msaa) > 0;
 	}
 }

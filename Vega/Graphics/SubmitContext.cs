@@ -6,7 +6,7 @@
 
 using System;
 using System.Collections.Generic;
-using Vk.Extras;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -20,9 +20,9 @@ namespace Vega.Graphics
 		public readonly DeviceQueue Queue;
 		
 		// The execution fence
-		public readonly Vk.Fence Fence;
+		public readonly VkFence Fence;
 		// Gets if the execution has completed for the context
-		public bool IsFinished => Fence.GetFenceStatus() == Vk.Result.Success;
+		public bool IsFinished => Fence.GetFenceStatus() == VkResult.Success;
 
 		// The set of commands contained in the context
 		public IReadOnlyList<CommandBuffer> Commands => _commands;
@@ -33,9 +33,11 @@ namespace Vega.Graphics
 		{
 			Queue = queue;
 
-			Vk.FenceCreateInfo fci = new(Vk.FenceCreateFlags.Signaled);
-			queue.Graphics.VkDevice.CreateFence(&fci, null, out Fence)
+			VkFenceCreateInfo fci = new(VkFenceCreateFlags.Signaled);
+			VulkanHandle<VkFence> handle;
+			queue.Graphics.VkDevice.CreateFence(&fci, null, &handle)
 				.Throw("Failed to create fence for SubmitContext");
+			Fence = new(handle, queue.Graphics.VkDevice);
 		}
 
 		public void Destroy() => Fence.DestroyFence(null);

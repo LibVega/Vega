@@ -5,6 +5,7 @@
  */
 
 using System;
+using Vulkan;
 using static Vega.InternalLog;
 
 namespace Vega.Graphics
@@ -20,17 +21,17 @@ namespace Vega.Graphics
 		/// </summary>
 		public readonly Core Core;
 
-		#region Vulkan-Like Objects
-		internal readonly Vk.Instance VkInstance;
-		internal readonly Vk.InstanceData VkInstanceData;
-		internal readonly Vk.EXT.DebugUtilsMessenger? VkDebugUtils;
-		internal readonly Vk.PhysicalDevice VkPhysicalDevice;
-		internal readonly Vk.PhysicalDeviceData VkDeviceData;
-		internal readonly Vk.Device VkDevice;
-		internal Vk.Version ApiVersion => VkInstance.Functions.CoreVersion;
+		#region Vulkan Objects
+		internal readonly VkInstance VkInstance;
+		internal readonly Vulkan.VVK.InstanceInfo VkInstanceInfo;
+		internal readonly VkDebugUtilsMessengerEXT? VkDebugUtils;
+		internal readonly VkPhysicalDevice VkPhysicalDevice;
+		internal readonly Vulkan.VVK.DeviceInfo VkDeviceInfo;
+		internal readonly VkDevice VkDevice;
+		internal VkVersion ApiVersion => VkInstance.Functions.CoreVersion;
 
 		internal readonly DeviceQueue GraphicsQueue;
-		#endregion // Vulkan-Like Objects
+		#endregion // Vulkan Objects
 
 		/// <summary>
 		/// The limits for the selected graphics device and driver.
@@ -61,16 +62,16 @@ namespace Vega.Graphics
 			Core = core;
 
 			// Create the instance and select the device to use
-			InitializeVulkanInstance(validation, out VkInstanceData, out VkDebugUtils, out VkDeviceData);
-			VkInstance = VkInstanceData.Instance;
-			VkPhysicalDevice = VkDeviceData.PhysicalDevice;
-			LINFO($"Selected device '{VkDeviceData.DeviceName}'");
+			InitializeVulkanInstance(validation, out VkInstanceInfo, out VkDebugUtils, out VkDeviceInfo);
+			VkInstance = VkInstanceInfo.Instance;
+			VkPhysicalDevice = VkDeviceInfo.PhysicalDevice;
+			LINFO($"Selected device '{VkDeviceInfo.DeviceName}'");
 
 			// Create the device and queue objects
-			CreateVulkanDevice(VkDeviceData, out VkDevice, out var graphicsQueue, out var graphicsQueueIndex);
+			CreateVulkanDevice(VkDeviceInfo, out VkDevice, out var graphicsQueue, out var graphicsQueueIndex);
 			GraphicsQueue = new(this, graphicsQueue, graphicsQueueIndex);
 			LINFO("Created Vulkan device instance");
-			Limits = new(VkDeviceData);
+			Limits = new(VkDeviceInfo);
 
 			// Prepare resources
 			Resources = new(this);

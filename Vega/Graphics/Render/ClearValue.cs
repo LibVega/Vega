@@ -6,6 +6,7 @@
 
 using System;
 using System.Runtime.InteropServices;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -73,7 +74,7 @@ namespace Vega.Graphics
 		readonly bool IEquatable<ClearValue>.Equals(ClearValue other) => ColorI == other.ColorI;
 		#endregion // Overrides
 
-		internal Vk.ClearValue ToVk() => new(new Vk.ClearColorValue(ColorF.R, ColorF.G, ColorF.B, ColorF.A));
+		internal VkClearValue ToVk() => new(new VkClearColorValue(ColorF.R, ColorF.G, ColorF.B, ColorF.A));
 
 		#region Operators
 		public static bool operator == (in ClearValue l, in ClearValue r) => l.ColorI == r.ColorI;

@@ -6,7 +6,7 @@
 
 using System;
 using System.Collections.Generic;
-using Vk.Extras;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -23,7 +23,7 @@ namespace Vega.Graphics
 		public readonly GraphicsDevice Graphics;
 
 		// Pool and buffers
-		private readonly Vk.CommandPool _pool;
+		private readonly VkCommandPool _pool;
 		private Stack<CommandBuffer> _priAlloc = new(100);
 		private Stack<CommandBuffer> _secAlloc = new(100);
 		private Stack<CommandBuffer> _priReuse = new(100);
@@ -41,16 +41,18 @@ namespace Vega.Graphics
 			Graphics = gs;
 
 			// Create the pools
-			Vk.CommandPoolCreateInfo cpci = new(
-				flags: Vk.CommandPoolCreateFlags.ResetCommandBuffer, 
+			VkCommandPoolCreateInfo cpci = new(
+				flags: VkCommandPoolCreateFlags.ResetCommandBuffer, 
 				queueFamilyIndex: gs.GraphicsQueue.FamilyIndex
 			);
-			gs.VkDevice.CreateCommandPool(&cpci, null, out _pool)
+			VulkanHandle<VkCommandPool> poolHandle;
+			gs.VkDevice.CreateCommandPool(&cpci, null, &poolHandle)
 				.Throw("Failed to create transient command pool");
+			_pool = new(poolHandle, gs.VkDevice);
 
 			// Initial allocations
-			grow(Vk.CommandBufferLevel.Primary);
-			grow(Vk.CommandBufferLevel.Secondary);
+			grow(VkCommandBufferLevel.Primary);
+			grow(VkCommandBufferLevel.Secondary);
 		}
 		~CommandPool()
 		{
@@ -70,7 +72,7 @@ namespace Vega.Graphics
 					}
 				}
 				else { // None are available, allocate new buffers
-					grow(Vk.CommandBufferLevel.Primary);
+					grow(VkCommandBufferLevel.Primary);
 				}
 			}
 			return _priAlloc.Pop();
@@ -88,32 +90,32 @@ namespace Vega.Graphics
 					}
 				}
 				else { // None are available, allocate new buffers
-					grow(Vk.CommandBufferLevel.Secondary);
+					grow(VkCommandBufferLevel.Secondary);
 				}
 			}
 			return _secAlloc.Pop();
 		}
 
-		private void grow(Vk.CommandBufferLevel level)
+		private void grow(VkCommandBufferLevel level)
 		{
-			Vk.CommandBufferAllocateInfo cbai = new(
+			VkCommandBufferAllocateInfo cbai = new(
 				commandPool: _pool,
 				level: level,
 				commandBufferCount: GROW_SIZE
 			);
-			var handles = stackalloc Vk.Handle<Vk.CommandBuffer>[GROW_SIZE];
+			var handles = stackalloc VulkanHandle<VkCommandBuffer>[GROW_SIZE];
 			Graphics.VkDevice.AllocateCommandBuffers(&cbai, handles)
 				.Throw("Failed to allocate more command buffers in thread pool");
-			var stack = (level == Vk.CommandBufferLevel.Primary) ? _priAlloc : _secAlloc;
+			var stack = (level == VkCommandBufferLevel.Primary) ? _priAlloc : _secAlloc;
 			for (int i = 0; i < GROW_SIZE; ++i) {
-				stack.Push(new(new(_pool, handles[i]), level, this));
+				stack.Push(new(new(handles[i], _pool), level, this));
 			}
 		}
 		#endregion // Allocate
 
 		public void Return(CommandBuffer buf)
 		{
-			if (buf.Level == Vk.CommandBufferLevel.Primary) {
+			if (buf.Level == VkCommandBufferLevel.Primary) {
 				using (var _ = _priLock.AcquireUNSAFE()) {
 					_priReuse.Push(buf);
 				}

@@ -8,7 +8,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Vk.Extras;
+using Vulkan;
+using Vulkan.VVK;
 using static Vega.InternalLog;
 
 namespace Vega.Graphics
@@ -16,163 +17,160 @@ namespace Vega.Graphics
 	public unsafe sealed partial class GraphicsDevice
 	{
 		// The version of the library as a Vulkan version
-		private static readonly Vk.Version ENGINE_VERSION = new(typeof(GraphicsDevice).Assembly.GetName().Version!);
+		private static readonly VkVersion ENGINE_VERSION = new(typeof(GraphicsDevice).Assembly.GetName().Version!);
 
 		// Create the instance, debug utils (if requested), and select the physical device to use
 		private static void InitializeVulkanInstance(
-			bool validation, out Vk.InstanceData instanceData, 
-			out Vk.EXT.DebugUtilsMessenger? debug, out Vk.PhysicalDeviceData deviceData)
+			bool validation, out InstanceInfo instanceInfo, 
+			out VkDebugUtilsMessengerEXT? debug, out DeviceInfo deviceInfo)
 		{
 			// Get the required layers and extensions
 			var reqExts = Glfw.GetRequiredInstanceExtensions().ToList();
 			List<string> reqLayers = new();
 			if (validation) {
-				if (!Vk.InstanceData.ExtensionNames.Contains(Vk.Constants.EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+				if (!InstanceInfo.ExtensionNames.Contains(VkConstants.EXT_DEBUG_UTILS_EXTENSION_NAME)) {
 					LWARN("Required extension not present for graphics validation");
 					validation = false;
 				}
-				else if (!Vk.InstanceData.LayerNames.Contains("VK_LAYER_KHRONOS_validation") &&
-						 !Vk.InstanceData.LayerNames.Contains("VK_LAYER_LUNARG_validation")) {
+				else if (!InstanceInfo.LayerNames.Contains("VK_LAYER_KHRONOS_validation") &&
+						 !InstanceInfo.LayerNames.Contains("VK_LAYER_LUNARG_validation")) {
 					LWARN("Required layer not present for graphics validation");
 					validation = false;
 				}
 				else {
-					reqExts.Add(Vk.Constants.EXT_DEBUG_UTILS_EXTENSION_NAME);
-					reqLayers.Add(Vk.InstanceData.LayerNames.Contains("VK_LAYER_KHRONOS_validation")
+					reqExts.Add(VkConstants.EXT_DEBUG_UTILS_EXTENSION_NAME);
+					reqLayers.Add(InstanceInfo.LayerNames.Contains("VK_LAYER_KHRONOS_validation")
 						? "VK_LAYER_KHRONOS_validation" : "VK_LAYER_LUNARG_validation");
 				}
 			}
 
 			// Create application info
-			using var appName = new Vk.NativeString(Core.Instance!.AppName);
-			using var engName = new Vk.NativeString("Vega");
-			Vk.ApplicationInfo appInfo = new(
+			using var appName = new NativeString(Core.Instance!.AppName);
+			using var engName = new NativeString("Vega");
+			VkApplicationInfo appInfo = new(
 				applicationName: appName.Data,
-				applicationVersion: new Vk.Version(Core.Instance!.AppVersion),
+				applicationVersion: new VkVersion(Core.Instance!.AppVersion),
 				engineName: engName.Data,
 				engineVersion: ENGINE_VERSION,
-				apiVersion: Vk.InstanceData.GetApiVersion() // Select highest supported version by default
+				apiVersion: InstanceInfo.GetApiVersion() // Select highest supported version by default
 			);
 
 			// Create instance
-			using var extList = new Vk.NativeStringList(reqExts);
-			using var layList = new Vk.NativeStringList(reqLayers);
-			Vk.InstanceCreateInfo ici = new(
+			using var extList = new NativeStringList(reqExts);
+			using var layList = new NativeStringList(reqLayers);
+			VkInstanceCreateInfo ici = new(
 				applicationInfo: &appInfo,
 				enabledLayerCount: layList.Count,
 				enabledLayerNames: layList.Data,
 				enabledExtensionCount: extList.Count,
 				enabledExtensionNames: extList.Data
 			);
-			Vk.Instance.CreateInstance(&ici, null, out var instance).Throw("Failed to create Vulkan instance");
-			instanceData = new(instance);
-			if (instanceData.PhysicalDevices.Count == 0) {
+			VulkanHandle<VkInstance> instHandle;
+			VkInstance.CreateInstance(&ici, null, &instHandle).Throw("Failed to create Vulkan instance");
+			instanceInfo = new(new(instHandle, InstanceInfo.GetApiVersion()));
+			if (instanceInfo.PhysicalDevices.Count == 0) {
 				throw new PlatformNotSupportedException("No graphics devices on the system support Vulkan");
 			}
 
 			// Register with debug reports
 			if (validation) {
-				Vk.EXT.DebugUtilsMessengerCreateInfo dumci = new(
-					flags: Vk.EXT.DebugUtilsMessengerCreateFlags.NoFlags,
+				VkDebugUtilsMessengerCreateInfoEXT dumci = new(
+					flags: VkDebugUtilsMessengerCreateFlagsEXT.NoFlags,
 					messageSeverity: 
-						Vk.EXT.DebugUtilsMessageSeverityFlags.InfoEXT |
-						Vk.EXT.DebugUtilsMessageSeverityFlags.WarningEXT |
-						Vk.EXT.DebugUtilsMessageSeverityFlags.ErrorEXT,
+						VkDebugUtilsMessageSeverityFlagsEXT.Info |
+						VkDebugUtilsMessageSeverityFlagsEXT.Warning |
+						VkDebugUtilsMessageSeverityFlagsEXT.Error,
 					messageType:
-						Vk.EXT.DebugUtilsMessageTypeFlags.GeneralEXT |
-						Vk.EXT.DebugUtilsMessageTypeFlags.PerformanceEXT |
-						Vk.EXT.DebugUtilsMessageTypeFlags.ValidationEXT,
+						VkDebugUtilsMessageTypeFlagsEXT.General |
+						VkDebugUtilsMessageTypeFlagsEXT.Performance |
+						VkDebugUtilsMessageTypeFlagsEXT.Validation,
 					userCallback: &DebugMessageCallback
 				);
-				instance.CreateDebugUtilsMessengerEXT(&dumci, null, out debug)
+				VulkanHandle<VkDebugUtilsMessengerEXT> msgHandle;
+				instanceInfo.Instance.CreateDebugUtilsMessengerEXT(&dumci, null, &msgHandle)
 						.Throw("Failed to create Vulkan debug messenger");
+				debug = new(msgHandle, instanceInfo.Instance);
 			}
 			else {
 				debug = null;
 			}
 
 			// Select physical device, first by events, then first discrete, then any
-			Vk.PhysicalDevice pdev = Vk.PhysicalDevice.Null;
-			foreach (var device in instanceData.PhysicalDevices) {
-				var data = new Vk.PhysicalDeviceData(device);
+			VkPhysicalDevice? pdev = null;
+			foreach (var device in instanceInfo.PhysicalDevices) {
+				var info = new DeviceInfo(device);
 
 				var evt = new DeviceDiscoveryEvent {
-					DeviceName = data.DeviceName,
-					IsDiscrete = data.IsDiscrete,
-					MemorySize = new DataSize((long)data.TotalLocalMemory.Value),
+					DeviceName = info.DeviceName,
+					IsDiscrete = info.IsDiscrete,
+					MemorySize = new DataSize((long)info.TotalLocalMemory),
 					Use = false
 				};
 				Core.Events.Publish(evt);
 				if (evt.Use) {
 					pdev = device;
-					deviceData = data;
+					deviceInfo = info;
 				}
 			}
-			if (!pdev) {
-				pdev = instanceData.PhysicalDevices.FirstOrDefault(dev => {
+			if (pdev is null) {
+				pdev = instanceInfo.PhysicalDevices.FirstOrDefault(dev => {
 					dev.GetPhysicalDeviceProperties(out var props);
-					return props.DeviceType == Vk.PhysicalDeviceType.DiscreteGpu;
+					return props.DeviceType == VkPhysicalDeviceType.DiscreteGpu;
 				})
-				?? instanceData.PhysicalDevices[0];
-				deviceData = new(pdev);
+				?? instanceInfo.PhysicalDevices[0];
+				deviceInfo = new(pdev);
 			}
 			else {
-				deviceData = new(Vk.PhysicalDevice.Null); // Never Reached
+				deviceInfo = new(instanceInfo.PhysicalDevices[0]); // NEVER REACHED
 			}
 		}
 
 		// Create the logical device, and the graphics queue
-		private static void CreateVulkanDevice(Vk.PhysicalDeviceData pdev, out Vk.Device device, out Vk.Queue gQueue,
+		private static void CreateVulkanDevice(DeviceInfo pdev, out VkDevice device, out VkQueue gQueue,
 			out uint gQueueIndex)
 		{
 			// Populate the features (TODO: add some feature selection to the public API)
-			Vk.PhysicalDeviceFeatures feats = new();
+			VkPhysicalDeviceFeatures feats = new();
 
 			// Check and populate extensions
-			using var extList = new Vk.NativeStringList();
-			if (!pdev.ExtensionNames.Contains(Vk.Constants.KHR_SWAPCHAIN_EXTENSION_NAME)) {
+			using var extList = new NativeStringList();
+			if (!pdev.ExtensionNames.Contains(VkConstants.KHR_SWAPCHAIN_EXTENSION_NAME)) {
 				throw new PlatformNotSupportedException("Selected device does not support swapchain operations");
 			}
-			extList.Add(Vk.Constants.KHR_SWAPCHAIN_EXTENSION_NAME);
+			extList.Add(VkConstants.KHR_SWAPCHAIN_EXTENSION_NAME);
 
 			// Create the queues
 			float QUEUE_PRIORITIES = 1;
-			Vk.DeviceQueueCreateInfo gQueueInfo = new(
-				queueFamilyIndex: 0,
+			VkDeviceQueueCreateInfo gQueueInfo = new(
+				queueFamilyIndex: pdev.FindQueueFamily(VkQueueFlags.Graphics)!.Value,
 				queueCount: 1,
 				queuePriorities: &QUEUE_PRIORITIES
 			);
-			foreach (var props in pdev.QueueFamilies) {
-				if ((props.QueueFlags & Vk.QueueFlags.Graphics) > 0) {
-					break;
-				}
-				++gQueueInfo.QueueFamilyIndex;
-			}
-			if (gQueueInfo.QueueFamilyIndex == pdev.QueueFamilyCount) {
-				// Shouldn't happen per spec, but still check
-				throw new PlatformNotSupportedException("Selected device does not support graphics operations.");
-			}
 
 			// Create device
-			Vk.DeviceCreateInfo dci = new(
+			VkDeviceCreateInfo dci = new(
 				queueCreateInfoCount: 1,
 				queueCreateInfos: &gQueueInfo,
 				enabledExtensionCount: extList.Count,
 				enabledExtensionNames: extList.Data,
 				enabledFeatures: &feats
 			);
-			pdev.PhysicalDevice.CreateDevice(&dci, null, out device!).Throw("Failed to create Vulkan device");
+			VulkanHandle<VkDevice> devHandle;
+			pdev.PhysicalDevice.CreateDevice(&dci, null, &devHandle).Throw("Failed to create Vulkan device");
+			device = new(devHandle, pdev.PhysicalDevice, pdev.PhysicalDevice.Functions.CoreVersion);
 
 			// Get the queue
-			device.GetDeviceQueue(gQueueInfo.QueueFamilyIndex, 0, out gQueue!);
+			VulkanHandle<VkQueue> queueHandle;
+			device.GetDeviceQueue(gQueueInfo.QueueFamilyIndex, 0, &queueHandle);
+			gQueue = new(queueHandle, device);
 			gQueueIndex = gQueueInfo.QueueFamilyIndex;
 		}
 
 		// The callback (FROM UNMANAGED CODE) for Vulkan debug messaging
-		private static Vk.Bool32 DebugMessageCallback(
-			Vk.EXT.DebugUtilsMessageSeverityFlags severity,
-			Vk.EXT.DebugUtilsMessageTypeFlags type,
-			Vk.EXT.DebugUtilsMessengerCallbackData* data,
+		private static VkBool32 DebugMessageCallback(
+			VkDebugUtilsMessageSeverityFlagsEXT severity,
+			VkDebugUtilsMessageTypeFlagsEXT type,
+			VkDebugUtilsMessengerCallbackDataEXT* data,
 			void* userData
 		)
 		{
@@ -182,13 +180,13 @@ namespace Vega.Graphics
 				Message = Marshal.PtrToStringAnsi(new IntPtr(data->Message)) ?? String.Empty, // ANSI, not UTF
 				MessageId = data->MessageIdNumber
 			};
-			Vk.EXT.DebugUtilsObjectNameInfo* next = data->Objects;
+			VkDebugUtilsObjectNameInfoEXT* next = data->Objects;
 			while (next != null) {
 				evt.ObjectNames.Add(Marshal.PtrToStringAnsi(new IntPtr(next->ObjectName)) ?? String.Empty); // ANSI, not UTF
-				next = (Vk.EXT.DebugUtilsObjectNameInfo*)next->pNext;
+				next = (VkDebugUtilsObjectNameInfoEXT*)next->pNext;
 			}
 			Core.Events.Publish(Core.Instance?.Graphics, evt);
-			return Vk.Bool32.False;
+			return VkBool32.False;
 		}
 	}
 }

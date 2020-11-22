@@ -5,6 +5,7 @@
  */
 
 using System;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -12,11 +13,11 @@ namespace Vega.Graphics
 	// Contains the necessary information to return a command buffer to its pool after execution is complete
 	internal sealed class CommandBuffer
 	{
-		public readonly Vk.CommandBuffer Cmd;
-		public readonly Vk.CommandBufferLevel Level;
+		public readonly VkCommandBuffer Cmd;
+		public readonly VkCommandBufferLevel Level;
 		public readonly CommandPool SourcePool;
 
-		public CommandBuffer(Vk.CommandBuffer cmd, Vk.CommandBufferLevel level, CommandPool src)
+		public CommandBuffer(VkCommandBuffer cmd, VkCommandBufferLevel level, CommandPool src)
 		{
 			Cmd = cmd;
 			Level = level;
