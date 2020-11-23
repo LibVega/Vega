@@ -39,6 +39,9 @@ namespace Vega
 		// GLFW window handle
 		internal IntPtr Handle { get; private set; } = IntPtr.Zero;
 
+		// Window swapchain
+		internal readonly Swapchain Swapchain;
+
 		#region Properties
 		/// <summary>
 		/// The window title (text in the menu bar).
@@ -205,6 +208,19 @@ namespace Vega
 			}
 		}
 
+		/// <summary>
+		/// Gets/sets if the window uses vsync. This change will not occur until the next time the window is presented.
+		/// </summary>
+		public bool VerticalSync
+		{
+			set => Swapchain.SetVsync(value);
+			get => Swapchain.Vsync;
+		}
+		/// <summary>
+		/// Gets if the window only supports vsync presentation.
+		/// </summary>
+		public bool VerticalSyncOnly => Swapchain.VsyncOnly;
+
 		// State saving for fullscreen switches
 		private Rect _savedWindow;
 		private Rect _savedMonitor;
@@ -292,6 +308,9 @@ namespace Vega
 			// Setup input
 			_keyboard = new Keyboard(this);
 			_mouse = new Mouse(this);
+
+			// Create swapchain
+			Swapchain = new(this);
 		}
 		~Window()
 		{
@@ -461,6 +480,9 @@ namespace Vega
 		private void dispose(bool disposing)
 		{
 			if (!IsDisposed) {
+				if (disposing) {
+					Swapchain?.Dispose();
+				}
 				Glfw.DestroyWindow(Handle);
 				Core.Instance?.RemoveWindow(this);
 			}
