@@ -54,7 +54,10 @@ namespace Vega.Graphics
 		public IReadOnlyList<VkImageView> ImageViews => _views;
 
 		// Sync Objects
-		private readonly SyncObjects _syncObjects;
+		private SyncObjects _syncObjects;
+
+		// Flag for detecting minimization
+		private bool _isMinimized = false;
 
 		// Dispose flag
 		public bool IsDisposed { get; private set; } = false;
@@ -115,22 +118,9 @@ namespace Vega.Graphics
 			_syncObjects = new() {
 				RenderSemaphores = new VkSemaphore[MAX_IMAGE_COUNT],
 				AcquireSemaphores = new VkSemaphore[MAX_IMAGE_COUNT],
-				RenderFences = new VkFence[MAX_IMAGE_COUNT],
-				MappedFences = new VkFence[MAX_IMAGE_COUNT]
+				MappedFences = new VkFence[MAX_IMAGE_COUNT],
+				LastSubmitFence = null
 			};
-			for (uint i = 0; i < MAX_IMAGE_COUNT; ++i) {
-				VkSemaphoreCreateInfo sci = new(VkSemaphoreCreateFlags.NoFlags);
-				VkFenceCreateInfo fci = new(VkFenceCreateFlags.Signaled);
-				VulkanHandle<VkSemaphore> rHandle, aHandle;
-				VulkanHandle<VkFence> fHandle;
-				Graphics.VkDevice.CreateSemaphore(&sci, null, &rHandle).Throw("Swapchain render semaphore");
-				Graphics.VkDevice.CreateSemaphore(&sci, null, &aHandle).Throw("Swapchain acquire semaphore");
-				Graphics.VkDevice.CreateFence(&fci, null, &fHandle).Throw("Swapchain render fence");
-				_syncObjects.RenderSemaphores[i] = new(rHandle, Graphics.VkDevice);
-				_syncObjects.AcquireSemaphores[i] = new(aHandle, Graphics.VkDevice);
-				_syncObjects.RenderFences[i] = new(fHandle, Graphics.VkDevice);
-				_syncObjects.MappedFences[i] = null;
-			}
 
 			// Perform initial build
 			Handle = new(VulkanHandle<VkSwapchainKHR>.Null, Graphics.VkDevice);
@@ -160,39 +150,46 @@ namespace Vega.Graphics
 		public void Present(CommandBuffer renderBuffer)
 		{
 			// Submit the buffer to be rendered, additionally performing necessary synchronization
-			var rsem = _syncObjects.RenderSemaphores[_swapchainInfo.SyncIndex].Handle;
 			{
-				var asem = _syncObjects.AcquireSemaphores[_swapchainInfo.SyncIndex].Handle;
 				var WAIT_STAGE = VkPipelineStageFlags.ColorAttachmentOutput;
-				var cmd = renderBuffer.Cmd.Handle;
 
-				VkSubmitInfo si = new(
-					waitSemaphoreCount: 1,
-					waitSemaphores: &asem,
-					waitDstStageMask: &WAIT_STAGE,
-					commandBufferCount: 1,
-					commandBuffers: &cmd,
-					signalSemaphoreCount: 1,
-					signalSemaphores: &rsem
-				);
-				Graphics.GraphicsQueue.SubmitRaw(&si, _syncObjects.RenderFences[_swapchainInfo.SyncIndex])
-					.Throw("Failed to submit window render commands");
+				// If we are minimized, just submit the commands and dont try to present or acquire
+				if (_isMinimized) {
+					if (_syncObjects.LastSubmitFence) {
+						var whandle = _syncObjects.LastSubmitFence!.Handle;
+						Graphics.VkDevice.WaitForFences(1, &whandle, VkBool32.True, UInt64.MaxValue);
+					}
+					_syncObjects.LastSubmitFence = Graphics.GraphicsQueue.Submit(renderBuffer);
+
+					// Check if we are no longer minimized, and immediately rebuild if we are newly restored
+					getNewInfo(out var size, out _, out _);
+					_isMinimized = (size == Extent2D.Zero);
+					if (!_isMinimized) {
+						rebuild();
+					}
+
+					return;
+				}
+				else {
+					var asem = _syncObjects.AcquireSemaphores[_swapchainInfo.SyncIndex];
+					_syncObjects.LastSubmitFence = Graphics.GraphicsQueue
+						.Submit(renderBuffer, asem, WAIT_STAGE, _syncObjects.RenderSemaphores[_swapchainInfo.SyncIndex]);
+				}
 			}
 
 			// Submit for presentation
 			VkResult res;
-			{
-				var sc = Handle.Handle;
-				var iidx = _swapchainInfo.ImageIndex;
-				VkPresentInfoKHR pi = new(
-					waitSemaphoreCount: 1,
-					waitSemaphores: &rsem,
-					swapchainCount: 1,
-					swapchains: &sc,
-					imageIndices: &iidx
-				);
-				res = Graphics.GraphicsQueue.Present(&pi);
-			}
+			var rsem = _syncObjects.RenderSemaphores[_swapchainInfo.SyncIndex].Handle;
+			var sc = Handle.Handle;
+			var iidx = _swapchainInfo.ImageIndex;
+			VkPresentInfoKHR pi = new(
+				waitSemaphoreCount: 1,
+				waitSemaphores: &rsem,
+				swapchainCount: 1,
+				swapchains: &sc,
+				imageIndices: &iidx
+			);
+			res = Graphics.GraphicsQueue.Present(&pi);
 			_swapchainInfo.SyncIndex = (_swapchainInfo.SyncIndex + 1) % MAX_IMAGE_COUNT;
 			if (_swapchainInfo.Dirty || (res == VkResult.SuboptimalKhr) || (res == VkResult.ErrorOutOfDateKhr)) {
 				rebuild(); // Also acquires
@@ -207,20 +204,12 @@ namespace Vega.Graphics
 
 		private bool acquire()
 		{
-			// Wait for in-flight render fence
-			var currFence = _syncObjects.RenderFences[_swapchainInfo.SyncIndex].Handle;
-			Graphics.VkDevice.WaitForFences(1, &currFence, true, UInt64.MaxValue);
-
 			// Try to acquire the next image
 			uint iidx = 0;
 			var asem = _syncObjects.AcquireSemaphores[_swapchainInfo.SyncIndex];
 			var res = Handle.AcquireNextImageKHR(UInt64.MaxValue, asem, null, &iidx);
-			if ((res == VkResult.SuboptimalKhr) || (res == VkResult.ErrorOutOfDateKhr)) {
-				_swapchainInfo.Dirty = true;
+			if (res != VkResult.Success) {
 				return false;
-			}
-			else if (res != VkResult.Success) {
-				throw new InvalidOperationException($"Failed to acquire window surface ({res})");
 			}
 			_swapchainInfo.ImageIndex = iidx;
 
@@ -229,9 +218,7 @@ namespace Vega.Graphics
 				var mapFence = _syncObjects.MappedFences[iidx]!.Handle;
 				Graphics.VkDevice.WaitForFences(1, &mapFence, true, UInt64.MaxValue);
 			}
-			_syncObjects.MappedFences[iidx] = _syncObjects.RenderFences[_swapchainInfo.SyncIndex];
-			var resFence = _syncObjects.MappedFences[iidx]!.Handle;
-			Graphics.VkDevice.ResetFences(1, &resFence);
+			_syncObjects.MappedFences[iidx] = _syncObjects.LastSubmitFence;
 			return true;
 		}
 
@@ -239,49 +226,37 @@ namespace Vega.Graphics
 		{
 			var timer = Stopwatch.StartNew();
 
-			// Wait for processing to finish before rebuilding
-			Graphics.VkDevice.DeviceWaitIdle();
-			var waitTime = timer.Elapsed;
-
 			// New new extent and image count
-			VkSurfaceCapabilitiesKHR caps;
-			Graphics.VkPhysicalDevice.GetPhysicalDeviceSurfaceCapabilitiesKHR(Surface, &caps)
-				.Throw("Failed to get surface capabilities");
-			Extent2D newSize;
-			if (caps.CurrentExtent.Width != UInt32.MaxValue) {
-				newSize = new(caps.CurrentExtent.Width, caps.CurrentExtent.Height);
-			}
-			else {
-				newSize = Extent2D.Clamp(Window.Size,
-					new(caps.MinImageExtent.Width, caps.MinImageExtent.Height),
-					new(caps.MaxImageExtent.Width, caps.MaxImageExtent.Height));
-			}
-			uint icnt = Math.Min(caps.MinImageCount + 1, MAX_IMAGE_COUNT);
-			if ((caps.MaxImageCount != 0) && (icnt > caps.MaxImageCount)) {
-				icnt = caps.MaxImageCount;
-			}
+			getNewInfo(out var newSize, out var imageCount, out var transform);
 
 			// Cancel rebuild on minimized window
 			if (newSize == Extent2D.Zero) {
+				_isMinimized = true;
 				return;
 			}
+			_isMinimized = false;
 
 			// Prepare swapchain info
 			var oldHandle = Handle;
 			VkSwapchainCreateInfoKHR scci = new(
 				surface: Surface,
-				minImageCount: MAX_IMAGE_COUNT,
+				minImageCount: imageCount,
 				imageFormat: _surfaceInfo.Format.Format,
 				imageColorSpace: _surfaceInfo.Format.ColorSpace,
 				imageExtent: new(newSize.Width, newSize.Height),
 				imageArrayLayers: 1,
 				imageUsage: VkImageUsageFlags.ColorAttachment,
 				imageSharingMode: VkSharingMode.Exclusive,
-				preTransform: caps.CurrentTransform,
+				preTransform: transform,
 				compositeAlpha: VkCompositeAlphaFlagsKHR.Opaque,
 				presentMode: _surfaceInfo.Mode,
 				oldSwapchain: Handle
 			);
+
+			// Wait for processing to finish before rebuilding
+			Graphics.VkDevice.DeviceWaitIdle();
+			_syncObjects.LastSubmitFence = null;
+			var waitTime = timer.Elapsed;
 
 			// Create swapchain and get images
 			VulkanHandle<VkSwapchainKHR> newHandle;
@@ -328,6 +303,22 @@ namespace Vega.Graphics
 			_swapchainInfo.Dirty = false;
 			_swapchainInfo.Extent = newSize;
 
+			// Build new sync objects
+			for (uint i = 0; i < MAX_IMAGE_COUNT; ++i) {
+				if (_syncObjects.RenderSemaphores[i]) {
+					_syncObjects.RenderSemaphores[i].DestroySemaphore(null);
+				}
+				if (_syncObjects.AcquireSemaphores[i]) {
+					_syncObjects.AcquireSemaphores[i].DestroySemaphore(null);
+				}
+				VkSemaphoreCreateInfo sci = new(VkSemaphoreCreateFlags.NoFlags);
+				VulkanHandle<VkSemaphore> rHandle, aHandle;
+				Graphics.VkDevice.CreateSemaphore(&sci, null, &rHandle).Throw("Swapchain render semaphore");
+				Graphics.VkDevice.CreateSemaphore(&sci, null, &aHandle).Throw("Swapchain acquire semaphore");
+				_syncObjects.RenderSemaphores[i] = new(rHandle, Graphics.VkDevice);
+				_syncObjects.AcquireSemaphores[i] = new(aHandle, Graphics.VkDevice);
+			}
+
 			// Acquire
 			if (!acquire()) {
 				throw new InvalidOperationException("Failed to acquire swapchain after rebuild");
@@ -339,6 +330,26 @@ namespace Vega.Graphics
 
 			// Inform attached renderer of resize
 			Renderer?.OnSwapchainResize();
+		}
+
+		private void getNewInfo(out Extent2D newSize, out uint imageCount, out VkSurfaceTransformFlagsKHR transform)
+		{
+			VkSurfaceCapabilitiesKHR caps;
+			Graphics.VkPhysicalDevice.GetPhysicalDeviceSurfaceCapabilitiesKHR(Surface, &caps)
+				.Throw("Failed to get surface capabilities");
+			if (caps.CurrentExtent.Width != UInt32.MaxValue) {
+				newSize = new(caps.CurrentExtent.Width, caps.CurrentExtent.Height);
+			}
+			else {
+				newSize = Extent2D.Clamp(Window.Size,
+					new(caps.MinImageExtent.Width, caps.MinImageExtent.Height),
+					new(caps.MaxImageExtent.Width, caps.MaxImageExtent.Height));
+			}
+			imageCount = Math.Min(caps.MinImageCount + 1, MAX_IMAGE_COUNT);
+			if ((caps.MaxImageCount != 0) && (imageCount > caps.MaxImageCount)) {
+				imageCount = caps.MaxImageCount;
+			}
+			transform = caps.CurrentTransform;
 		}
 
 		#region IDisposable
@@ -357,7 +368,6 @@ namespace Vega.Graphics
 				for (uint i = 0; i < MAX_IMAGE_COUNT; ++i) {
 					_syncObjects.RenderSemaphores[i].DestroySemaphore(null);
 					_syncObjects.AcquireSemaphores[i].DestroySemaphore(null);
-					_syncObjects.RenderFences[i].DestroyFence(null);
 				}
 
 				// Swapchain Objects
@@ -396,8 +406,8 @@ namespace Vega.Graphics
 		{
 			public VkSemaphore[] RenderSemaphores;
 			public VkSemaphore[] AcquireSemaphores;
-			public VkFence[] RenderFences;
 			public VkFence?[] MappedFences;
+			public VkFence? LastSubmitFence;
 		}
 	}
 }

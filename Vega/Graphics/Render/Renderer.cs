@@ -5,6 +5,7 @@
  */
 
 using System;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -15,10 +16,9 @@ namespace Vega.Graphics
 	/// Renderer instances targeting windows will cause the window surface buffer swap when ended.
 	/// </para>
 	/// </summary>
-	public sealed class Renderer : IDisposable
+	public unsafe sealed class Renderer : IDisposable
 	{
 		#region Fields
-
 		// The graphics device 
 		internal readonly GraphicsDevice Graphics;
 		/// <summary>
@@ -33,12 +33,27 @@ namespace Vega.Graphics
 		/// <summary>
 		/// The current size of the images being rendered to.
 		/// </summary>
-		public Extent2D Size => Window.Size;
+		public Extent2D Size => Target.Size;
+
+		/// <summary>
+		/// The color used to clear the renderer target image.
+		/// </summary>
+		public ClearValue ClearValue = new(0f, 0f, 0f, 1f);
 
 		// The render pass
 		internal readonly RenderPass Pass;
 		// The render target
 		internal readonly RenderTarget Target;
+
+		#region Recording
+		/// <summary>
+		/// Gets if the renderer is currently recording commands.
+		/// </summary>
+		public bool IsRecording => Cmd is not null;
+		
+		// The current primary command buffer recording render commands
+		private CommandBuffer? Cmd = null;
+		#endregion // Recording
 
 		/// <summary>
 		/// Disposal flag.
@@ -70,6 +85,60 @@ namespace Vega.Graphics
 		{
 			dispose(false);
 		}
+
+		#region Recording
+		/// <summary>
+		/// Begins recording a new set of rendering commands to be submitted to the device.
+		/// </summary>
+		public void Begin()
+		{
+			// Check state
+			if (IsRecording) {
+				throw new InvalidOperationException("Cannot call Renderer.Begin() on a renderer that is recording");
+			}
+
+			// Get a new command buffer
+			Cmd = Graphics.Resources.AllocatePrimaryCommandBuffer();
+			VkCommandBufferBeginInfo cbbi = new(
+				flags: VkCommandBufferUsageFlags.OneTimeSubmit,
+				inheritanceInfo: null
+			);
+			Cmd.Cmd.BeginCommandBuffer(&cbbi).Throw("Failed to start renderer command recording");
+
+			// Start the render pass
+			VkClearValue clear = ClearValue.ToVk();
+			VkRenderPassBeginInfo rpbi = new(
+				renderPass: Pass.Handle,
+				framebuffer: Target.CurrentFramebuffer,
+				renderArea: new(default, new(Size.Width, Size.Height)),
+				clearValueCount: 1,
+				clearValues: &clear
+			);
+			Cmd.Cmd.CmdBeginRenderPass(&rpbi, VkSubpassContents.SecondaryCommandBuffers);
+		}
+
+		/// <summary>
+		/// Ends the current command recording process, and submits the commands to be executed. If this renderer is
+		/// attached to a window, this also performs a surface swap for the window.
+		/// </summary>
+		public void End()
+		{
+			// Check state
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot call Renderer.End() on a renderer that is not recording");
+			}
+
+			// End the pass and commands
+			Cmd!.Cmd.CmdEndRenderPass();
+			Cmd.Cmd.EndCommandBuffer().Throw("Failed to record commands for renderer");
+
+			// Swap buffers (also submits the commands for execution)
+			Target.Swap(Cmd);
+
+			// End objects
+			Cmd = null;
+		}
+		#endregion // Recording
 
 		// Called by the connected swapchain (if any) when it resizes
 		// The swapchain will have already waited for device idle at this point
