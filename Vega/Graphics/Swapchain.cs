@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Vulkan;
@@ -33,6 +34,8 @@ namespace Vega.Graphics
 		public readonly Window Window;
 		// Reference to the graphics device
 		public readonly GraphicsDevice Graphics;
+		// The potentially attached renderer
+		public Renderer? Renderer = null;
 
 		// Surface objects
 		public readonly VkSurfaceKHR Surface;
@@ -46,6 +49,9 @@ namespace Vega.Graphics
 		private SwapchainInfo _swapchainInfo;
 		private VkImage[] _images;
 		private VkImageView[] _views;
+		public Extent2D Size => _swapchainInfo.Extent;
+		public uint CurrentImageIndex => _swapchainInfo.ImageIndex;
+		public IReadOnlyList<VkImageView> ImageViews => _views;
 
 		// Sync Objects
 		private readonly SyncObjects _syncObjects;
@@ -331,7 +337,8 @@ namespace Vega.Graphics
 			LINFO($"Rebuilt swapchain (old={oldSize}) (new={newSize}) (time={timer.Elapsed.TotalMilliseconds}ms) " +
 				$"(wait={waitTime.TotalMilliseconds}ms) (mode={_surfaceInfo.Mode}) (count={imgCount})");
 
-			// TODO: Inform attached renderer of resize
+			// Inform attached renderer of resize
+			Renderer?.OnSwapchainResize();
 		}
 
 		#region IDisposable

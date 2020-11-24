@@ -41,6 +41,10 @@ namespace Vega
 
 		// Window swapchain
 		internal readonly Swapchain Swapchain;
+		/// <summary>
+		/// Gets if there is a renderer attached to this window.
+		/// </summary>
+		public bool HasRenderer => Swapchain.Renderer is not null;
 
 		#region Properties
 		/// <summary>
