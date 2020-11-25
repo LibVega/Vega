@@ -47,6 +47,10 @@ namespace Vega
 		/// Gets if there is a renderer attached to this window.
 		/// </summary>
 		public bool HasRenderer => Swapchain.Renderer is not null;
+		/// <summary>
+		/// Gets the texel format of the window surface.
+		/// </summary>
+		public TexelFormat SurfaceFormat => (TexelFormat)Swapchain.SurfaceFormat;
 
 		#region Properties
 		/// <summary>
