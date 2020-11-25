@@ -13,7 +13,7 @@ namespace Vega.Graphics
 	// Performs management and tracking for memory, per-thread, and per-frame Vulkan resources
 	internal unsafe sealed class ResourceManager : IDisposable
 	{
-		public const int MAX_THREADS = sizeof(ulong) * 8;
+		public const int MAX_THREADS = sizeof(uint) * 8;
 
 		#region Fields
 		// The service using this resource manager
@@ -32,8 +32,9 @@ namespace Vega.Graphics
 		// Per-thread management values
 		[ThreadStatic]
 		private static uint? _ThreadIndex = null; // Index of current thread into global resource lists
-		private static ulong _IndexMask = UInt64.MaxValue; // Mask of available thread ids (bit=1 is available)
-		private static readonly object _IndexLock = new();
+		private static uint _IndexMask = UInt32.MaxValue; // Mask of available thread ids (bit=1 is available)
+		private static uint _ThreadCount = 0;
+		private static readonly object _ThreadObjectLock = new();
 		public bool IsThreadRegistered => _ThreadIndex.HasValue;
 		public bool IsMainThread => _ThreadIndex.HasValue && (_ThreadIndex.Value == 0);
 
@@ -94,23 +95,39 @@ namespace Vega.Graphics
 			dispose(false);
 		}
 
-		#region Commands
-		// Get a free primary level command buffer for the current thread
-		public CommandBuffer AllocatePrimaryCommandBuffer()
+		// Runs a frame update on the resources that are tracked per-frame
+		public void NextFrame()
 		{
-			if (!IsThreadRegistered) {
-				throw new InvalidOperationException("Attempt to allocate command buffer on non-graphics thread");
+			// Lock on thread objects, but should have a *very* low contention rate
+			lock (_ThreadObjectLock) {
+				// Perform command pool updates
+				uint count = _ThreadCount;
+				foreach (var pool in _commandPools) {
+					if (pool is not null) {
+						pool.NextFrame();
+						if (--count == 0) break; // Dont search the rest, they will be null
+					}
+				} 
 			}
-			return _commandPools[_ThreadIndex!.Value]!.AllocatePrimary();
 		}
 
-		// Get a free secondary level command buffer for the current thread
-		public CommandBuffer AllocateSecondaryCommandBuffer()
+		#region Commands
+		// Get a free managed command buffer for the current thread
+		public CommandBuffer AllocateManagedCommandBuffer(VkCommandBufferLevel level)
 		{
 			if (!IsThreadRegistered) {
 				throw new InvalidOperationException("Attempt to allocate command buffer on non-graphics thread");
 			}
-			return _commandPools[_ThreadIndex!.Value]!.AllocateSecondary();
+			return _commandPools[_ThreadIndex!.Value]!.AllocateManaged(level);
+		}
+
+		// Get a free transient command buffer for the current thread
+		public CommandBuffer AllocateTransientCommandBuffer(VkCommandBufferLevel level)
+		{
+			if (!IsThreadRegistered) {
+				throw new InvalidOperationException("Attempt to allocate command buffer on non-graphics thread");
+			}
+			return _commandPools[_ThreadIndex!.Value]!.AllocateTransient(level);
 		}
 		#endregion // Commands
 
@@ -217,21 +234,25 @@ namespace Vega.Graphics
 		#region Threading
 		public void RegisterThread()
 		{
+			const uint THREAD_INDEX_OFFSET = (sizeof(ulong) - sizeof(uint)) * 8; // Needed b/c Lzcnt promotes to ulong
+
 			if (_ThreadIndex.HasValue) {
 				throw new InvalidOperationException("Cannot double register a thread for graphics operations");
 			}
 
-			// Get the thread id
-			lock (_IndexLock) {
+			// Prepare thread
+			lock (_ThreadObjectLock) {
+				// Get the next thread index
 				if (_IndexMask == 0) {
 					throw new InvalidOperationException("No available slots for a new graphics thread");
 				}
-				_ThreadIndex = (uint)Lzcnt.X64.LeadingZeroCount(_IndexMask);
+				_ThreadIndex = (uint)Lzcnt.X64.LeadingZeroCount(_IndexMask) - THREAD_INDEX_OFFSET;
 				_IndexMask &= ~(1u << (int)_ThreadIndex.Value); // Clear the bit (mark as used)
-			}
+				_ThreadCount += 1;
 
-			// Create thread resources
-			_commandPools[_ThreadIndex.Value] = new(Graphics);
+				// Create thread resources
+				_commandPools[_ThreadIndex.Value] = new(Graphics);
+			}
 		}
 
 		public void UnregisterThread()
@@ -240,14 +261,16 @@ namespace Vega.Graphics
 				throw new InvalidOperationException("Cannot unregister a thread that is not registered for graphics operations");
 			}
 
-			// Destroy thread resources
-			_commandPools[_ThreadIndex.Value]!.Dispose();
-			_commandPools[_ThreadIndex.Value] = null;
-
 			// Release the thread id
-			lock (_IndexLock) {
+			lock (_ThreadObjectLock) {
+				// Destroy thread resources
+				_commandPools[_ThreadIndex.Value]!.Dispose();
+				_commandPools[_ThreadIndex.Value] = null;
+
+				// Clear thread index
 				_IndexMask |= (1u << (int)_ThreadIndex.Value); // Set the bit (mark as unused)
 				_ThreadIndex = null;
+				_ThreadCount -= 1;
 			}
 
 			// This should happen relatively infrequently, and after this call there will be a good amount to release

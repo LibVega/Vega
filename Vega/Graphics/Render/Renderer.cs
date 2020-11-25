@@ -98,7 +98,7 @@ namespace Vega.Graphics
 			}
 
 			// Get a new command buffer
-			Cmd = Graphics.Resources.AllocatePrimaryCommandBuffer();
+			Cmd = Graphics.Resources.AllocateManagedCommandBuffer(VkCommandBufferLevel.Primary);
 			VkCommandBufferBeginInfo cbbi = new(
 				flags: VkCommandBufferUsageFlags.OneTimeSubmit,
 				inheritanceInfo: null

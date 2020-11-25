@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Microsoft Public License (Ms-PL) - Copyright (c) 2020 Sean Moss
  * This file is subject to the terms and conditions of the Microsoft Public License, the text of which can be found in
  * the 'LICENSE' file at the root of this repository, or online at <https://opensource.org/licenses/MS-PL>.
@@ -15,6 +15,10 @@ namespace Vega.Graphics
 	/// </summary>
 	public unsafe sealed partial class GraphicsDevice
 	{
+		// The maximum number of graphics frames that may be processing in parallel
+		// This is not necessarily tied to the swapchain buffer count, but cannot be larger than it
+		internal const uint MAX_PARALLEL_FRAMES = 3;
+
 		#region Fields
 		/// <summary>
 		/// The core instance controlling this graphics service.
@@ -85,7 +89,11 @@ namespace Vega.Graphics
 		// Called once per application frame to perform global resource tracking and cleanup
 		internal void Update()
 		{
+			// Update per-frame graphics objects
 			GraphicsQueue.UpdateContexts();
+
+			// Run per-frame resource updates
+			Resources.NextFrame();
 		}
 
 		#region Threading

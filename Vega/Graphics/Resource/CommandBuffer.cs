@@ -16,12 +16,14 @@ namespace Vega.Graphics
 		public readonly VkCommandBuffer Cmd;
 		public readonly VkCommandBufferLevel Level;
 		public readonly CommandPool SourcePool;
+		public readonly bool Transient;
 
-		public CommandBuffer(VkCommandBuffer cmd, VkCommandBufferLevel level, CommandPool src)
+		public CommandBuffer(VkCommandBuffer cmd, VkCommandBufferLevel level, CommandPool src, bool transient)
 		{
 			Cmd = cmd;
 			Level = level;
 			SourcePool = src;
+			Transient = transient;
 		}
 	}
 }

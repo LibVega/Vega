@@ -11,27 +11,38 @@ using Vulkan;
 namespace Vega.Graphics
 {
 	// Manages command buffer resources for a single thread
-	// Locking is minimized by using a separate pull stack (allocation) and return stack (return), then swaping
-	//    atomically when the pull stack is empty. If both are empty, then additional buffers are allocated into
-	//    the pull stack.
+	// There are two pools of command buffers available to each thread: transient and managed
+	//   * Transient - These are per-frame, and can only be used within the frame they are allocated in. Their pools
+	//                 are bulk reset at the start of each frame, making them very cheap, and they should be used as
+	//                 often as possible.
+	//   * Managed - These are allocated from a single pool that exists across all frames. Their lifetimes need to be
+	//               carefully tracked, and they need to be manually returned if allocated, but not submitted. If
+	//               submitted, they are tracked by the receiving DeviceQueue instance, and are returned to the pool
+	//               once execution is complete. Because these may contend with the main thread returning them to the
+	//               pool, there is a fastlock mechanism protecting the stack of buffers for both allocations and
+	//               returns.
 	internal unsafe sealed class CommandPool : IDisposable
 	{
 		// The pool grow size
-		public const int GROW_SIZE = 10;
+		public const int GROW_SIZE = 16;
 
 		#region Fields
 		public readonly GraphicsDevice Graphics;
 
-		// Pool and buffers
-		private readonly VkCommandPool _pool;
-		private Stack<CommandBuffer> _priAlloc = new(100);
-		private Stack<CommandBuffer> _secAlloc = new(100);
-		private Stack<CommandBuffer> _priReuse = new(100);
-		private Stack<CommandBuffer> _secReuse = new(100);
+		// Pool and buffers for managed (frame-crossing) commands
+		private readonly VkCommandPool _managedPool;
+		private readonly Stack<CommandBuffer> _managedPrimaries = new(32);
+		private readonly Stack<CommandBuffer> _managedSecondaries = new(32);
+		private readonly FastMutex _lockPrimary = new();
+		private readonly FastMutex _lockSecondary = new();
 
-		// Stack swap locks
-		private readonly FastMutex _priLock = new();
-		private readonly FastMutex _secLock = new();
+		// Pools and buffers for transient (per-frame) commands
+		private readonly VkCommandPool[] _transientPools;
+		private readonly List<CommandBuffer>[] _transientPrimaries;
+		private readonly uint[] _transientPrimaryOffsets;
+		private readonly List<CommandBuffer>[] _transientSecondaries;
+		private readonly uint[] _transientSecondaryOffsets;
+		private uint _frameIndex = 0;
 
 		public bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
@@ -40,89 +51,139 @@ namespace Vega.Graphics
 		{
 			Graphics = gs;
 
-			// Create the pools
+			// Create the managed pool
 			VkCommandPoolCreateInfo cpci = new(
 				flags: VkCommandPoolCreateFlags.ResetCommandBuffer, 
 				queueFamilyIndex: gs.GraphicsQueue.FamilyIndex
 			);
 			VulkanHandle<VkCommandPool> poolHandle;
 			gs.VkDevice.CreateCommandPool(&cpci, null, &poolHandle)
-				.Throw("Failed to create transient command pool");
-			_pool = new(poolHandle, gs.VkDevice);
+				.Throw("Failed to create thread command pool");
+			_managedPool = new(poolHandle, gs.VkDevice);
+
+			// Create the transient pools
+			_transientPools = new VkCommandPool[GraphicsDevice.MAX_PARALLEL_FRAMES];
+			_transientPrimaries = new List<CommandBuffer>[GraphicsDevice.MAX_PARALLEL_FRAMES];
+			_transientPrimaryOffsets = new uint[GraphicsDevice.MAX_PARALLEL_FRAMES];
+			_transientSecondaries = new List<CommandBuffer>[GraphicsDevice.MAX_PARALLEL_FRAMES];
+			_transientSecondaryOffsets = new uint[GraphicsDevice.MAX_PARALLEL_FRAMES];
+			cpci.Flags = VkCommandPoolCreateFlags.Transient;
+			for (int i = 0; i < _transientPools.Length; ++i) {
+				gs.VkDevice.CreateCommandPool(&cpci, null, &poolHandle)
+					.Throw("Failed to create per-frame thread command pool");
+				_transientPools[i] = new(poolHandle, gs.VkDevice);
+				_transientPrimaries[i] = new(32);
+				_transientPrimaryOffsets[i] = 0;
+				_transientSecondaries[i] = new(32);
+				_transientSecondaryOffsets[i] = 0;
+			}
 
 			// Initial allocations
-			grow(VkCommandBufferLevel.Primary);
-			grow(VkCommandBufferLevel.Secondary);
+			grow(VkCommandBufferLevel.Primary, null);
+			grow(VkCommandBufferLevel.Secondary, null);
+			for (int i = 0; i < _transientPools.Length; ++i) {
+				grow(VkCommandBufferLevel.Primary, (uint)i);
+				grow(VkCommandBufferLevel.Secondary, (uint)i);
+			}
 		}
 		~CommandPool()
 		{
 			dispose(false);
 		}
 
+		// Moves/prepares the command pool to point at the next frame
+		public void NextFrame()
+		{
+			// Advance frame
+			_frameIndex = (_frameIndex + 1) % (uint)_transientPools.Length;
+
+			// Reset frame transient pool
+			_transientPools[_frameIndex].ResetCommandPool(VkCommandPoolResetFlags.NoFlags);
+		}
+
 		#region Allocate
-		public CommandBuffer AllocatePrimary()
+		public CommandBuffer AllocateManaged(VkCommandBufferLevel level)
 		{
-			// Check for swap or allocate
-			if (_priAlloc.Count == 0) {
-				if (_priReuse.Count > 0) { // New stack available, do a swap
-					using (var _ = _priLock.AcquireUNSAFE()) {
-						var newAlloc = _priReuse;
-						_priReuse = _priAlloc;
-						_priAlloc = newAlloc;
-					}
-				}
-				else { // None are available, allocate new buffers
-					grow(VkCommandBufferLevel.Primary);
+			// Get correct objects
+			var prim = level == VkCommandBufferLevel.Primary;
+			var stack = (prim ? _managedPrimaries : _managedSecondaries);
+			var mutex = (prim ? _lockPrimary : _lockSecondary);
+
+			// Check for needed allocation
+			if (stack.Count == 0) {
+				using (var _ = mutex.AcquireUNSAFE()) {
+					grow(level, null);
 				}
 			}
-			return _priAlloc.Pop();
-		}
 
-		public CommandBuffer AllocateSecondary()
-		{
-			// Check for swap or allocate
-			if (_secAlloc.Count == 0) {
-				if (_secReuse.Count > 0) { // New stack available, do a swap
-					using (var _ = _secLock.AcquireUNSAFE()) {
-						var newAlloc = _secReuse;
-						_secReuse = _secAlloc;
-						_secAlloc = newAlloc;
-					}
-				}
-				else { // None are available, allocate new buffers
-					grow(VkCommandBufferLevel.Secondary);
-				}
+			// Pop next buffer and return
+			using (var _ = mutex.AcquireUNSAFE()) {
+				return stack.Pop();
 			}
-			return _secAlloc.Pop();
 		}
 
-		private void grow(VkCommandBufferLevel level)
+		public CommandBuffer AllocateTransient(VkCommandBufferLevel level)
 		{
+			// Get correct objects
+			var prim = level == VkCommandBufferLevel.Primary;
+			var list = (prim ? _transientPrimaries : _transientSecondaries)[_frameIndex];
+			var offs = (prim ? _transientPrimaryOffsets : _transientSecondaryOffsets);
+
+			// Check for needed allocation
+			if (offs[_frameIndex] == list.Count) {
+				grow(level, _frameIndex);
+			}
+
+			// Return next buffer
+			return list[(int)(offs[_frameIndex]++)];
+		}
+
+		// Requires external synchronization
+		private void grow(VkCommandBufferLevel level, uint? frameIndex)
+		{
+			// Allocate new handles
+			var pool = frameIndex.HasValue ? _transientPools[frameIndex.Value] : _managedPool;
 			VkCommandBufferAllocateInfo cbai = new(
-				commandPool: _pool,
+				commandPool: pool,
 				level: level,
 				commandBufferCount: GROW_SIZE
 			);
 			var handles = stackalloc VulkanHandle<VkCommandBuffer>[GROW_SIZE];
 			Graphics.VkDevice.AllocateCommandBuffers(&cbai, handles)
 				.Throw("Failed to allocate more command buffers in thread pool");
-			var stack = (level == VkCommandBufferLevel.Primary) ? _priAlloc : _secAlloc;
-			for (int i = 0; i < GROW_SIZE; ++i) {
-				stack.Push(new(new(handles[i], _pool), level, this));
+
+			// Add to correct buffer set
+			if (frameIndex.HasValue) {
+				var list = ((level == VkCommandBufferLevel.Primary) ? _transientPrimaries : _transientSecondaries)[_frameIndex];
+				for (int i = 0; i < GROW_SIZE; ++i) {
+					list.Add(new(new(handles[i], pool), level, this, true));
+				}
+			}
+			else {
+				var list = (level == VkCommandBufferLevel.Primary) ? _managedPrimaries : _managedSecondaries;
+				for (int i = 0; i < GROW_SIZE; ++i) {
+					list.Push(new(new(handles[i], pool), level, this, false));
+				}
 			}
 		}
 		#endregion // Allocate
 
 		public void Return(CommandBuffer buf)
 		{
+			// Shouldn't happen, this would be an internal library error
+			if (buf.Transient) {
+				throw new InvalidOperationException("Attempt to return transient command buffer - THIS IS A LIBRARY BUG");
+			}
+
+			// Return to the correct stack
 			if (buf.Level == VkCommandBufferLevel.Primary) {
-				using (var _ = _priLock.AcquireUNSAFE()) {
-					_priReuse.Push(buf);
+				using (var _ = _lockPrimary.AcquireUNSAFE()) {
+					_managedPrimaries.Push(buf);
 				}
 			}
 			else {
-				using (var _ = _secLock.AcquireUNSAFE()) {
-					_secReuse.Push(buf);
+				using (var _ = _lockSecondary.AcquireUNSAFE()) {
+					_managedSecondaries.Push(buf);
 				}
 			}
 		}
@@ -137,8 +198,11 @@ namespace Vega.Graphics
 		private void dispose(bool disposing)
 		{
 			if (!IsDisposed) {
-				// Destroy the pool
-				_pool.DestroyCommandPool(null);
+				// Destroy the pools
+				_managedPool.DestroyCommandPool(null);
+				foreach (var tpool in _transientPools) {
+					tpool.DestroyCommandPool(null);
+				}
 			}
 			IsDisposed = true;
 		}
