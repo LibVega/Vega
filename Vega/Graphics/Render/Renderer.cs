@@ -97,8 +97,8 @@ namespace Vega.Graphics
 				throw new InvalidOperationException("Cannot call Renderer.Begin() on a renderer that is recording");
 			}
 
-			// Get a new command buffer
-			Cmd = Graphics.Resources.AllocateManagedCommandBuffer(VkCommandBufferLevel.Primary);
+			// Get a new command buffer (transient works because these can't cross frame boundaries)
+			Cmd = Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Primary);
 			VkCommandBufferBeginInfo cbbi = new(
 				flags: VkCommandBufferUsageFlags.OneTimeSubmit,
 				inheritanceInfo: null

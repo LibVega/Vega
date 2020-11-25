@@ -98,7 +98,9 @@ namespace Vega.Graphics
 			_frameIndex = (_frameIndex + 1) % (uint)_transientPools.Length;
 
 			// Reset frame transient pool
-			_transientPools[_frameIndex].ResetCommandPool(VkCommandPoolResetFlags.NoFlags);
+			_transientPools[_frameIndex].ResetCommandPool(VkCommandPoolResetFlags.ReleaseResources);
+			_transientPrimaryOffsets[_frameIndex] = 0;
+			_transientSecondaryOffsets[_frameIndex] = 0;
 		}
 
 		#region Allocate

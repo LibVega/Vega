@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -76,7 +77,9 @@ namespace Vega.Graphics
 				throw new InvalidOperationException("Attempt to re-use a pending SubmitContext");
 			}
 			_commands.Clear();
-			_commands.Add(buffer);
+			if (!buffer.Transient) {
+				_commands.Add(buffer); // Only track transient buffers
+			}
 			var fhandle = Fence.Handle;
 			Queue.Graphics.VkDevice.ResetFences(1, &fhandle);
 		}
@@ -88,8 +91,10 @@ namespace Vega.Graphics
 				throw new InvalidOperationException("Attempt to re-use a pending SubmitContext");
 			}
 			_commands.Clear();
-			_commands.Add(buffer);
-			_commands.AddRange(cmds);
+			if (!buffer.Transient) {
+				_commands.Add(buffer); 
+			}
+			_commands.AddRange(cmds.Where(cmd => !cmd.Transient));
 			var fhandle = Fence.Handle;
 			Queue.Graphics.VkDevice.ResetFences(1, &fhandle);
 		}
