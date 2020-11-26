@@ -12,6 +12,7 @@ using Vulkan;
 namespace Vega.Graphics
 {
 	// Acts as a "compiled" version of a validated RendererDescription for quick render pass builds
+	// It defines either an msaa or non-msaa layout, so renderers with both will need two copies
 	internal unsafe sealed class RenderLayout
 	{
 		private static readonly DependencyComparer COMPARER = new();
@@ -32,86 +33,145 @@ namespace Vega.Graphics
 		public readonly VkSubpassDependency[] Dependencies;
 		#endregion // Fields
 
-		public RenderLayout(RendererDescription desc, bool window)
+		public RenderLayout(RendererDescription desc, bool window, bool msaa)
 		{
 			// Populate simple values
-			HasMSAA = desc.SupportsMSAA;
+			HasMSAA = desc.SupportsMSAA && msaa;
 			HasDepth = desc.HasDepthAttachment;
 			SubpassCount = desc.SubpassCount;
 			ResolveIndex = desc.ResolveSubpass;
 
+			// For MSAA, calculate which attachments use MSAA and if they need resolves
+			(uint idx, bool msaa, uint? resolve)[]? msaaState = null;
+			uint extraAtt = 0;
+			if (msaa) {
+				msaaState = new (uint, bool, uint?)[desc.Attachments.Count];
+				uint ai = 0;
+				uint attidx = (uint)desc.Attachments.Count;
+				foreach (var att in desc.Attachments) {
+					var needmsaa = att.Uses[(int)ResolveIndex!.Value] == AttachmentUse.Output; // Output in resolve pass
+					var lateuse = (att.Preserve || (att.LastUse.Index > ResolveIndex.Value)); // Preserve or post-resolve use
+					msaaState[ai++] = (ai, needmsaa, (needmsaa && lateuse) ? attidx++ : null);
+					if (needmsaa && lateuse) {
+						extraAtt += 1;
+					}
+				}
+			}
+
 			// Create the attachments
-			Attachments = desc.Attachments.Select((att, idx) => new Attachment(
-				(uint)idx, att.Format, att.Preserve, false, att.Uses.Select(use => (byte)use)
-			)).ToArray();
+			if (msaa) {
+				Attachments = new Attachment[desc.Attachments.Count + extraAtt];
+				for (uint ai = 0; ai < desc.Attachments.Count; ++ai) {
+					var att = desc.Attachments[(int)ai];
+					(_, var ismsaa, var restarg) = msaaState![ai];
+					Attachments[ai] = new(
+						ai, restarg.GetValueOrDefault(0), att.Format, 
+						att.Preserve && !restarg.HasValue, // Only preserve if intended, and not msaa
+						ismsaa, false,
+						att.Uses.Select((use, ai) => (ai <= ResolveIndex!.Value) ? (byte)use : (byte)AttachmentUse.Unused)
+					);
+				}
+				uint ei = 0;
+				foreach (var extra in msaaState!.Where(st => st.resolve.HasValue)) {
+					var att = desc.Attachments[(int)extra.idx];
+					var idx = desc.Attachments.Count + (ei++);
+					Attachments[idx] = new(
+						(uint)idx, 0, att.Format, att.Preserve, false, true,
+						att.Uses.Select((use, ai) => (ai < ResolveIndex!.Value)
+							? (byte)AttachmentUse.Unused
+							: (ai == ResolveIndex.Value) ? Attachment.RESOLVE : (byte)use
+						)
+					);
+				}
+			}
+			else {
+				Attachments = desc.Attachments.Select((att, idx) => new Attachment(
+					(uint)idx, (uint)idx, att.Format, att.Preserve, false, false, att.Uses.Select(use => (byte)use)
+				)).ToArray();
+			}
 
 			// Create the descriptions
-			Descriptions = desc.Attachments.Select((att, idx) => new VkAttachmentDescription(
-				flags: VkAttachmentDescriptionFlags.NoFlags,
-				format: (VkFormat)att.Format,
-				samples: VkSampleCountFlags.E1,
-				loadOp: VkAttachmentLoadOp.Clear,
-				storeOp: att.Preserve ? VkAttachmentStoreOp.Store : VkAttachmentStoreOp.DontCare,
-				stencilLoadOp: att.Format.HasStencilComponent()
-					? VkAttachmentLoadOp.Clear : VkAttachmentLoadOp.DontCare,
-				stencilStoreOp: (att.Format.HasStencilComponent() && att.Preserve)
-					? VkAttachmentStoreOp.Store : VkAttachmentStoreOp.DontCare,
-				initialLayout: VkImageLayout.Undefined,
-				finalLayout: att.Preserve 
-					? ((window && idx == 0) ? VkImageLayout.PresentSrcKhr : VkImageLayout.ShaderReadOnlyOptimal)
-					: att.LastUse.Use switch {
-						AttachmentUse.Input => VkImageLayout.ShaderReadOnlyOptimal,
-						AttachmentUse.Output => att.IsColor
-							? VkImageLayout.ColorAttachmentOptimal
-							: VkImageLayout.DepthStencilAttachmentOptimal,
-						_ => throw new Exception("Bad state")
-					}
-			)).ToArray();
+			Descriptions = Attachments.Select(att => {
+				var isWindow = window && (att.Index == (msaa ? desc.Attachments.Count : 0));
+				return new VkAttachmentDescription(
+					flags: VkAttachmentDescriptionFlags.NoFlags,
+					format: (VkFormat)att.Format,
+					samples: VkSampleCountFlags.E1, // This is changed on build for MSAA renderers
+					loadOp: att.Resolve ? VkAttachmentLoadOp.DontCare : VkAttachmentLoadOp.Clear,
+					storeOp: att.Preserve ? VkAttachmentStoreOp.Store : VkAttachmentStoreOp.DontCare,
+					stencilLoadOp: (att.Format.HasStencilComponent() && att.Resolve)
+						? VkAttachmentLoadOp.DontCare : VkAttachmentLoadOp.Clear,
+					stencilStoreOp: (att.Format.HasStencilComponent() && att.Preserve)
+						? VkAttachmentStoreOp.Store : VkAttachmentStoreOp.DontCare,
+					initialLayout: VkImageLayout.Undefined,
+					finalLayout: att.Preserve
+						? (isWindow ? VkImageLayout.PresentSrcKhr : VkImageLayout.ShaderReadOnlyOptimal)
+						: att.LastUse switch {
+							(byte)AttachmentUse.Input => VkImageLayout.ShaderReadOnlyOptimal,
+							(byte)AttachmentUse.Output => att.Format.IsColorFormat()
+								? VkImageLayout.ColorAttachmentOptimal
+								: VkImageLayout.DepthStencilAttachmentOptimal,
+							Attachment.RESOLVE => VkImageLayout.ColorAttachmentOptimal,
+							_ => throw new Exception("Bad State")
+						}
+				);
+			}).ToArray();
 
 			// Create the subpasses, with reference and unused entries
 			Subpasses = new Subpass[SubpassCount];
-			var vkRefs = stackalloc VkAttachmentReference[(int)SubpassCount * desc.Attachments.Count];
-			var vkPres = stackalloc uint[(int)SubpassCount * desc.Attachments.Count];
+			var vkRefs = stackalloc VkAttachmentReference[(int)SubpassCount * Attachments.Length];
+			var vkPres = stackalloc uint[(int)SubpassCount * Attachments.Length];
 			uint refOff = 0, preOff = 0;
 			for (uint si = 0; si < SubpassCount; ++si) {
-				var groups = desc.Attachments.Select((att, idx) => (att, idx: (uint)idx)).GroupBy(pair => pair.att.Uses[(int)si]);
-				var inputs = groups.FirstOrDefault(grp => grp.Key == AttachmentUse.Input);
-				var outputs = groups.FirstOrDefault(grp => grp.Key == AttachmentUse.Output);
-				var unused = groups.FirstOrDefault(grp => grp.Key == AttachmentUse.Unused);
+				var inputs = Attachments.Where(att => att.Uses[si] == (byte)AttachmentUse.Input);
+				var outputs = Attachments.Where(att => att.Uses[si] == (byte)AttachmentUse.Output);
+				var unused = Attachments.Where(att => att.Uses[si] == (byte)AttachmentUse.Unused);
+
+				// Inputs
 				uint io = refOff;
-				if (inputs is not null) { // Build inputs
-					foreach (var att in inputs) {
-						vkRefs[refOff++] = new(att.idx, VkImageLayout.ShaderReadOnlyOptimal);
-					}
+				foreach (var att in inputs) {
+					vkRefs[refOff++] = new(att.Index, VkImageLayout.ShaderReadOnlyOptimal);
 				}
+
+				// Outputs
 				uint co = refOff;
 				uint? dsidx = null;
-				if (outputs is not null) { // Build outputs
-					foreach (var att in outputs) {
-						if (att.att.IsColor) {
-							vkRefs[refOff++] = new(att.idx, VkImageLayout.ColorAttachmentOptimal);
-						}
-						else {
-							dsidx = att.idx;
-						}
+				foreach (var att in outputs) {
+					if (att.Format.IsColorFormat()) {
+						vkRefs[refOff++] = new(att.Index, VkImageLayout.ColorAttachmentOptimal);
 					}
-					if (dsidx.HasValue) {
-						vkRefs[refOff++] = new(dsidx.Value, VkImageLayout.DepthStencilAttachmentOptimal);
-						dsidx = refOff - 1;
+					else {
+						dsidx = att.Index;
 					}
 				}
-				uint po = preOff;
-				if (unused is not null) {
-					foreach (var att in unused) {
-						vkPres[preOff++] = att.idx;
+				if (dsidx.HasValue) {
+					vkRefs[refOff++] = new(dsidx.Value, VkImageLayout.DepthStencilAttachmentOptimal);
+					dsidx = refOff - 1;
+				}
+
+				// Resolve
+				uint? ro = null;
+				if (msaa && (ResolveIndex!.Value == si)) {
+					ro = refOff;
+					foreach (var att in outputs) {
+						bool dores = att.OutputIndex != 0;
+						vkRefs[refOff++] = 
+							new(dores ? att.OutputIndex : VkConstants.ATTACHMENT_UNUSED, VkImageLayout.ColorAttachmentOptimal);
 					}
+				}
+
+				// Unused (todo: optimization? - don't preserve attachments that are done being used)
+				uint po = preOff;
+				foreach (var att in unused) {
+					vkPres[preOff++] = att.Index;
 				}
 
 				// Describe subpass
 				Subpasses[si] = new(
 					io, co - io,
-					co, refOff - co - (dsidx.HasValue ? 1u : 0),
+					co, (ro ?? refOff) - co - (dsidx.HasValue ? 1u : 0),
 					dsidx,
+					ro,
 					po, preOff - po
 				);
 			}
@@ -127,37 +187,41 @@ namespace Vega.Graphics
 			}
 
 			// Create subpass dependencies
+			// TODO: Optimize - refine this heuristic for creating dependencies, can be a major slowdown in render pass
 			var deps = new HashSet<VkSubpassDependency>(COMPARER);
-			foreach (var att in desc.Attachments) {
-				var uses = att.Uses
-					.Select((use, idx) => (use, idx: (uint)idx))
-					.Where(use => use.use != AttachmentUse.Unused)
-					.ToArray();
+			foreach (var att in Attachments) {
 				uint lastPass = VkConstants.SUBPASS_EXTERNAL;
 				var lastMask = VkPipelineStageFlags.BottomOfPipe; // Less than ideal
-				foreach (var use in uses) {
-					var stageMask = use.use switch { 
-						AttachmentUse.Input => VkPipelineStageFlags.FragmentShader,
-						AttachmentUse.Output => att.IsDepth
+				for (uint si = 0; si < RendererDescription.MAX_SUBPASSES; ++si) {
+					var use = att.Uses[si];
+					if (use == (byte)AttachmentUse.Unused) {
+						continue;
+					}
+
+					var stageMask = use switch { 
+						(byte)AttachmentUse.Input => VkPipelineStageFlags.FragmentShader,
+						(byte)AttachmentUse.Output => att.Format.IsDepthFormat()
 							? VkPipelineStageFlags.EarlyFragmentTests
 							: VkPipelineStageFlags.ColorAttachmentOutput,
+						Attachment.RESOLVE => VkPipelineStageFlags.ColorAttachmentOutput,
 						_ => throw new Exception("Bad state")
 					};
 					deps.Add(new(
 						srcSubpass: lastPass,
-						dstSubpass: use.idx,
+						dstSubpass: si,
 						srcStageMask: lastMask,
 						dstStageMask: stageMask,
 						srcAccessMask: VkAccessFlags.MemoryWrite,
 						dstAccessMask: VkAccessFlags.MemoryRead,
 						dependencyFlags: VkDependencyFlags.ByRegion
 					));
-					lastPass = use.idx;
-					lastMask = use.use switch { 
-						AttachmentUse.Input => VkPipelineStageFlags.FragmentShader,
-						AttachmentUse.Output => att.IsDepth
+					lastPass = si;
+					lastMask = use switch { 
+						(byte)AttachmentUse.Input => VkPipelineStageFlags.FragmentShader,
+						(byte)AttachmentUse.Output => att.Format.IsDepthFormat()
 							? VkPipelineStageFlags.LateFragmentTests
 							: VkPipelineStageFlags.ColorAttachmentOutput,
+						Attachment.RESOLVE => VkPipelineStageFlags.ColorAttachmentOutput,
 						_ => throw new Exception("Bad state")
 					};
 				}
@@ -177,13 +241,26 @@ namespace Vega.Graphics
 		}
 
 		// Creates a renderpass that matches the layout
-		public VkRenderPass CreateRenderpass(GraphicsDevice device)
+		public VkRenderPass CreateRenderpass(GraphicsDevice device, MSAA msaa)
 		{
+			// Check
+			if ((msaa != MSAA.X1) && !HasMSAA) {
+				throw new InvalidOperationException("LIBRARY ERROR - cannot build msaa render pass with non-msaa layout");
+			}
+
 			// Fix all required object arrays
 			fixed (VkAttachmentDescription* descPtr = Descriptions)
 			fixed (VkAttachmentReference* refPtr = References)
 			fixed (uint* prePtr = Preserves)
 			fixed (VkSubpassDependency* depPtr = Dependencies) {
+				// Update the attachment description sample counts
+				if (msaa != MSAA.X1) {
+					for (int i = 0; i < Descriptions.Length; ++i) {
+						bool isMsaa = Attachments[i].MSAA;
+						descPtr[i].Samples = isMsaa ? (VkSampleCountFlags)msaa : VkSampleCountFlags.E1;
+					}
+				}
+
 				// Describe the subpasses
 				var passPtr = stackalloc VkSubpassDescription[(int)SubpassCount];
 				for (uint si = 0; si < SubpassCount; ++si) {
@@ -195,7 +272,7 @@ namespace Vega.Graphics
 						inputAttachments: refPtr + sp.InputOffset,
 						colorAttachmentCount: sp.ColorCount,
 						colorAttachments: refPtr + sp.ColorOffset,
-						resolveAttachments: null,
+						resolveAttachments: sp.ResolveOffset.HasValue ? (refPtr + sp.ResolveOffset.Value) : null,
 						depthStencilAttachment: sp.DepthOffset.HasValue ? (refPtr + sp.DepthOffset.Value) : null,
 						preserveAttachmentCount: sp.PreserveCount,
 						preserveAttachments: prePtr + sp.PreserveOffset
@@ -221,18 +298,36 @@ namespace Vega.Graphics
 		// Contains information about an attachment
 		public struct Attachment
 		{
+			public const byte RESOLVE = 255;
+
 			public readonly uint Index;         // Attachment index
+			public readonly uint OutputIndex;   // Used by MSAA attachments to point to their resolve attachment
 			public readonly TexelFormat Format; // The format
 			public readonly bool Preserve;      // If the attachment is preserved (mutually exclusive with MSAA)
 			public readonly bool MSAA;          // If the attachment is MSAA (mutually exclusive with Preserve)
+			public readonly bool Resolve;       // If the attachment is specificually used as a resolve attachment
 			public fixed byte Uses[(int)RendererDescription.MAX_SUBPASSES]; // The attachment uses
 
-			public Attachment(uint index, TexelFormat format, bool preserve, bool msaa, IEnumerable<byte> uses)
+			// The last non-unused use of the attachment
+			public byte LastUse {
+				get {
+					for (int i = (int)RendererDescription.MAX_SUBPASSES - 1; i >= 0; --i) {
+						if (Uses[i] != (byte)AttachmentUse.Unused) {
+							return Uses[i];
+						}
+					}
+					throw new Exception("Bad State");
+				}
+			}
+
+			public Attachment(uint index, uint outIdx, TexelFormat format, bool preserve, bool msaa, bool resolve, IEnumerable<byte> uses)
 			{
 				Index = index;
+				OutputIndex = outIdx;
 				Format = format;
 				Preserve = preserve;
 				MSAA = msaa;
+				Resolve = resolve;
 				int uidx = 0;
 				foreach (var u in uses) {
 					Uses[uidx++] = u;
@@ -248,6 +343,7 @@ namespace Vega.Graphics
 			public readonly uint ColorOffset;
 			public readonly uint ColorCount;
 			public readonly uint? DepthOffset;
+			public readonly uint? ResolveOffset;
 			public readonly uint PreserveOffset;
 			public readonly uint PreserveCount;
 
@@ -255,12 +351,14 @@ namespace Vega.Graphics
 				uint iOff, uint iCnt,
 				uint cOff, uint cCnt,
 				uint? dOff,
+				uint? rOff,
 				uint pOff, uint pCnt
 			)
 			{
 				InputOffset = iOff; InputCount = iCnt;
 				ColorOffset = cOff; ColorCount = cCnt;
 				DepthOffset = dOff;
+				ResolveOffset = rOff;
 				PreserveOffset = pOff; PreserveCount = pCnt;
 			}
 		}

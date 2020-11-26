@@ -42,6 +42,7 @@ namespace Vega.Graphics
 
 		// The render pass objects
 		internal readonly RenderLayout Layout;
+		internal readonly RenderLayout? MSAALayout;
 		internal readonly VkRenderPass RenderPass;
 		// The render target
 		internal readonly RenderTarget RenderTarget;
@@ -68,7 +69,8 @@ namespace Vega.Graphics
 		/// </summary>
 		/// <param name="window">The window to target with the renderer.</param>
 		/// <param name="description">A description of the pass layout and attachments for the renderer.</param>
-		public Renderer(Window window, RendererDescription description)
+		/// <param name="initialMSAA">The initial MSAA setting for the renderer, if supported.</param>
+		public Renderer(Window window, RendererDescription description, MSAA initialMSAA = MSAA.X1)
 		{
 			// Validate
 			if (window.HasRenderer) {
@@ -86,8 +88,14 @@ namespace Vega.Graphics
 			if (!description.Attachments[0].Preserve) {
 				throw new ArgumentException("Attachment 0 must be preserved in window renderers");
 			}
-			Layout = new(description, true);
-			RenderPass = Layout.CreateRenderpass(Graphics);
+			Layout = new(description, true, false);
+			if (description.SupportsMSAA) {
+				MSAALayout = new(description, true, true);
+			}
+			if ((initialMSAA != MSAA.X1) && (MSAALayout is null)) {
+				throw new ArgumentException($"Renderer does not support MSAA operations");
+			}
+			RenderPass = ((initialMSAA == MSAA.X1) ? Layout : MSAALayout!).CreateRenderpass(Graphics, initialMSAA);
 
 			// Create render target
 			RenderTarget = new RenderTarget(this, window);
