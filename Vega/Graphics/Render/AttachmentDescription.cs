@@ -6,7 +6,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -93,6 +93,11 @@ namespace Vega.Graphics
 		/// <returns>If the description is valid, <c>false</c> implies the error message is populated.</returns>
 		public bool TryValidate(out string? error)
 		{
+			if (_uses.Count > RendererDescription.MAX_SUBPASSES) {
+				error = $"attachent has too many subpasses (max = {RendererDescription.MAX_SUBPASSES})";
+				return false;
+			}
+
 			// Loop over uses with lookback
 			bool written = false, read = false;
 			for (int i = 0; i < _uses.Count; ++i) {

@@ -33,17 +33,18 @@ namespace Vega.Graphics
 		/// <summary>
 		/// The current size of the images being rendered to.
 		/// </summary>
-		public Extent2D Size => Target.Size;
+		public Extent2D Size => RenderTarget.Size;
 
 		/// <summary>
 		/// The color used to clear the renderer target image.
 		/// </summary>
 		public ClearValue ClearValue = new(0f, 0f, 0f, 1f);
 
-		// The render pass
-		internal readonly RenderPass Pass;
+		// The render pass objects
+		internal readonly RenderLayout Layout;
+		internal readonly VkRenderPass RenderPass;
 		// The render target
-		internal readonly RenderTarget Target;
+		internal readonly RenderTarget RenderTarget;
 
 		#region Recording
 		/// <summary>
@@ -66,7 +67,8 @@ namespace Vega.Graphics
 		/// a single window.
 		/// </summary>
 		/// <param name="window">The window to target with the renderer.</param>
-		public Renderer(Window window)
+		/// <param name="description">A description of the pass layout and attachments for the renderer.</param>
+		public Renderer(Window window, RendererDescription description)
 		{
 			// Validate
 			if (window.HasRenderer) {
@@ -77,9 +79,18 @@ namespace Vega.Graphics
 			Graphics = Core.Instance!.Graphics;
 			Window = window;
 
-			// Create pass and target
-			Pass = new(this, (TexelFormat)window.Swapchain.SurfaceFormat);
-			Target = new RenderTarget(this, window);
+			// Validate and create layout and pass
+			if (description.Attachments[0].Format != window.SurfaceFormat) {
+				throw new ArgumentException("The given renderer description does not match the window surface format");
+			}
+			if (!description.Attachments[0].Preserve) {
+				throw new ArgumentException("Attachment 0 must be preserved in window renderers");
+			}
+			Layout = new(description, true);
+			RenderPass = Layout.CreateRenderpass(Graphics);
+
+			// Create render target
+			RenderTarget = new RenderTarget(this, window);
 		}
 		~Renderer()
 		{
@@ -108,8 +119,8 @@ namespace Vega.Graphics
 			// Start the render pass
 			VkClearValue clear = ClearValue.ToVk();
 			VkRenderPassBeginInfo rpbi = new(
-				renderPass: Pass.Handle,
-				framebuffer: Target.CurrentFramebuffer,
+				renderPass: RenderPass,
+				framebuffer: RenderTarget.CurrentFramebuffer,
 				renderArea: new(default, new(Size.Width, Size.Height)),
 				clearValueCount: 1,
 				clearValues: &clear
@@ -133,7 +144,7 @@ namespace Vega.Graphics
 			Cmd.Cmd.EndCommandBuffer().Throw("Failed to record commands for renderer");
 
 			// Swap buffers (also submits the commands for execution)
-			Target.Swap(Cmd);
+			RenderTarget.Swap(Cmd);
 
 			// End objects
 			Cmd = null;
@@ -144,7 +155,7 @@ namespace Vega.Graphics
 		// The swapchain will have already waited for device idle at this point
 		internal void OnSwapchainResize()
 		{
-			Target.Rebuild();
+			RenderTarget.Rebuild();
 		}
 
 		#region IDisposable
@@ -159,10 +170,9 @@ namespace Vega.Graphics
 			if (!IsDisposed) {
 				if (disposing) {
 					Graphics.VkDevice.DeviceWaitIdle();
-
-					Target.Dispose();
-					Pass.Dispose();
+					RenderTarget.Dispose();
 				}
+				RenderPass.DestroyRenderPass(null);
 			}
 			IsDisposed = true;
 		}

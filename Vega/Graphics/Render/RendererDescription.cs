@@ -19,6 +19,11 @@ namespace Vega.Graphics
 	/// </summary>
 	public sealed class RendererDescription
 	{
+		/// <summary>
+		/// Maximum number of subpasses supported in a single renderer.
+		/// </summary>
+		public const uint MAX_SUBPASSES = 8;
+
 		#region Fields
 		/// <summary>
 		/// The set of attachments to be used by the renderer.
@@ -118,10 +123,6 @@ namespace Vega.Graphics
 			}
 			if (_attachments.Where(att => att.Uses[(int)index.Value] == AttachmentUse.Output).Count() == 0) {
 				throw new ArgumentException("Bad resolve subpass - no output attachments for subpass");
-			}
-			int aidx = 0;
-			foreach (var att in _attachments) {
-				++aidx;
 			}
 
 			// Return

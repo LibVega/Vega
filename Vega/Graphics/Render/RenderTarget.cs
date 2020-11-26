@@ -62,7 +62,7 @@ namespace Vega.Graphics
 				var vhandle = view.Handle;
 				VkFramebufferCreateInfo fbci = new(
 					flags: VkFramebufferCreateFlags.NoFlags,
-					renderPass: Renderer.Pass.Handle,
+					renderPass: Renderer.RenderPass,
 					attachmentCount: 1,
 					attachments: &vhandle,
 					width: Size.Width,
