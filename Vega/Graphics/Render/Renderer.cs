@@ -39,6 +39,10 @@ namespace Vega.Graphics
 		/// The current MSAA setting for the renderer.
 		/// </summary>
 		public MSAA MSAA => RenderTarget.MSAA;
+		/// <summary>
+		/// The number of subpasses in this renderer.
+		/// </summary>
+		public uint SubpassCount => Layout.SubpassCount;
 
 		/// <summary>
 		/// The color used to clear the renderer target image.
