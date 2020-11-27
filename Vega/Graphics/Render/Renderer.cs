@@ -60,10 +60,18 @@ namespace Vega.Graphics
 		/// <summary>
 		/// Gets if the renderer is currently recording commands.
 		/// </summary>
-		public bool IsRecording => Cmd is not null;
+		public bool IsRecording => _cmd is not null;
+		/// <summary>
+		/// Gets the current subpass being recorded. Returns zero if not recording.
+		/// </summary>
+		public uint CurrentSubpass { get; private set; } = 0;
+		/// <summary>
+		/// Gets the value of <see cref="AppTime.FrameCount"/> when the renderer was last ended.
+		/// </summary>
+		public ulong LastRenderFrame { get; private set; } = 0;
 		
 		// The current primary command buffer recording render commands
-		private CommandBuffer? Cmd = null;
+		private CommandBuffer? _cmd = null;
 		#endregion // Recording
 
 		/// <summary>
@@ -172,24 +180,27 @@ namespace Vega.Graphics
 		}
 		#endregion // Size/MSAA
 
-		#region Recording
+		#region Recording State
 		/// <summary>
 		/// Begins recording a new set of rendering commands to be submitted to the device.
 		/// </summary>
 		public void Begin()
 		{
-			// Check state
+			// Validate
 			if (IsRecording) {
-				throw new InvalidOperationException("Cannot call Renderer.Begin() on a renderer that is recording");
+				throw new InvalidOperationException("Cannot call Begin() on a renderer that is recording");
+			}
+			if (LastRenderFrame == AppTime.FrameCount) {
+				throw new InvalidOperationException("Cannot call Begin() on a window renderer in the same frame as the last submission");
 			}
 
 			// Get a new command buffer (transient works because these can't cross frame boundaries)
-			Cmd = Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Primary);
+			_cmd = Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Primary);
 			VkCommandBufferBeginInfo cbbi = new(
 				flags: VkCommandBufferUsageFlags.OneTimeSubmit,
 				inheritanceInfo: null
 			);
-			Cmd.Cmd.BeginCommandBuffer(&cbbi).Throw("Failed to start renderer command recording");
+			_cmd.Cmd.BeginCommandBuffer(&cbbi).Throw("Failed to start renderer command recording");
 
 			// Start the render pass
 			var clears = stackalloc VkClearValue[ClearValues.Length];
@@ -203,7 +214,28 @@ namespace Vega.Graphics
 				clearValueCount: (uint)ClearValues.Length,
 				clearValues: clears
 			);
-			Cmd.Cmd.CmdBeginRenderPass(&rpbi, VkSubpassContents.SecondaryCommandBuffers);
+			_cmd.Cmd.CmdBeginRenderPass(&rpbi, VkSubpassContents.SecondaryCommandBuffers);
+
+			// Set values
+			CurrentSubpass = 0;
+		}
+
+		/// <summary>
+		/// Moves the renderer into recording the next subpass.
+		/// </summary>
+		public void NextSubpass()
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot call NextSubpass() on a renderer that is not recording");
+			}
+			if (CurrentSubpass == (SubpassCount - 1)) {
+				throw new InvalidOperationException("Cannot call NextSubpass() on the last subpass");
+			}
+
+			// Move next
+			_cmd!.Cmd.CmdNextSubpass(VkSubpassContents.SecondaryCommandBuffers);
+			CurrentSubpass += 1;
 		}
 
 		/// <summary>
@@ -212,22 +244,94 @@ namespace Vega.Graphics
 		/// </summary>
 		public void End()
 		{
-			// Check state
+			// Validate
 			if (!IsRecording) {
-				throw new InvalidOperationException("Cannot call Renderer.End() on a renderer that is not recording");
+				throw new InvalidOperationException("Cannot call End() on a renderer that is not recording");
+			}
+			if (CurrentSubpass != (SubpassCount - 1)) {
+				throw new InvalidOperationException("Cannot call End() on a renderer that has not visited all subpasses");
 			}
 
 			// End the pass and commands
-			Cmd!.Cmd.CmdEndRenderPass();
-			Cmd.Cmd.EndCommandBuffer().Throw("Failed to record commands for renderer");
+			_cmd!.Cmd.CmdEndRenderPass();
+			_cmd.Cmd.EndCommandBuffer().Throw("Failed to record commands for renderer");
 
 			// Swap buffers (also submits the commands for execution)
-			RenderTarget.Swap(Cmd);
+			RenderTarget.Swap(_cmd);
 
 			// End objects
-			Cmd = null;
+			_cmd = null;
+			CurrentSubpass = 0;
+			LastRenderFrame = AppTime.FrameCount;
 		}
-		#endregion // Recording
+		#endregion // Recording State
+
+		#region Commands
+		/// <summary>
+		/// Submits the given command list to be executed at the current recording location of the renderer. The
+		/// command list is invalidated and cannot be reused after this call.
+		/// </summary>
+		/// <param name="list">The list of commands to execute.</param>
+		public void Submit(CommandList list)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot call Submit() on a renderer that is not recording");
+			}
+			if (!list.IsValid) {
+				throw new InvalidOperationException("Cannot submit an invalid CommandList to a renderer");
+			}
+			if (!ReferenceEquals(list.Renderer, this)) {
+				throw new InvalidOperationException("Cannot submit a CommandList to the renderer it was not recorded for");
+			}
+			if (list.Subpass != CurrentSubpass) {
+				throw new InvalidOperationException("Cannot submit a CommandList in a subpass it was not recorded for");
+			}
+
+			// Submit
+			var handle = list.Buffer!.Cmd.Handle;
+			_cmd!.Cmd.CmdExecuteCommands(1, &handle);
+			list.Invalidate();
+		}
+
+		/// <summary>
+		/// Submits the given set of command lists to be executed at the current recording location of the renderer.
+		/// All commands lists will be invalidated and cannot be reused after this call.
+		/// <para>
+		/// The submited command lists will be executed in the order they are given.
+		/// </para>
+		/// </summary>
+		/// <param name="lists">The set of command lists to submit.</param>
+		public void Submit(params CommandList[] lists)
+		{
+			// Validate
+			if (lists.Length == 0) {
+				return;
+			}
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot call Submit() on a renderer that is not recording");
+			}
+			foreach (var list in lists) {
+				if (!list.IsValid) {
+					throw new InvalidOperationException("Cannot submit an invalid CommandList to a renderer");
+				}
+				if (!ReferenceEquals(list.Renderer, this)) {
+					throw new InvalidOperationException("Cannot submit a CommandList to the renderer it was not recorded for");
+				}
+				if (list.Subpass != CurrentSubpass) {
+					throw new InvalidOperationException("Cannot submit a CommandList in a subpass it was not recorded for");
+				}
+			}
+
+			// Submit
+			var handles = stackalloc VulkanHandle<VkCommandBuffer>[lists.Length];
+			for (int i = 0; i < lists.Length; ++i) {
+				handles[i] = lists[i].Buffer!.Cmd.Handle;
+				lists[i].Invalidate();
+			}
+			_cmd!.Cmd.CmdExecuteCommands((uint)lists.Length, handles);
+		}
+		#endregion // Commands
 
 		// Called by the connected swapchain (if any) when it resizes
 		// The swapchain will have already waited for device idle at this point

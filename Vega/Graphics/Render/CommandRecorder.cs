@@ -14,6 +14,10 @@ namespace Vega.Graphics
 	/// <para>
 	/// An instance of this class cannot be shared between threads while recording.
 	/// </para>
+	/// <para>
+	/// While this type implements <see cref="IDisposable"/>, it can be reused after <c>Dispose()</c>, because the
+	/// disposal call will only discard the current rendering process, instead of the entire object.
+	/// </para>
 	/// </summary>
 	public unsafe sealed class CommandRecorder : IDisposable
 	{
@@ -26,6 +30,10 @@ namespace Vega.Graphics
 		/// The subpass index currently bound to this recorder.
 		/// </summary>
 		public uint? BoundSubpass { get; private set; }
+		/// <summary>
+		/// Gets the value of <see cref="AppTime.FrameCount"/> when the current recording process started.
+		/// </summary>
+		public ulong? RecordingFrame { get; private set; }
 
 		/// <summary>
 		/// Gets if commands are currently being recorded into the recorder.
@@ -79,33 +87,42 @@ namespace Vega.Graphics
 			VkCommandBufferBeginInfo cbbi = new(
 				VkCommandBufferUsageFlags.RenderPassContinue | VkCommandBufferUsageFlags.OneTimeSubmit, &cbii
 			);
-			_cmd.Cmd.BeginCommandBuffer(&cbbi);
+			_cmd.Cmd.BeginCommandBuffer(&cbbi).Throw("Failed to start recording commands");
 
 			// Set values
 			BoundRenderer = renderer;
 			BoundSubpass = subpass;
+			RecordingFrame = AppTime.FrameCount;
 		}
 
 		/// <summary>
 		/// Completes the current recording process and prepares the recorded commands for submission to
 		/// <see cref="BoundRenderer"/>.
 		/// </summary>
-		public void End()
+		/// <returns>The set of recorded commands to submit to the renderer.</returns>
+		public CommandList End()
 		{
 			// Validate
 			if (!IsRecording) {
 				throw new InvalidOperationException("Cannot end a command recorder that is not recording");
 			}
+			if (AppTime.FrameCount != RecordingFrame) {
+				// This will not be an issue for non-transient command buffers
+				throw new InvalidOperationException("CommandRecorder crossed frame boundary, and is no longer valid");
+			}
 
 			// End buffer
 			_cmd!.Cmd.EndCommandBuffer().Throw("Failed to record commands");
+			CommandList list = new(BoundRenderer!, BoundSubpass!.Value, _cmd);
 
 			// Set values
 			BoundRenderer = null;
 			BoundSubpass = null;
+			RecordingFrame = null;
 			_cmd = null;
-			
-			// TODO: Return command list
+
+			// Return list
+			return list;
 		}
 
 		/// <summary>
@@ -126,6 +143,7 @@ namespace Vega.Graphics
 			// Set values
 			BoundRenderer = null;
 			BoundSubpass = null;
+			RecordingFrame = null;
 			_cmd = null;
 		}
 		#endregion // Recording State
