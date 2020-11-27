@@ -9,43 +9,43 @@ using System;
 namespace Vega.Graphics
 {
 	/// <summary>
-	/// Represents a set of rendering commands recorded with a <see cref="CommandRecorder"/> instance, and available
-	/// for submission to <see cref="Renderer"/>.
+	/// Represents a set of graphics commands recorded with <see cref="CommandRecorder"/>, which are ready to be
+	/// submitted to <see cref="Renderer"/>.
 	/// <para>
-	/// A command list can only be submitted within a single render pass. Once <see cref="Renderer.End"/> is called, 
-	/// all command lists for that renderer are invalidated and must be re-recorded.
+	/// A command list can only be submitted once, and then becomes invalid. Additionally, once the associated
+	/// Renderer is ended, all command lists for the current frame (even if not submitted) become invalid.
 	/// </para>
 	/// </summary>
 	public sealed class CommandList
 	{
 		#region Fields
 		/// <summary>
-		/// The renderer instance that the commands were recorded for. The commands must be submitted to this renderer.
+		/// The Renderer instance that the commands were generated for.
 		/// </summary>
 		public readonly Renderer Renderer;
 		/// <summary>
-		/// The renderer subpass that the commands were recorded for.
+		/// The subpass that the commands were generated for.
 		/// </summary>
 		public readonly uint Subpass;
 
-		// The buffer holding the commands
-		internal CommandBuffer? Buffer { get; private set; } = null;
+		// The command buffer
+		internal CommandBuffer? Buffer { get; private set; }
 		/// <summary>
-		/// Gets if the command list is still valid for submission.
+		/// Gets if the command list is valid (has not yet been submitted).
 		/// </summary>
 		public bool IsValid => Buffer is not null;
 		#endregion // Fields
 
-		internal CommandList(Renderer renderer, uint subpass, CommandBuffer buffer)
+		internal CommandList(Renderer renderer, uint subpass, CommandBuffer cmd)
 		{
 			Renderer = renderer;
 			Subpass = subpass;
-			Buffer = buffer;
+			Buffer = cmd;
 
-			Renderer.TrackList(this);
+			// TODO: For non-transient commands (not yet used), tracking might need to start here
 		}
 
-		// Perform command list invalidation
+		// Perform submit-time invalidation
 		internal void Invalidate() => Buffer = null;
 	}
 }

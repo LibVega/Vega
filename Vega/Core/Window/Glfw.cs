@@ -8,6 +8,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text;
 using Vega.Util;
+using Vulkan;
 
 namespace Vega
 {
@@ -148,11 +149,11 @@ namespace Vega
 			return ret;
 		}
 
-		public static Vk.Result CreateWindowSurface(Vk.Instance instance, IntPtr window, out Vk.Handle<Vk.KHR.Surface> surf)
+		public static VkResult CreateWindowSurface(VkInstance instance, IntPtr window, out VulkanHandle<VkSurfaceKHR> surf)
 		{
 			var res = _GlfwCreateWindowSurface(instance.Handle.PtrHandle, window, IntPtr.Zero, out var HANDLE);
-			surf = new((res == (int)Vk.Result.Success) ? HANDLE : IntPtr.Zero);
-			return (Vk.Result)res;
+			surf = new((res == (int)VkResult.Success) ? HANDLE : IntPtr.Zero);
+			return (VkResult)res;
 		}
 		#endregion // API Function Wrappers
 

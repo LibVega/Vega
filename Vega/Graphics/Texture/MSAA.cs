@@ -5,6 +5,7 @@
  */
 
 using System;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -17,23 +18,23 @@ namespace Vega.Graphics
 		/// <summary>
 		/// One sample per pixel (no anti-aliasing).
 		/// </summary>
-		X1  = Vk.SampleCountFlags.E1,
+		X1  = VkSampleCountFlags.E1,
 		/// <summary>
 		/// Two samples per pixel.
 		/// </summary>
-		X2  = Vk.SampleCountFlags.E2,
+		X2  = VkSampleCountFlags.E2,
 		/// <summary>
 		/// Four samples per pixel.
 		/// </summary>
-		X4  = Vk.SampleCountFlags.E4,
+		X4  = VkSampleCountFlags.E4,
 		/// <summary>
 		/// Eight samples per pixel.
 		/// </summary>
-		X8  = Vk.SampleCountFlags.E8,
+		X8  = VkSampleCountFlags.E8,
 		/// <summary>
 		/// Sixteen samples per pixel.
 		/// </summary>
-		X16 = Vk.SampleCountFlags.E16
+		X16 = VkSampleCountFlags.E16
 	}
 
 	/// <summary>

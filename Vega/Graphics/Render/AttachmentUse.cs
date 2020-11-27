@@ -9,20 +9,20 @@ using System;
 namespace Vega.Graphics
 {
 	/// <summary>
-	/// Describes the ways in which a render attachment may be used within a <see cref="Renderer"/> subpass.
+	/// Describes how an attachment is used within a <see cref="Renderer"/> subpass.
 	/// </summary>
 	public enum AttachmentUse
 	{
 		/// <summary>
-		/// The attachment is unused within the subpass.
+		/// The attachment is not used by the subpass.
 		/// </summary>
 		Unused,
 		/// <summary>
-		/// The attachment is written to in the subpass.
+		/// The attachment is write-only in the subpass, either as color or depth/stecil based on format.
 		/// </summary>
 		Output,
 		/// <summary>
-		/// The attachment is read from as an input attachment in the subpass.
+		/// The attachment is read-only in the subpass, as an input attachment.
 		/// </summary>
 		Input
 	}

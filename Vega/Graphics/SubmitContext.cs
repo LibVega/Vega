@@ -6,7 +6,8 @@
 
 using System;
 using System.Collections.Generic;
-using Vk.Extras;
+using System.Linq;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -20,9 +21,9 @@ namespace Vega.Graphics
 		public readonly DeviceQueue Queue;
 		
 		// The execution fence
-		public readonly Vk.Fence Fence;
+		public readonly VkFence Fence;
 		// Gets if the execution has completed for the context
-		public bool IsFinished => Fence.GetFenceStatus() == Vk.Result.Success;
+		public bool IsFinished => Fence.GetFenceStatus() == VkResult.Success;
 
 		// The set of commands contained in the context
 		public IReadOnlyList<CommandBuffer> Commands => _commands;
@@ -33,9 +34,11 @@ namespace Vega.Graphics
 		{
 			Queue = queue;
 
-			Vk.FenceCreateInfo fci = new(Vk.FenceCreateFlags.Signaled);
-			queue.Graphics.Device.CreateFence(&fci, null, out Fence)
+			VkFenceCreateInfo fci = new(VkFenceCreateFlags.Signaled);
+			VulkanHandle<VkFence> handle;
+			queue.Graphics.VkDevice.CreateFence(&fci, null, &handle)
 				.Throw("Failed to create fence for SubmitContext");
+			Fence = new(handle, queue.Graphics.VkDevice);
 		}
 
 		public void Destroy() => Fence.DestroyFence(null);
@@ -64,7 +67,7 @@ namespace Vega.Graphics
 			_commands.Clear();
 			_commands.AddRange(buffers);
 			var fhandle = Fence.Handle;
-			Queue.Graphics.Device.ResetFences(1, &fhandle);
+			Queue.Graphics.VkDevice.ResetFences(1, &fhandle);
 		}
 
 		// Ditto, but for a single command buffer
@@ -74,9 +77,11 @@ namespace Vega.Graphics
 				throw new InvalidOperationException("Attempt to re-use a pending SubmitContext");
 			}
 			_commands.Clear();
-			_commands.Add(buffer);
+			if (!buffer.Transient) {
+				_commands.Add(buffer); // Only track transient buffers
+			}
 			var fhandle = Fence.Handle;
-			Queue.Graphics.Device.ResetFences(1, &fhandle);
+			Queue.Graphics.VkDevice.ResetFences(1, &fhandle);
 		}
 
 		// Ditto, but for single primary + multiple secondaries
@@ -86,10 +91,12 @@ namespace Vega.Graphics
 				throw new InvalidOperationException("Attempt to re-use a pending SubmitContext");
 			}
 			_commands.Clear();
-			_commands.Add(buffer);
-			_commands.AddRange(cmds);
+			if (!buffer.Transient) {
+				_commands.Add(buffer); 
+			}
+			_commands.AddRange(cmds.Where(cmd => !cmd.Transient));
 			var fhandle = Fence.Handle;
-			Queue.Graphics.Device.ResetFences(1, &fhandle);
+			Queue.Graphics.VkDevice.ResetFences(1, &fhandle);
 		}
 	}
 }

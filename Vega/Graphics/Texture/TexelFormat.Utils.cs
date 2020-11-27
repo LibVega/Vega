@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -15,20 +16,20 @@ namespace Vega.Graphics
 	public static class TexelFormatUtils
 	{
 		private static readonly Dictionary<TexelFormat, (uint s, uint c)> FORMAT_DATA = new() {
-			{ TexelFormat.UNorm, (1, 1) },       { TexelFormat.UNorm2, (2, 2) },   { TexelFormat.UNorm4, (4, 4) },
-			{ TexelFormat.UNormBgra, (4, 4) },
-			{ TexelFormat.UByte, (1, 1) },       { TexelFormat.UByte2, (2, 2) },   { TexelFormat.UByte4, (4, 4) },
-			{ TexelFormat.Byte, (1, 1) },        { TexelFormat.Byte2, (2, 2) },    { TexelFormat.Byte4, (4, 4) },
-			{ TexelFormat.UShort, (2, 1) },      { TexelFormat.UShort2, (4, 2) },  { TexelFormat.UShort4, (8, 4) },
-			{ TexelFormat.Short, (2, 1) },       { TexelFormat.Short2, (4, 2) },   { TexelFormat.Short4, (8, 4) },
-			{ TexelFormat.UInt, (4, 1) },        { TexelFormat.UInt2, (8, 2) },    { TexelFormat.UInt4, (16, 4) },
-			{ TexelFormat.Int, (4, 1) },         { TexelFormat.Int2, (8, 2) },     { TexelFormat.Int4, (16, 4) },
-			{ TexelFormat.Float, (4, 1) },       { TexelFormat.Float2, (8, 2) },   { TexelFormat.Float4, (16, 4) },
-			{ TexelFormat.Argb1555, (2, 4) },    { TexelFormat.Bgra5551, (2, 4) }, { TexelFormat.Rgba5551, (2, 4) },
+			{ TexelFormat.UNorm,       (1, 1) }, { TexelFormat.UNorm2,   (2, 2) }, { TexelFormat.UNorm4, (4, 4) },
+			{ TexelFormat.UNormBgra,   (4, 4) },
+			{ TexelFormat.UByte,       (1, 1) }, { TexelFormat.UByte2,   (2, 2) }, { TexelFormat.UByte4,    (4, 4) },
+			{ TexelFormat.Byte,        (1, 1) }, { TexelFormat.Byte2,    (2, 2) }, { TexelFormat.Byte4,     (4, 4) },
+			{ TexelFormat.UShort,      (2, 1) }, { TexelFormat.UShort2,  (4, 2) }, { TexelFormat.UShort4,   (8, 4) },
+			{ TexelFormat.Short,       (2, 1) }, { TexelFormat.Short2,   (4, 2) }, { TexelFormat.Short4,    (8, 4) },
+			{ TexelFormat.UInt,        (4, 1) }, { TexelFormat.UInt2,    (8, 2) }, { TexelFormat.UInt4,    (16, 4) },
+			{ TexelFormat.Int,         (4, 1) }, { TexelFormat.Int2,     (8, 2) }, { TexelFormat.Int4,     (16, 4) },
+			{ TexelFormat.Float,       (4, 1) }, { TexelFormat.Float2,   (8, 2) }, { TexelFormat.Float4,   (16, 4) },
+			{ TexelFormat.Argb1555,    (2, 4) }, { TexelFormat.Bgra5551, (2, 4) }, { TexelFormat.Rgba5551,  (2, 4) },
 			{ TexelFormat.Argb2101010, (4, 4) },
-			{ TexelFormat.Rgb565, (2, 3) },      { TexelFormat.Bgr565, (2, 3) },
-			{ TexelFormat.Bgra4444, (2, 4) },    { TexelFormat.Rgba4444, (2, 4) },
-			{ TexelFormat.Depth16, (2, 1) },     { TexelFormat.Depth32, (4, 1) },  { TexelFormat.Depth24Stencil8, (4, 2) },
+			{ TexelFormat.Rgb565,      (2, 3) }, { TexelFormat.Bgr565,   (2, 3) },
+			{ TexelFormat.Bgra4444,    (2, 4) }, { TexelFormat.Rgba4444, (2, 4) },
+			{ TexelFormat.Depth16,     (2, 1) }, { TexelFormat.Depth32,  (4, 1) }, { TexelFormat.Depth24Stencil8, (4, 2) },
 		};
 
 		/// <summary>
@@ -81,5 +82,13 @@ namespace Vega.Graphics
 		/// <param name="format">The format to check.</param>
 		public static bool IsValidAsInput(this TexelFormat format) =>
 			(format != TexelFormat.Bgr565) && (format != TexelFormat.Rgb565);
+
+		// Gets the vulkan aspect flags for the format
+		internal static VkImageAspectFlags GetAspectFlags(this TexelFormat format) => format switch {
+			TexelFormat.Depth16 => VkImageAspectFlags.Depth,
+			TexelFormat.Depth32 => VkImageAspectFlags.Depth,
+			TexelFormat.Depth24Stencil8 => VkImageAspectFlags.Depth | VkImageAspectFlags.Stencil,
+			_ => VkImageAspectFlags.Color
+		};
 	}
 }

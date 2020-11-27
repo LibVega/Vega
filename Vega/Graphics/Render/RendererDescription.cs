@@ -11,114 +11,122 @@ using System.Linq;
 namespace Vega.Graphics
 {
 	/// <summary>
-	/// Describes the render targets and subpass layout required to create a <see cref="Renderer"/> instance.
+	/// Contains the information required to describe the attachments and subpasses for a <see cref="Renderer"/>.
+	/// <para>
+	/// MSAA support is enabled by setting <see cref="ResolveSubpass"/> to a non-null value. Resolve attachments
+	/// are handled automatically, and do not need to be explitly specified.
+	/// </para>
 	/// </summary>
 	public sealed class RendererDescription
 	{
+		/// <summary>
+		/// Maximum number of subpasses supported in a single renderer.
+		/// </summary>
+		public const uint MAX_SUBPASSES = 8;
+
 		#region Fields
 		/// <summary>
-		/// The render target attachments that will be used in the renderer.
+		/// The set of attachments to be used by the renderer.
 		/// </summary>
 		public IReadOnlyList<AttachmentDescription> Attachments => _attachments;
 		private readonly List<AttachmentDescription> _attachments;
 
 		/// <summary>
-		/// The number of attachments in the description.
+		/// Gets the number of subpasses for the renderer, dictated by the subpass count of the first attachment.
 		/// </summary>
-		public int AttachmentCount => _attachments.Count;
+		public uint SubpassCount => (Attachments.Count > 0) ? Attachments[0].SubpassCount : 0;
+
 		/// <summary>
-		/// The number of subpasses in the renderer (taken from attachment 0).
+		/// Gets if the renderer has one or more depth/stencil attachments.
 		/// </summary>
-		public int SubpassCount => (_attachments.Count > 0) ? _attachments[0].TimelineSize : 0;
+		public bool HasDepthAttachment => _attachments.Any(att => att.IsDepth);
+
+		/// <summary>
+		/// The subpass index, if any, where the MSAA resolve operation occurs. This enables (but does not require) 
+		/// MSAA capabilities for the renderer. Set with <see cref="SetResolveSubpass(uint?)"/>.
+		/// </summary>
+		public uint? ResolveSubpass { get; private set; } = null;
+		/// <summary>
+		/// Gets if the description supports MSAA attachments (has a resolve subpass).
+		/// </summary>
+		public bool SupportsMSAA => ResolveSubpass.HasValue;
 		#endregion // Fields
 
 		/// <summary>
-		/// Start a new renderer description with the given attachments.
+		/// Starts a new renderer description with the given attachments.
 		/// </summary>
-		/// <param name="attachments">The renderer attachments.</param>
-		public RendererDescription(params AttachmentDescription[] attachments)
+		/// <param name="attachment">The first attachment of the description, which sets the subpass count.</param>
+		/// <param name="otherAttachments">The additional attachment descriptions.</param>
+		public RendererDescription(AttachmentDescription attachment, params AttachmentDescription[] otherAttachments)
 		{
-			_attachments = new(attachments);
+			_attachments = new(otherAttachments.Length + 1);
+			AddAttachment(attachment);
+			foreach (var att in otherAttachments) {
+				AddAttachment(att);
+			}
 		}
 
 		/// <summary>
-		/// Add an additional attachment to the renderer description.
+		/// Adds an attachment to the renderer description.
 		/// </summary>
-		/// <param name="attachment">The description of the new attachment.</param>
-		/// <returns>The same description to facilitate chaning.</returns>
+		/// <param name="attachment">The attachment description to add.</param>
+		/// <returns>The same object, to faciliate chaining.</returns>
 		public RendererDescription AddAttachment(AttachmentDescription attachment)
 		{
+			// Self-validation
+			if (!attachment.TryValidate(out var error)) {
+				throw new ArgumentException($"Bad attachment description - {error}");
+			}
+			
+			// Validate against other attachments
+			if (_attachments.Count > 0) {
+				if (attachment.SubpassCount != _attachments[^1].SubpassCount) {
+					throw new ArgumentException("Bad attachment description - wrong subpass count");
+				}
+				int aidx = 0;
+				foreach (var att in _attachments) {
+					if (attachment.IsDepth && att.IsDepth) {
+						var dupOut = att.Uses.Where((use, idx) => (use == AttachmentUse.Output) && (use == attachment.Uses[idx]));
+						if (dupOut.Any()) {
+							throw new ArgumentException("Bad attachment description - duplicate depth/stencil output");
+						}
+					}
+					++aidx;
+				}
+			}
+
+			// Add description and return
 			_attachments.Add(attachment);
 			return this;
 		}
 
 		/// <summary>
-		/// Checks if the renderer description is valid and consistent.
+		/// Sets the subpass index in which MSAA resolves occur. All color attachments used as outputs in this pass
+		/// will be resolved, if they are preserved or otherwise used later in the renderer.
+		/// <para>
+		/// Renderers without MSAA attachments will ignore resolve operations.
+		/// </para>
 		/// </summary>
-		/// <param name="error">A human-readable message of the build error, or <c>null</c> on success.</param>
-		/// <param name="window">The optional window against which validity checks are performed.</param>
-		/// <returns>If the description was built successfully.</returns>
-		public bool TryValidate(out string? error, Window? window)
+		/// <param name="passes">The subpass index(es), if any, where resolve operations happen.</param>
+		/// <returns>The same object, to facilitate chaining.</returns>
+		public RendererDescription SetResolveSubpass(uint? index)
 		{
-			// Check counts
-			if (_attachments.Count == 0) {
-				error = "no attachments";
-				return false;
-			}
-			if (_attachments.Skip(1).Any(a => a.TimelineSize != _attachments[0].TimelineSize)) {
-				error = $"subpass count mismatch (counts=[{String.Join(", ", _attachments.Select(a => a.TimelineSize))}])";
-				return false;
+			// Set new indices
+			ResolveSubpass = index;
+			if (!index.HasValue) {
+				return this;
 			}
 
-			// Check individual attachments
-			for (int i = 0; i < _attachments.Count; ++i) {
-				if (!_attachments[i].TryValidate(out var aerr)) {
-					error = $"invalid attachment {i} - {aerr}";
-					return false;
-				}
+			// Validate against existing attachments
+			if (index.Value >= SubpassCount) {
+				throw new ArgumentException("Bad resolve subpass - index is out of bounds");
+			}
+			if (_attachments.Where(att => att.Uses[(int)index.Value] == AttachmentUse.Output).Count() == 0) {
+				throw new ArgumentException("Bad resolve subpass - no output attachments for subpass");
 			}
 
-			// Subpass checks
-			for (int si = 0; si < SubpassCount; ++si) {
-				// Check MSAA outputs
-				var msaaOut = _attachments
-					.Where(att => att.Timeline[si] == AttachmentUse.Output)
-					.Select(att => att.MSAA && (si <= att.ResolveSubpass.GetValueOrDefault(UInt32.MaxValue)))
-					.Distinct();
-				if (msaaOut.Count() != 1) {
-					error = $"cannot mix MSAA and non-MSAA output attachments in subpass {si}";
-					return false;
-				}
-
-				// Check depth attachments
-				var depthOut = _attachments
-					.Where(att => att.Timeline[si] == AttachmentUse.Output)
-					.Where(att => att.Format.IsDepthFormat());
-				if (depthOut.Count() > 1) {
-					error = $"cannot have multiple depth/stencil attachments in subpass {si}";
-					return false;
-				}
-			}
-
-			// Window validation
-			if (window is not null) {
-				if (_attachments[0].Format != window.SurfaceFormat) {
-					error = "attachment 0 and window surface format mismatch";
-					return false;
-				}
-				if (!_attachments[0].Preserve) {
-					error = "attachment 0 must be preserved if used as the window surface";
-					return false;
-				}
-				if (_attachments[0].MSAA && !_attachments[0].ResolveSubpass.HasValue) {
-					error = "attachment 0 must be resolved if used as the window surface";
-					return false;
-				}
-			}
-
-			// Update and Return
-			error = null;
-			return true;
+			// Return
+			return this;
 		}
 	}
 }

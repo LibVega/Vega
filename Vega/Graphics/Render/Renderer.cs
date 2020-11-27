@@ -5,384 +5,340 @@
  */
 
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using Vk.Extras;
-using static Vega.InternalLog;
+using System.Linq;
+using Vulkan;
 
 namespace Vega.Graphics
 {
 	/// <summary>
-	/// Represents a target (either an offscreen image or a window) for rendering commands. Manages the rendering
-	/// state and command submission for the target. 
+	/// Represents a target (either offscreen or on a window) for rendering commands. Manages rendering state and
+	/// command submission.
 	/// <para>
-	/// A renderer can only be used at most once per frame, and window renderers <em>must</em> be used <em>exactly 
-	/// once</em> per frame.
+	/// Renderer instances targeting windows will cause the window surface buffer swap when ended.
 	/// </para>
 	/// </summary>
 	public unsafe sealed class Renderer : IDisposable
 	{
 		#region Fields
-		// The renderpass and framebuffers for this renderer
-		internal readonly RenderPass RenderPass;
+		// The graphics device 
+		internal readonly GraphicsDevice Graphics;
 		/// <summary>
-		/// The number of subpasses for the renderer.
+		/// The window associated with the renderer.
 		/// </summary>
-		public int SubpassCount => RenderPass.SubpassCount;
-		// Gets the current msaa-aware render pass object
-		internal Vk.RenderPass CurrentRenderPassHandle =>
-			(MSAA != MSAA.X1) ? RenderPass.MSAAHandle : RenderPass.Handle;
-
+		public readonly Window Window;
 		/// <summary>
-		/// The associated graphics service.
-		/// </summary>
-		public readonly GraphicsService Graphics;
-		/// <summary>
-		/// The window associated with the renderer, if this is not an offscreen renderer.
-		/// </summary>
-		public readonly Window? Window;
-		/// <summary>
-		/// Gets if this renderer is performing offscreen rendering operations.
+		/// If the renderer is targeting an offscreen image.
 		/// </summary>
 		public bool IsOffscreen => Window is null;
 
 		/// <summary>
-		/// The current size of the renderer targets.
+		/// The current size of the images being rendered to.
 		/// </summary>
-		public Extent2D Size { get; private set; }
+		public Extent2D Size => RenderTarget.Size;
 		/// <summary>
-		/// The current MSAA setting for the renderer. Only applies to attachments that support MSAA.
+		/// The current MSAA setting for the renderer.
 		/// </summary>
-		public MSAA MSAA { get; private set; }
+		public MSAA MSAA => RenderTarget.MSAA;
+		/// <summary>
+		/// The number of subpasses in this renderer.
+		/// </summary>
+		public uint SubpassCount => Layout.SubpassCount;
 
 		/// <summary>
-		/// The values used to clear the renderer attachments.
+		/// The color used to clear the renderer target image.
 		/// </summary>
 		public readonly ClearValue[] ClearValues;
 
-		#region Render Pass Data
-		/// <summary>
-		/// The current renderer subpass index, or <c>null</c> if not recording.
-		/// </summary>
-		public uint? PassIndex { get; private set; } = null;
-		/// <summary>
-		/// Gets if the renderer is currently recording.
-		/// </summary>
-		public bool IsRecording => PassIndex.HasValue;
-		/// <summary>
-		/// The value of <see cref="AppTime.FrameCount"/> when the renderer was last submitted.
-		/// </summary>
-		public ulong LastEndFrame { get; private set; } = 0;
-		// The frame index for the last Start() call
-		private ulong _startFrame = 0;
+		// The render pass objects
+		internal readonly RenderLayout Layout;
+		internal readonly RenderLayout? MSAALayout;
+		internal VkRenderPass RenderPass;
+		// The render target
+		internal readonly RenderTarget RenderTarget;
 
-		// Command buffer for current recording
+		#region Recording
+		/// <summary>
+		/// Gets if the renderer is currently recording commands.
+		/// </summary>
+		public bool IsRecording => _cmd is not null;
+		/// <summary>
+		/// Gets the current subpass being recorded. Returns zero if not recording.
+		/// </summary>
+		public uint CurrentSubpass { get; private set; } = 0;
+		/// <summary>
+		/// Gets the value of <see cref="AppTime.FrameCount"/> when the renderer was last ended.
+		/// </summary>
+		public ulong LastRenderFrame { get; private set; } = 0;
+		
+		// The current primary command buffer recording render commands
 		private CommandBuffer? _cmd = null;
-		// The fence used to submit the last render command
-		internal Vk.Fence LastRenderFence = Vk.Fence.Null;
-
-		// The running set of command lists to invalidate and submit at End()
-		private readonly List<CommandList> _ownedLists = new();
-
-		// The running set of secondary command buffers to submit at End()
-		private readonly List<CommandBuffer> _secondaryBuffers = new();
-		#endregion // Render Pass Data
+		#endregion // Recording
 
 		/// <summary>
-		/// Gets if the renderer has been disposed.
+		/// Disposal flag.
 		/// </summary>
 		public bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
 
 		/// <summary>
-		/// <para>
-		/// <em>WARNING: NOT YET IMPLEMENTED</em>
-		/// </para>
-		/// Creates a new Renderer for submitting draw commands to an offscreen buffer. Offscreen Renderer instances
-		/// must be manually rebuilt to change the size or anti-aliasing attributes.
+		/// Creates a new renderer targeting the passed window. It is an error to create more than one renderer for
+		/// a single window.
 		/// </summary>
-		/// <param name="desc">The valid description of the renderer.</param>
-		/// <param name="size">The initial size of the renderer buffer, cannot be (0, 0).</param>
-		/// <param name="msaa">The initial MSAA of the renderer, if supported.</param>
-		public Renderer(RendererDescription desc, Extent2D size, MSAA msaa = MSAA.X1)
+		/// <param name="window">The window to target with the renderer.</param>
+		/// <param name="description">A description of the pass layout and attachments for the renderer.</param>
+		/// <param name="initialMSAA">The initial MSAA setting for the renderer, if supported.</param>
+		public Renderer(Window window, RendererDescription description, MSAA initialMSAA = MSAA.X1)
 		{
-			throw new NotImplementedException("Offscreen renderers are not yet fully implemented");
-
-			// Validate size
-#pragma warning disable CS0162 // Unreachable code detected
-			if (size.Area == 0) {
-				throw new ArgumentException("Cannot use a zero size for a renderer", nameof(size));
-			}
-			Graphics = Core.Instance!.Graphics;
-			Window = null;
-
-			// Validate description
-			if (!desc.TryValidate(out var descErr, null)) {
-				throw new ArgumentException("Invalid renderer description: " + descErr!, nameof(desc));
+			// Validate
+			if (window.HasRenderer) {
+				throw new InvalidOperationException("Cannot create more than one renderer for a single window");
 			}
 
-			// Create framebuffer
-			RenderPass = new RenderPass(this, desc, null);
-			RenderPass.Rebuild(size, msaa);
-			Size = size;
-			MSAA = msaa;
-			ClearValues = new ClearValue[RenderPass.NonResolveCount];
-#pragma warning restore CS0162 // Unreachable code detected
-		}
-		/// <summary>
-		/// Creates a new Renderer for submitting draw commands to a window surface. Window Renderer instances will be
-		/// automatically rebuilt if the window size changes. 
-		/// <para>
-		/// Attachment 0 of the description must be compatible with
-		/// the window surface (same format, and MSAA == 1 or is properly resolved at the end of the renderer).
-		/// </para>
-		/// </summary>
-		/// <param name="desc">The valid description of the renderer.</param>
-		/// <param name="window">The window to use as the render surface.</param>
-		/// <param name="msaa">The initial MSAA of the renderer, if supported.</param>
-		public Renderer(RendererDescription desc, Window window, MSAA msaa = MSAA.X1)
-		{
-			// Check window
-			if (window.Renderer is not null) {
-				throw new InvalidOperationException("Cannot create a Renderer for a window that already has a renderer");
-			}
+			// Set objects
 			Graphics = Core.Instance!.Graphics;
 			Window = window;
 
-			// Validate description
-			if (!desc.TryValidate(out var descErr, window)) {
-				throw new ArgumentException("Invalid renderer description: " + descErr!, nameof(desc));
+			// Validate and create layout and pass
+			if (description.Attachments[0].Format != window.SurfaceFormat) {
+				throw new ArgumentException("The given renderer description does not match the window surface format");
 			}
+			if (!description.Attachments[0].Preserve) {
+				throw new ArgumentException("Attachment 0 must be preserved in window renderers");
+			}
+			Layout = new(description, true, false);
+			if (description.SupportsMSAA) {
+				MSAALayout = new(description, true, true);
+			}
+			if ((initialMSAA != MSAA.X1) && (MSAALayout is null)) {
+				throw new ArgumentException($"Renderer does not support MSAA operations");
+			}
+			RenderPass = ((initialMSAA == MSAA.X1) ? Layout : MSAALayout!).CreateRenderpass(Graphics, initialMSAA);
 
-			// Create framebuffer
-			RenderPass = new RenderPass(this, desc, window);
-			RenderPass.Rebuild(window.Size, msaa);
-			Size = window.Size;
-			MSAA = msaa;
-			ClearValues = new ClearValue[RenderPass.NonResolveCount];
-
-			// Assign as official window renderer
-			Window.Renderer = this;
+			// Create render target
+			ClearValues = description.Attachments.Select(att =>
+				att.IsColor ? new ClearValue(0f, 0f, 0f, 1f) : new ClearValue(1f, 0)).ToArray();
+			RenderTarget = new RenderTarget(this, window, initialMSAA);
 		}
 		~Renderer()
 		{
 			dispose(false);
 		}
 
-		#region Begin/End
+		#region Size/MSAA
 		/// <summary>
-		/// Starts recording commands to the renderer. This cannot be called if already recording. Window renderers
-		/// cannot be started twice in a single frame.
+		/// Sets the size of the images targeted by the renderer. Note that it is an error to do this for window
+		/// renderers.
+		/// </summary>
+		/// <param name="newSize">The new size of the renderer.</param>
+		public void SetSize(Extent2D newSize)
+		{
+			// Skip expensive rebuild
+			if (newSize == Size) {
+				return;
+			}
+
+			// Check for validity
+			if (Window is not null) {
+				throw new InvalidOperationException("Cannot set the size of a window renderer - it is tied to the window size");
+			}
+
+			// TODO: Rebuild at new size once offscreen renderers are implemented
+		}
+
+		/// <summary>
+		/// Sets the multisample anti-aliasing level of the renderer. If the renderer does not support MSAA operations,
+		/// then an exception is thrown.
+		/// <para>
+		/// Note that this is a very expensive operation, and should be avoided unless necessary.
+		/// </para>
+		/// </summary>
+		/// <param name="msaa">The MSAA level to apply to the renderer.</param>
+		public void SetMSAA(MSAA msaa)
+		{
+			// Skip expensive rebuild
+			if (msaa == MSAA) {
+				return;
+			}
+
+			// Validate
+			if ((msaa != MSAA.X1) && (MSAALayout is null)) {
+				throw new InvalidOperationException("Cannot enable MSAA operations on a non-MSAA renderer");
+			}
+			if (!msaa.IsSupported()) {
+				throw new ArgumentException($"MSAA level {msaa} is not supported on the current system");
+			}
+
+			// Wait for rendering operations to complete before messing with a core object
+			Graphics.VkDevice.DeviceWaitIdle();
+
+			// Destroy old MSAA renderpass, then build new one
+			RenderPass.DestroyRenderPass(null);
+			RenderPass = ((msaa != MSAA.X1) ? MSAALayout! : Layout).CreateRenderpass(Graphics, msaa);
+
+			// Rebuild the render target
+			RenderTarget.Rebuild(msaa);
+		}
+		#endregion // Size/MSAA
+
+		#region Recording State
+		/// <summary>
+		/// Begins recording a new set of rendering commands to be submitted to the device.
 		/// </summary>
 		public void Begin()
 		{
 			// Validate
-			if (PassIndex.HasValue) {
-				throw new InvalidOperationException("Cannot call Begin() on a Renderer that is already recording");
+			if (IsRecording) {
+				throw new InvalidOperationException("Cannot call Begin() on a renderer that is recording");
 			}
-			if ((Window is not null) && (LastEndFrame == AppTime.FrameCount)) {
-				throw new InvalidOperationException("Cannot call Begin() on a window Renderer more than once per frame");
+			if (LastRenderFrame == AppTime.FrameCount) {
+				throw new InvalidOperationException("Cannot call Begin() on a window renderer in the same frame as the last submission");
 			}
 
-			// Start command buffer
-			_cmd = Graphics.Resources.AllocatePrimaryCommandBuffer();
-			Vk.CommandBufferBeginInfo cbbi = new(Vk.CommandBufferUsageFlags.OneTimeSubmit, null);
-			_cmd.Cmd.BeginCommandBuffer(&cbbi);
+			// Get a new command buffer (transient works because these can't cross frame boundaries)
+			_cmd = Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Primary);
+			VkCommandBufferBeginInfo cbbi = new(
+				flags: VkCommandBufferUsageFlags.OneTimeSubmit,
+				inheritanceInfo: null
+			);
+			_cmd.Cmd.BeginCommandBuffer(&cbbi).Throw("Failed to start renderer command recording");
 
-			// Start render pass
-			var clears = stackalloc Vk.ClearValue[RenderPass.NonResolveCount];
-			for (int i = 0; i < RenderPass.NonResolveCount; ++i) {
+			// Start the render pass
+			var clears = stackalloc VkClearValue[ClearValues.Length];
+			for (int i = 0; i < ClearValues.Length; ++i) {
 				clears[i] = ClearValues[i].ToVk();
 			}
-			Vk.RenderPassBeginInfo rpbi = new(
-				renderPass: CurrentRenderPassHandle,
-				framebuffer: RenderPass.CurrentFramebuffer,
-				renderArea: new(new(0, 0), new(Size.Width, Size.Height)),
-				clearValueCount: (uint)RenderPass.NonResolveCount,
+			VkRenderPassBeginInfo rpbi = new(
+				renderPass: RenderPass,
+				framebuffer: RenderTarget.CurrentFramebuffer,
+				renderArea: new(default, new(Size.Width, Size.Height)),
+				clearValueCount: (uint)ClearValues.Length,
 				clearValues: clears
 			);
-			_cmd.Cmd.BeginRenderPass(&rpbi, Vk.SubpassContents.SecondaryCommandBuffers);
+			_cmd.Cmd.CmdBeginRenderPass(&rpbi, VkSubpassContents.SecondaryCommandBuffers);
 
 			// Set values
-			_startFrame = AppTime.FrameCount;
-			PassIndex = 0;
+			CurrentSubpass = 0;
 		}
 
 		/// <summary>
-		/// Moves the renderer to the next subpass, performing transitions and resolve operations as needed.
+		/// Moves the renderer into recording the next subpass.
 		/// </summary>
 		public void NextSubpass()
 		{
 			// Validate
-			if (!PassIndex.HasValue) {
-				throw new InvalidOperationException("Cannot call NextSubpass() on Renderer that is not recording");
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot call NextSubpass() on a renderer that is not recording");
 			}
-			if (PassIndex.Value == (RenderPass.SubpassCount - 1)) {
-				throw new InvalidOperationException("NextSubpass() called on renderer on final subpass");
+			if (CurrentSubpass == (SubpassCount - 1)) {
+				throw new InvalidOperationException("Cannot call NextSubpass() on the last subpass");
 			}
 
-			// Next subpass command
-			_cmd!.Cmd.NextSubpass(Vk.SubpassContents.SecondaryCommandBuffers);
-			PassIndex += 1;
+			// Move next
+			_cmd!.Cmd.CmdNextSubpass(VkSubpassContents.SecondaryCommandBuffers);
+			CurrentSubpass += 1;
 		}
 
 		/// <summary>
-		/// Ends command recording, and submits the recorded commands to the device for processing. For window
-		/// renderers, this must be called in the same frame as <see cref="Begin"/>.
+		/// Ends the current command recording process, and submits the commands to be executed. If this renderer is
+		/// attached to a window, this also performs a surface swap for the window.
 		/// </summary>
 		public void End()
 		{
 			// Validate
-			if (!PassIndex.HasValue) {
-				throw new InvalidOperationException("Cannot call End() on a Renderer that is not recording");
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot call End() on a renderer that is not recording");
 			}
-			if (PassIndex.Value != (RenderPass.SubpassCount - 1)) {
-				throw new InvalidOperationException("Cannot end a renderer without moving through all subpasses");
-			}
-
-			// End command buffer
-			_cmd!.Cmd.EndRenderPass();
-			_cmd.Cmd.EndCommandBuffer().Throw("Failed to build renderer command buffer");
-
-			// Wait for the last render task
-			if (LastRenderFence) {
-				var fhandle = LastRenderFence.Handle;
-				Graphics.Device.WaitForFences(1, &fhandle, Vk.Bool32.True, UInt64.MaxValue);
+			if (CurrentSubpass != (SubpassCount - 1)) {
+				throw new InvalidOperationException("Cannot call End() on a renderer that has not visited all subpasses");
 			}
 
-			// Submit
-			if (Window is null) {
-				LastRenderFence = Graphics.GraphicsQueue.Submit(_cmd, _secondaryBuffers);
-			}
-			else {
-				LastRenderFence = Graphics.GraphicsQueue.Submit(_cmd, _secondaryBuffers,
-					Window.Swapchain.CurrentAcquireSemaphore, Vk.PipelineStageFlags.ColorAttachmentOutput,
-					Window.Swapchain.CurrentRenderSemaphore);
-			}
-			_secondaryBuffers.Clear();
+			// End the pass and commands
+			_cmd!.Cmd.CmdEndRenderPass();
+			_cmd.Cmd.EndCommandBuffer().Throw("Failed to record commands for renderer");
 
-			// Invalidate lists
-			foreach (var list in _ownedLists) {
-				list.Invalidate();
-			}
-			_ownedLists.Clear();
+			// Swap buffers (also submits the commands for execution)
+			RenderTarget.Swap(_cmd);
 
-			// Set values
+			// End objects
 			_cmd = null;
-			LastEndFrame = AppTime.FrameCount;
-			PassIndex = null;
+			CurrentSubpass = 0;
+			LastRenderFrame = AppTime.FrameCount;
 		}
-		#endregion // Begin/End
+		#endregion // Recording State
 
 		#region Commands
-		// Adds the given list to the set of tracked lists
-		internal void TrackList(CommandList list)
-		{
-			_ownedLists.Add(list);
-			_secondaryBuffers.Add(list.Buffer!);
-		}
-
 		/// <summary>
-		/// Submits the given command list to be executed at the current recoding location of the renderer.
+		/// Submits the given command list to be executed at the current recording location of the renderer. The
+		/// command list is invalidated and cannot be reused after this call.
 		/// </summary>
 		/// <param name="list">The list of commands to execute.</param>
 		public void Submit(CommandList list)
 		{
-			// Validate state
+			// Validate
 			if (!IsRecording) {
-				throw new InvalidOperationException("Cannot submit a command list to a renderer that is not recording");
+				throw new InvalidOperationException("Cannot call Submit() on a renderer that is not recording");
 			}
 			if (!list.IsValid) {
-				throw new InvalidOperationException("Cannot submit an invalidated command list to a renderer");
+				throw new InvalidOperationException("Cannot submit an invalid CommandList to a renderer");
 			}
 			if (!ReferenceEquals(list.Renderer, this)) {
-				throw new InvalidOperationException("Cannot submit a command list to a non-matching renderer");
+				throw new InvalidOperationException("Cannot submit a CommandList to the renderer it was not recorded for");
 			}
-			if (list.Subpass != PassIndex!.Value) {
-				throw new InvalidOperationException("Cannot submit a command list outside of its expected subpass");
+			if (list.Subpass != CurrentSubpass) {
+				throw new InvalidOperationException("Cannot submit a CommandList in a subpass it was not recorded for");
 			}
 
-			// Submit commands
+			// Submit
 			var handle = list.Buffer!.Cmd.Handle;
-			_cmd!.Cmd.ExecuteCommands(1, &handle);
+			_cmd!.Cmd.CmdExecuteCommands(1, &handle);
+			list.Invalidate();
+		}
+
+		/// <summary>
+		/// Submits the given set of command lists to be executed at the current recording location of the renderer.
+		/// All commands lists will be invalidated and cannot be reused after this call.
+		/// <para>
+		/// The submited command lists will be executed in the order they are given.
+		/// </para>
+		/// </summary>
+		/// <param name="lists">The set of command lists to submit.</param>
+		public void Submit(params CommandList[] lists)
+		{
+			// Validate
+			if (lists.Length == 0) {
+				return;
+			}
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot call Submit() on a renderer that is not recording");
+			}
+			foreach (var list in lists) {
+				if (!list.IsValid) {
+					throw new InvalidOperationException("Cannot submit an invalid CommandList to a renderer");
+				}
+				if (!ReferenceEquals(list.Renderer, this)) {
+					throw new InvalidOperationException("Cannot submit a CommandList to the renderer it was not recorded for");
+				}
+				if (list.Subpass != CurrentSubpass) {
+					throw new InvalidOperationException("Cannot submit a CommandList in a subpass it was not recorded for");
+				}
+			}
+
+			// Submit
+			var handles = stackalloc VulkanHandle<VkCommandBuffer>[lists.Length];
+			for (int i = 0; i < lists.Length; ++i) {
+				handles[i] = lists[i].Buffer!.Cmd.Handle;
+				lists[i].Invalidate();
+			}
+			_cmd!.Cmd.CmdExecuteCommands((uint)lists.Length, handles);
 		}
 		#endregion // Commands
 
-		#region Settings
-		/// <summary>
-		/// Sets the new size of the renderer targets. This is a no-op if the size is not changing. Calling this
-		/// on a window-attached renderer will generate an exception.
-		/// </summary>
-		/// <param name="newSize">The new size of the offscreen render target.</param>
-		public void SetSize(Extent2D newSize)
+		// Called by the connected swapchain (if any) when it resizes
+		// The swapchain will have already waited for device idle at this point
+		internal void OnSwapchainResize()
 		{
-			if (!IsOffscreen) {
-				throw new InvalidOperationException("Cannot call SetSize on a renderer attached to a window");
-			}
-			if (newSize == Size) {
-				return; // Skip expensive rebuild (important check)
-			}
-
-			var timer = Stopwatch.StartNew();
-			RenderPass.Rebuild(newSize, MSAA);
-			LINFO($"Rebuilt renderer ({Size} -> {newSize}) (elapsed = {timer.Elapsed.TotalMilliseconds}ms)", this);
-			Size = newSize;
+			RenderTarget.Rebuild(MSAA);
 		}
-
-		/// <summary>
-		/// Sets the new MSAA setting on the renderer targets. This is a no-op if the msaa is not changing. Attempting
-		/// to set a non-one MSAA on a renderer that doesn't support MSAA will generate an exception.
-		/// </summary>
-		/// <param name="msaa">The new msaa setting.</param>
-		public void SetMSAA(MSAA msaa)
-		{
-			if (!RenderPass.HasMSAA) {
-				throw new InvalidOperationException("Cannot call SetMSAA on non-msaa renderer instance");
-			}
-			if (msaa == MSAA) {
-				return; // Skip expensive rebuild (important check)
-			}
-
-			var timer = Stopwatch.StartNew();
-			RenderPass.Rebuild(Size, msaa);
-			LINFO($"Rebuilt renderer ({MSAA} -> {msaa}) (elapsed = {timer.Elapsed.TotalMilliseconds}ms)", this);
-			MSAA = msaa;
-		}
-
-		/// <summary>
-		/// Sets the size and MSAA setting of the renderer in one operation. This is significantly more efficient than
-		/// setting them separately in cases where both are changing at the same time.
-		/// </summary>
-		/// <param name="newSize">The new size of the renderer.</param>
-		/// <param name="msaa">The new msaa setting for the renderer.</param>
-		public void SetSizeAndMSAA(Extent2D newSize, MSAA msaa)
-		{
-			if (!IsOffscreen) {
-				throw new InvalidOperationException("Cannot call SetSizeAndMSAA on a renderer attached to a window");
-			}
-			if (!RenderPass.HasMSAA) {
-				throw new InvalidOperationException("Cannot call SetSizeAndMSAA on non-msaa renderer instance");
-			}
-			if ((Size == newSize) && (msaa == MSAA)) {
-				return; // Skip expensive rebuild (important check)
-			}
-
-			var timer = Stopwatch.StartNew();
-			RenderPass.Rebuild(newSize, msaa);
-			LINFO($"Rebuilt renderer ({Size} -> {newSize}) ({MSAA} -> {msaa}) (elapsed = {timer.Elapsed.TotalMilliseconds}ms)", this);
-			Size = newSize;
-			MSAA = msaa;
-		}
-
-		// Called by the swapchain when resizing
-		internal void OnSwapchainResize(Extent2D newSize)
-		{
-			var timer = Stopwatch.StartNew();
-			RenderPass.Rebuild(newSize, MSAA);
-			LINFO($"Rebuilt window renderer ({Size} -> {newSize}) (elapsed = {timer.Elapsed.TotalMilliseconds}ms)", this);
-			Size = newSize;
-		}
-		#endregion // Settings
 
 		#region IDisposable
 		public void Dispose()
@@ -395,11 +351,10 @@ namespace Vega.Graphics
 		{
 			if (!IsDisposed) {
 				if (disposing) {
-					RenderPass.Dispose();
-					if (Window is not null) {
-						Window.Renderer = null;
-					}
+					Graphics.VkDevice.DeviceWaitIdle();
+					RenderTarget.Dispose();
 				}
+				RenderPass.DestroyRenderPass(null);
 			}
 			IsDisposed = true;
 		}

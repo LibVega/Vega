@@ -6,11 +6,12 @@
 
 using System;
 using System.Collections.Generic;
+using Vulkan;
 
 namespace Vega.Graphics
 {
 	/// <summary>
-	/// Describes a render target attachment used within a <see cref="Renderer"/>.
+	/// Describes an image that is used as the target of render commands in <see cref="Renderer"/> instances.
 	/// </summary>
 	public sealed class AttachmentDescription
 	{
@@ -20,31 +21,54 @@ namespace Vega.Graphics
 		/// </summary>
 		public readonly TexelFormat Format;
 		/// <summary>
-		/// If the attachment supports MSAA operations.
-		/// </summary>
-		public readonly bool MSAA;
-		/// <summary>
-		/// The subpass, if any, where the attachment is resolved to a single-sample target when using MSAA.
-		/// </summary>
-		public readonly uint? ResolveSubpass;
-		/// <summary>
 		/// If the target should be preserved past the end of the render process for use in another rendering process.
 		/// </summary>
 		public readonly bool Preserve;
 		/// <summary>
 		/// The usage timeline for the attachment.
 		/// </summary>
-		public IReadOnlyList<AttachmentUse> Timeline => _timeline;
-		private readonly List<AttachmentUse> _timeline;
+		public IReadOnlyList<AttachmentUse> Uses => _uses;
+		private readonly List<AttachmentUse> _uses;
 
 		/// <summary>
-		/// The length of the usage timeline (the number of subpasses in the <see cref="Renderer"/>).
+		/// Gets if the attachment is a color attachment.
 		/// </summary>
-		public int TimelineSize => _timeline.Count;
+		public bool IsColor => Format.IsColorFormat();
+		/// <summary>
+		/// Gets if the attachment is a depth attachment.
+		/// </summary>
+		public bool IsDepth => Format.IsDepthFormat();
+
+		/// <summary>
+		/// The number of subpasses expected by the attachment.
+		/// </summary>
+		public uint SubpassCount => (uint)_uses.Count;
+		/// <summary>
+		/// Gets the use and subpass index of the first use that is not <see cref="AttachmentUse.Unused"/>. Throws an
+		/// exception if the attachment is not valid.
+		/// </summary>
+		public (AttachmentUse Use, uint Index) FirstUse {
+			get {
+				var idx = _uses.FindIndex(use => use != AttachmentUse.Unused);
+				return (idx >= 0) ? (_uses[idx], (uint)idx) : 
+					throw new InvalidOperationException("Attachment is never used");
+			}
+		}
+		/// <summary>
+		/// Gets the use and subpass index of the last use that is not <see cref="AttachmentUse.Unused"/>. Throws an
+		/// exception if the attachment is not valid.
+		/// </summary>
+		public (AttachmentUse Use, uint Index) LastUse {
+			get {
+				var idx = _uses.FindLastIndex(use => use != AttachmentUse.Unused);
+				return (idx >= 0) ? (_uses[idx], (uint)idx) :
+					throw new InvalidOperationException("Attachment is never used");
+			}
+		}
 		#endregion // Fields
 
 		/// <summary>
-		/// Create a new non-MSAA attachment description.
+		/// Create a new attachment description.
 		/// </summary>
 		/// <param name="format">The format of the attachment.</param>
 		/// <param name="preserve">If the attachment is preserved at the end of the render process.</param>
@@ -53,35 +77,10 @@ namespace Vega.Graphics
 		public AttachmentDescription(TexelFormat format, bool preserve, AttachmentUse use, params AttachmentUse[] uses)
 		{
 			Format = format;
-			MSAA = false;
-			ResolveSubpass = null;
 			Preserve = preserve;
-			_timeline = new(uses.Length + 1);
-			_timeline.Add(use);
-			_timeline.AddRange(uses);
-		}
-
-		/// <summary>
-		/// Create a new MSAA-enabled attachment description.
-		/// </summary>
-		/// <param name="format">The format of the attachment.</param>
-		/// <param name="resolveSubpass">
-		/// The subpass index (if any) in which to resolve the attachment when using MSAA. Ignored in renderers not
-		/// using MSAA.
-		/// </param>
-		/// <param name="preserve">If the attachment is preserved at the end of the render process.</param>
-		/// <param name="use">The attachment use for the first or singular subpass.</param>
-		/// <param name="uses">Optional additional uses of the attachment in multi-pass renderers.</param>
-		public AttachmentDescription(TexelFormat format, uint? resolveSubpass, bool preserve, AttachmentUse use, 
-			params AttachmentUse[] uses)
-		{
-			Format = format;
-			MSAA = true;
-			ResolveSubpass = resolveSubpass;
-			Preserve = preserve;
-			_timeline = new(uses.Length + 1);
-			_timeline.Add(use);
-			_timeline.AddRange(uses);
+			_uses = new(uses.Length + 1);
+			_uses.Add(use);
+			_uses.AddRange(uses);
 		}
 
 		/// <summary>
@@ -94,30 +93,15 @@ namespace Vega.Graphics
 		/// <returns>If the description is valid, <c>false</c> implies the error message is populated.</returns>
 		public bool TryValidate(out string? error)
 		{
-			// Check resolve
-			if (ResolveSubpass.HasValue) {
-				if (ResolveSubpass.Value >= _timeline.Count) {
-					error = $"resolve subpass index is too large for timeline ({ResolveSubpass.Value} >= {_timeline.Count})";
-					return false;
-				}
-				if (_timeline[(int)ResolveSubpass.Value] != AttachmentUse.Output) {
-					error = $"resolve subpass must use AttachmentUse.Output";
-					return false;
-				}
-				if (Format.IsDepthFormat()) {
-					error = $"cannot resolve depth attachments";
-					return false;
-				}
-			}
-			else if (MSAA && Preserve) {
-				error = "attachment is preserved, but is never resolved";
+			if (_uses.Count > RendererDescription.MAX_SUBPASSES) {
+				error = $"attachent has too many subpasses (max = {RendererDescription.MAX_SUBPASSES})";
 				return false;
 			}
 
 			// Loop over uses with lookback
 			bool written = false, read = false;
-			for (int i = 0; i < _timeline.Count; ++i) {
-				switch (_timeline[i]) {
+			for (int i = 0; i < _uses.Count; ++i) {
+				switch (_uses[i]) {
 					case AttachmentUse.Unused: {
 						// N/A
 					} break;

@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -48,19 +49,19 @@ namespace Vega.Graphics
 		/// <summary>
 		/// The message is a low importance debug message.
 		/// </summary>
-		Verbose = Vk.EXT.DebugUtilsMessageSeverityFlags.VerboseEXT,
+		Verbose = VkDebugUtilsMessageSeverityFlagsEXT.Verbose,
 		/// <summary>
 		/// The message is a standard importance informative message.
 		/// </summary>
-		Info = Vk.EXT.DebugUtilsMessageSeverityFlags.InfoEXT,
+		Info = VkDebugUtilsMessageSeverityFlagsEXT.Info,
 		/// <summary>
 		/// The message is reporting an off-nominal condition that does not represent an error.
 		/// </summary>
-		Warning = Vk.EXT.DebugUtilsMessageSeverityFlags.WarningEXT,
+		Warning = VkDebugUtilsMessageSeverityFlagsEXT.Warning,
 		/// <summary>
 		/// The message is the highest importance message representing an internal error.
 		/// </summary>
-		Error = Vk.EXT.DebugUtilsMessageSeverityFlags.ErrorEXT
+		Error = VkDebugUtilsMessageSeverityFlagsEXT.Error
 	}
 
 	/// <summary>
@@ -72,14 +73,14 @@ namespace Vega.Graphics
 		/// <summary>
 		/// The message is a general purpose information message.
 		/// </summary>
-		General = Vk.EXT.DebugUtilsMessageTypeFlags.GeneralEXT,
+		General = VkDebugUtilsMessageTypeFlagsEXT.General,
 		/// <summary>
 		/// The message is reporting performance-related information.
 		/// </summary>
-		Performance = Vk.EXT.DebugUtilsMessageTypeFlags.PerformanceEXT,
+		Performance = VkDebugUtilsMessageTypeFlagsEXT.Performance,
 		/// <summary>
 		/// The message is reporting validation failure information.
 		/// </summary>
-		Validation = Vk.EXT.DebugUtilsMessageTypeFlags.ValidationEXT
+		Validation = VkDebugUtilsMessageTypeFlagsEXT.Validation
 	}
 }

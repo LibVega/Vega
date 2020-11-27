@@ -5,149 +5,160 @@
  */
 
 using System;
-using Vk.Extras;
+using Vulkan;
 
 namespace Vega.Graphics
 {
 	/// <summary>
-	/// Manages the process of recording render commands to be submitted to the <see cref="Renderer"/> instance.
+	/// Manages the process of recording graphics commands to be submitted to a <see cref="Renderer"/> instance.
+	/// <para>
+	/// An instance of this class cannot be shared between threads while recording.
+	/// </para>
+	/// <para>
+	/// While this type implements <see cref="IDisposable"/>, it can be reused after <c>Dispose()</c>, because the
+	/// disposal call will only discard the current rendering process, instead of the entire object.
+	/// </para>
 	/// </summary>
 	public unsafe sealed class CommandRecorder : IDisposable
 	{
 		#region Fields
-		#region Current
 		/// <summary>
-		/// The renderer instance that this recorder builds command lists for.
+		/// The renderer currently bound to this recorder.
 		/// </summary>
-		public readonly Renderer Renderer;
+		public Renderer? BoundRenderer { get; private set; }
 		/// <summary>
-		/// The renderer subpass index that the current recording process is for.
+		/// The subpass index currently bound to this recorder.
 		/// </summary>
-		public uint? BoundSubpass { get; private set; } = null;
+		public uint? BoundSubpass { get; private set; }
 		/// <summary>
-		/// Gets if the command list is currently recording commands.
+		/// Gets the value of <see cref="AppTime.FrameCount"/> when the current recording process started.
 		/// </summary>
-		public bool IsRecording => _cmd is not null;
+		public ulong? RecordingFrame { get; private set; }
 
-		// The currently bound command buffer to record into
+		/// <summary>
+		/// Gets if commands are currently being recorded into the recorder.
+		/// </summary>
+		public bool IsRecording => BoundRenderer is not null;
+
+		// The current command buffer for recording
 		private CommandBuffer? _cmd = null;
-		#endregion // Current
-
-		/// <summary>
-		/// Gets if this command list has been disposed.
-		/// </summary>
-		public bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
 
 		/// <summary>
-		/// Creates a new recorder in an initial ready and non-recording state.
+		/// Creates a new command recorder
 		/// </summary>
-		/// <param name="renderer">The renderer instance that this recorder will build commands for.</param>
-		public CommandRecorder(Renderer renderer)
+		public CommandRecorder()
 		{
-			Renderer = renderer;
+
 		}
 		~CommandRecorder()
 		{
 			dispose(false);
 		}
 
-		#region Begin/End/Discard
+		#region Recording State
 		/// <summary>
-		/// Begins recording a new set of commands for the given subpass.
+		/// Begins recording a new set of commands for submission to the given renderer in the given subpass index.
 		/// </summary>
-		/// <param name="subpass">The subpass index that the recorded commands will be submitted to.</param>
-		public void Begin(uint subpass)
+		/// <param name="renderer">The renderer the commands will be recorded for.</param>
+		/// <param name="subpass">The subpass index in the renderer which the commands will be recorded for.</param>
+		public void Begin(Renderer renderer, uint subpass = 0)
 		{
-			// Validate state
-			if (IsDisposed) throw new ObjectDisposedException(nameof(CommandRecorder));
+			// Validate
 			if (IsRecording) {
-				throw new InvalidOperationException("Cannot call Begin() on a command recorder that is recording");
+				throw new InvalidOperationException("Cannot begin a command recorder that is already recording");
 			}
-			if (subpass >= Renderer.SubpassCount) {
-				throw new InvalidOperationException("Invalid subpass index for given renderer");
+			if (subpass >= renderer.SubpassCount) {
+				throw new ArgumentException(nameof(subpass), "Invalid subpass index for given renderer");
 			}
 
-			// Get secondary command buffer
-			_cmd = Renderer.Graphics.Resources.AllocateSecondaryCommandBuffer();
+			// Grab available secondard command buffer
+			_cmd = renderer.Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Secondary);
 
-			// Start new command buffer
-			Vk.CommandBufferInheritanceInfo cbii = new(
-				renderPass: Renderer.CurrentRenderPassHandle,
+			// Start a new secondary command buffer
+			VkCommandBufferInheritanceInfo cbii = new(
+				renderPass: renderer.RenderPass,
 				subpass: subpass,
-				framebuffer: Renderer.RenderPass.CurrentFramebuffer,
-				occlusionQueryEnable: Vk.Bool32.False,
-				queryFlags: Vk.QueryControlFlags.NoFlags,
-				pipelineStatistics: Vk.QueryPipelineStatisticFlags.NoFlags
+				framebuffer: renderer.RenderTarget.CurrentFramebuffer,
+				occlusionQueryEnable: VkBool32.False,
+				queryFlags: VkQueryControlFlags.NoFlags,
+				pipelineStatistics: VkQueryPipelineStatisticFlags.NoFlags
 			);
-			Vk.CommandBufferBeginInfo cbbi = new(Vk.CommandBufferUsageFlags.RenderPassContinue, &cbii);
-			_cmd.Cmd.BeginCommandBuffer(&cbbi);
+			VkCommandBufferBeginInfo cbbi = new(
+				VkCommandBufferUsageFlags.RenderPassContinue | VkCommandBufferUsageFlags.OneTimeSubmit, &cbii
+			);
+			_cmd.Cmd.BeginCommandBuffer(&cbbi).Throw("Failed to start recording commands");
 
 			// Set values
+			BoundRenderer = renderer;
 			BoundSubpass = subpass;
+			RecordingFrame = AppTime.FrameCount;
 		}
 
 		/// <summary>
-		/// Completes the current recording process and returns the recorded commands as a <see cref="CommandList"/>
-		/// for submission to a <see cref="Renderer"/> instance.
+		/// Completes the current recording process and prepares the recorded commands for submission to
+		/// <see cref="BoundRenderer"/>.
 		/// </summary>
-		/// <returns>The recorded commands as a submittable list.</returns>
+		/// <returns>The set of recorded commands to submit to the renderer.</returns>
 		public CommandList End()
 		{
-			// Validate state
-			if (IsDisposed) throw new ObjectDisposedException(nameof(CommandRecorder));
+			// Validate
 			if (!IsRecording) {
-				throw new InvalidOperationException("Cannot call End() on a command recorder that is not recording");
+				throw new InvalidOperationException("Cannot end a command recorder that is not recording");
+			}
+			if (AppTime.FrameCount != RecordingFrame) {
+				// This will not be an issue for non-transient command buffers
+				throw new InvalidOperationException("CommandRecorder crossed frame boundary, and is no longer valid");
 			}
 
-			// End the command buffer and create the list (TODO: pool the command list objects)
-			_cmd!.Cmd.EndCommandBuffer().Throw("Failed to build command buffer");
-			var list = new CommandList(Renderer, BoundSubpass!.Value, _cmd);
+			// End buffer
+			_cmd!.Cmd.EndCommandBuffer().Throw("Failed to record commands");
+			CommandList list = new(BoundRenderer!, BoundSubpass!.Value, _cmd);
 
 			// Set values
+			BoundRenderer = null;
 			BoundSubpass = null;
+			RecordingFrame = null;
 			_cmd = null;
 
-			// Return
+			// Return list
 			return list;
 		}
 
 		/// <summary>
-		/// Ends the current recording operation and discards the working command list.
+		/// Discards the running list of recorded commands, and returns the recorder to a non-recording state.
 		/// </summary>
 		public void Discard()
 		{
-			// Validate state
-			if (IsDisposed) throw new ObjectDisposedException(nameof(CommandRecorder));
+			// Validate
 			if (!IsRecording) {
-				throw new InvalidOperationException("Cannot call Discard() on a command recorder that is not recording");
+				throw new InvalidOperationException("Cannot discard a command recorder that is not recording");
 			}
 
-			// Immediately return the pending buffer to its pool for reuse
-			_cmd!.Cmd.EndCommandBuffer();
-			_cmd.SourcePool.Return(_cmd);
+			// Immediately return non-transient buffers
+			if (!_cmd!.Transient) {
+				_cmd.SourcePool.Return(_cmd);
+			}
 
 			// Set values
+			BoundRenderer = null;
 			BoundSubpass = null;
+			RecordingFrame = null;
 			_cmd = null;
 		}
-		#endregion // Begin/End/Discard
+		#endregion // Recording State
 
 		#region IDisposable
 		public void Dispose()
 		{
 			dispose(true);
-			GC.SuppressFinalize(this);
 		}
 
 		private void dispose(bool disposing)
 		{
-			if (!IsDisposed) {
-				if (IsRecording) {
-					Discard();
-				}
+			if (IsRecording) {
+				Discard();
 			}
-			IsDisposed = true;
 		}
 		#endregion // IDisposable
 	}

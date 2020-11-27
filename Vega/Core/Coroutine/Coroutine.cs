@@ -9,21 +9,6 @@ using System;
 namespace Vega
 {
 	/// <summary>
-	/// Coroutine execution policies to control when coroutines are ticked.
-	/// </summary>
-	public enum CoroutinePolicy
-	{
-		/// <summary>
-		/// The coroutine is ticked during the call to <see cref="Core.BeginFrame"/>.
-		/// </summary>
-		Beginning,
-		/// <summary>
-		/// The coroutine is ticked during the call to <see cref="Core.EndFrame"/>.
-		/// </summary>
-		End
-	}
-
-	/// <summary>
 	/// Implements functionality for delayed and spread-out task execution using enumerators.
 	/// </summary>
 	public abstract class Coroutine
@@ -57,11 +42,6 @@ namespace Vega
 		/// <see langword="false"/>.
 		/// </summary>
 		public virtual bool UseUnscaledTime => false;
-
-		/// <summary>
-		/// The execution policy for the coroutine. Defaults to <see cref="CoroutinePolicy.Beginning"/>.
-		/// </summary>
-		public virtual CoroutinePolicy Policy => CoroutinePolicy.Beginning;
 		#endregion // Fields
 
 		#region Waiting
@@ -138,7 +118,7 @@ namespace Vega
 	public sealed class CoroutineTickReturnException : Exception
 	{
 		/// <summary>
-		/// The return value that was not understood as a valid <see cref="Coroutine.Tick"/> value.
+		/// The return value that was not understood as a valid <see cref="Coroutine.Tick"/> return value.
 		/// </summary>
 		public readonly object Value;
 

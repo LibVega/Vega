@@ -11,7 +11,7 @@ using Vega.Input;
 namespace Vega
 {
 	/// <summary>
-	/// Window type moding.
+	/// Window moding values.
 	/// </summary>
 	public enum WindowMode
 	{
@@ -39,16 +39,18 @@ namespace Vega
 		// GLFW window handle
 		internal IntPtr Handle { get; private set; } = IntPtr.Zero;
 
-		// Swapchain handle
+		// Window swapchain
 		internal readonly Swapchain Swapchain;
+		// Possible window renderer
+		internal Renderer? Renderer => Swapchain.Renderer;
 		/// <summary>
-		/// Gets the format of the window display surface.
+		/// Gets if there is a renderer attached to this window.
+		/// </summary>
+		public bool HasRenderer => Swapchain.Renderer is not null;
+		/// <summary>
+		/// Gets the texel format of the window surface.
 		/// </summary>
 		public TexelFormat SurfaceFormat => (TexelFormat)Swapchain.SurfaceFormat;
-		/// <summary>
-		/// The Renderer attached to this window, if any.
-		/// </summary>
-		public Renderer? Renderer { get; internal set; }
 
 		#region Properties
 		/// <summary>
@@ -111,16 +113,6 @@ namespace Vega
 			}
 		}
 		private bool _floating;
-
-		/// <summary>
-		/// The vertical sync (VSync) state of the window. Note that not all platforms may support non-vsync modes.
-		/// All windows start with vsync enabled by default.
-		/// </summary>
-		public bool VerticalSync
-		{
-			get => Swapchain.Vsync;
-			set => Swapchain.SetVsync(value);
-		}
 		#endregion // Properties
 
 		#region Status
@@ -226,6 +218,19 @@ namespace Vega
 			}
 		}
 
+		/// <summary>
+		/// Gets/sets if the window uses vsync. This change will not occur until the next time the window is presented.
+		/// </summary>
+		public bool VerticalSync
+		{
+			set => Swapchain.SetVsync(value);
+			get => Swapchain.Vsync;
+		}
+		/// <summary>
+		/// Gets if the window only supports vsync presentation.
+		/// </summary>
+		public bool VerticalSyncOnly => Swapchain.VsyncOnly;
+
 		// State saving for fullscreen switches
 		private Rect _savedWindow;
 		private Rect _savedMonitor;
@@ -314,9 +319,8 @@ namespace Vega
 			_keyboard = new Keyboard(this);
 			_mouse = new Mouse(this);
 
-			// Create the swapchain
-			Swapchain = new Swapchain(this);
-			Renderer = null;
+			// Create swapchain
+			Swapchain = new(this);
 		}
 		~Window()
 		{
@@ -476,28 +480,6 @@ namespace Vega
 		}
 		#endregion // Window Actions
 
-		#region Frame
-		internal void BeginFrame()
-		{
-			_keyboard.NewFrame();
-			_mouse.NewFrame();
-		}
-
-		internal void EndFrame()
-		{
-			if (Renderer is not null) {
-				if (Renderer.IsRecording) {
-					throw new InvalidOperationException("Window renderers must be submitted before ending the application frame");
-				}
-				if (Renderer.LastEndFrame != AppTime.FrameCount) {
-					throw new InvalidOperationException("Window renderers must be recorded exactly once per frame");
-				}
-			}
-
-			Swapchain.Present();
-		}
-		#endregion // Frame
-
 		#region IDisposable
 		public void Dispose()
 		{
@@ -508,7 +490,9 @@ namespace Vega
 		private void dispose(bool disposing)
 		{
 			if (!IsDisposed) {
-				Swapchain?.Dispose();
+				if (disposing) {
+					Swapchain?.Dispose();
+				}
 				Glfw.DestroyWindow(Handle);
 				Core.Instance?.RemoveWindow(this);
 			}
