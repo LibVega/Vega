@@ -6,42 +6,34 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Vulkan;
 
 namespace Vega.Graphics
 {
 	/// <summary>
-	/// Contains the set of specific graphics features that can be enabled for a graphics device, if 
-	/// supported.
+	/// Contains the set of known optional features that may be enabled on a graphics device.
 	/// </summary>
-	public sealed class GraphicsFeatures
+	public unsafe struct GraphicsFeatures
 	{
+		private const int FEATURE_COUNT = 1;
+		private static readonly GraphicsFeature[] FEATURES = new GraphicsFeature[FEATURE_COUNT] { 
+			new("", null, null)
+		};
+
 		#region Fields
-		// The array of features
-		private readonly GraphicsFeature[] _features;
-		// Lock status
-		private bool _locked = false;
+		// The array of feature flags
+		private fixed bool _features[FEATURE_COUNT];
 		#endregion // Fields
 
-		/// <summary>
-		/// Creates a new feature set with all features disabled to start.
-		/// </summary>
-		public GraphicsFeatures()
+		// Populates the features with support flags
+		internal GraphicsFeatures(in VkPhysicalDeviceFeatures afeats, IReadOnlyList<string> aexts)
 		{
-			_features = new GraphicsFeature[0];
-		}
-
-		// Sets the feature value, if not locked
-		private void setFeature(int index, FeatureLevel level)
-		{
-			if (_locked) {
-				throw new InvalidOperationException("Cannot change a feature set once a device is created");
+			for (int i = 0; i < FEATURE_COUNT; ++i) {
+				_features[i] = FEATURES[i].Check(afeats, aexts);
 			}
-			_features[index].Level = level;
 		}
 
-		// Checks the features, populates the objects to create a device, and locks the features from changes
+		// Checks the features, populates the objects to create a device
 		internal bool TryBuild(
 			in VkPhysicalDeviceFeatures afeats, IReadOnlyList<string> aexts,
 			out VkPhysicalDeviceFeatures efeats, List<string> eexts,
@@ -51,19 +43,20 @@ namespace Vega.Graphics
 			efeats = new();
 
 			// Check features and populate objects
-			foreach (var feat in _features.Where(feat => feat.Level != FeatureLevel.Disabled)) {
+			for (int i = 0; i < FEATURE_COUNT; ++i) {
+				if (!_features[i]) {
+					continue;
+				}
+
+				var feat = FEATURES[i];
 				var check = feat.Check(afeats, aexts);
-				if (!check && (feat.Level == FeatureLevel.Enabled)) {
+				if (!check) {
 					missing = feat.Name;
 					return false;
 				}
-				feat.Level = check ? FeatureLevel.Enabled : FeatureLevel.Disabled;
-				if (check) {
-					feat.Enable(ref efeats, eexts);
-				}
+				feat.Enable(ref efeats, eexts);
 			}
 
-			_locked = true;
 			return true;
 		}
 	}

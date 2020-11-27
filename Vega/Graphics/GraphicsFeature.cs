@@ -25,13 +25,10 @@ namespace Vega.Graphics
 		#region Fields
 		// The feature name
 		public readonly string Name;
-		// The request level
-		public FeatureLevel Level = FeatureLevel.Disabled;
-
 		// The field reference for device features
-		private readonly FieldInfo? _field;
+		public readonly FieldInfo? Field;
 		// The extension name for device extensions
-		private readonly string? _extName;
+		public readonly string? ExtName;
 		#endregion // Fields
 
 		public GraphicsFeature(string name, string? fieldName, string? extName)
@@ -41,53 +38,34 @@ namespace Vega.Graphics
 				if (!FEATURE_FIELDS.TryGetValue(fieldName, out var field)) {
 					throw new Exception($"LIBRARY BUG - No such feature '{fieldName}'");
 				}
-				_field = field;
+				Field = field;
 			}
 			else {
-				_extName = extName!;
+				ExtName = extName!;
 			}
 		}
 
 		// Checks if the feature is available
 		public bool Check(in VkPhysicalDeviceFeatures feats, IReadOnlyList<string> extensions)
 		{
-			if (_field is not null) {
-				var res = _field.GetValue(feats);
+			if (Field is not null) {
+				var res = Field.GetValue(feats);
 				return ((res as VkBool32?)! == VkBool32.True);
 			}
 			else {
-				return extensions.Contains(_extName!);
+				return extensions.Contains(ExtName!);
 			}
 		}
 
 		// Mutates the correct object to enable the feature
 		public void Enable(ref VkPhysicalDeviceFeatures feats, List<string> extensions)
 		{
-			if (_field is not null) {
-				_field.SetValue(feats, VkBool32.True);
+			if (Field is not null) {
+				Field.SetValue(feats, VkBool32.True);
 			}
 			else {
-				extensions.Add(_extName!);
+				extensions.Add(ExtName!);
 			}
 		}
-	}
-
-	/// <summary>
-	/// Represents the level to which a graphics feature can be requested
-	/// </summary>
-	public enum FeatureLevel : byte
-	{
-		/// <summary>
-		/// The feature is disabled and will not be requested.
-		/// </summary>
-		Disabled = 0,
-		/// <summary>
-		/// The feature is optional, it will be silently ignored if it is not available.
-		/// </summary>
-		Optional = 1,
-		/// <summary>
-		/// The feature is required, and an error will be generated if it is not available.
-		/// </summary>
-		Enabled = 2
 	}
 }

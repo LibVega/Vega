@@ -98,25 +98,22 @@ namespace Vega.Graphics
 
 			// Select physical device, first by events, then first discrete, then any
 			VkPhysicalDevice? pdev = null;
-			GraphicsFeatures? feats = null;
-			foreach (var device in instanceInfo.PhysicalDevices) {
-				var info = new DeviceInfo(device);
+			if (Core.Events.GetSubscriptionCount<DeviceDiscoveryEvent>() > 0) {
+				foreach (var device in instanceInfo.PhysicalDevices) {
+					var info = new DeviceInfo(device);
 
-				var evt = new DeviceDiscoveryEvent {
-					DeviceName = info.DeviceName,
-					IsDiscrete = info.IsDiscrete,
-					MemorySize = new DataSize((long)info.TotalLocalMemory),
-					Features = new(),
-					Use = false,
-					RequestedFeatures = null
-				};
-				evt.Features.Populate(info);
-				Core.Events.Publish(evt);
-				if (evt.Use) {
-					feats = evt.RequestedFeatures;
-					pdev = device;
-					deviceInfo = info;
-				}
+					var evt = new DeviceDiscoveryEvent(new(info.Features, info.ExtensionNames), new(info)) {
+						DeviceName = info.DeviceName,
+						IsDiscrete = info.IsDiscrete,
+						MemorySize = new DataSize((long)info.TotalLocalMemory),
+						Use = false
+					};
+					Core.Events.Publish(evt);
+					if (evt.Use) {
+						pdev = device;
+						deviceInfo = info;
+					}
+				} 
 			}
 			if (pdev is null) {
 				pdev = instanceInfo.PhysicalDevices.FirstOrDefault(dev => {
@@ -129,11 +126,18 @@ namespace Vega.Graphics
 			else {
 				deviceInfo = new(instanceInfo.PhysicalDevices[0]); // NEVER REACHED
 			}
-			features = feats ?? new();
+
+			// Configure the device
+			features = new();
+			if (Core.Events.GetSubscriptionCount<DeviceConfigureEvent>() > 0) {
+				DeviceConfigureEvent evt = new(new(deviceInfo.Features, deviceInfo.ExtensionNames));
+				Core.Events.Publish(evt);
+				features = evt.EnabledFeatures;
+			}
 		}
 
 		// Create the logical device, and the graphics queue
-		private static void CreateVulkanDevice(DeviceInfo pdev, GraphicsFeatures features,
+		private static void CreateVulkanDevice(DeviceInfo pdev, in GraphicsFeatures features,
 			out VkDevice device, out VkQueue gQueue, out uint gQueueIndex)
 		{
 			// Populate the features and extensions for the device

@@ -130,5 +130,19 @@ namespace Vega
 				}
 			}
 		}
+
+		/// <summary>
+		/// Gets the number of objects subscribed to the event type.
+		/// </summary>
+		/// <typeparam name="T">The event type to check.</typeparam>
+		public uint GetSubscriptionCount<T>()
+		{
+			lock (_subLock) {
+				if (_subscriptions.TryGetValue(typeof(T), out var subs)) {
+					return (uint)subs.Count;
+				}
+				return 0;
+			}
+		}
 	}
 }
