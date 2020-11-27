@@ -1,4 +1,5 @@
-langauge: csharp
+os: linux
+language: csharp
 dist: bionic
 mono: none
 dotnet: 5.0.100
