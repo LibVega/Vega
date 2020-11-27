@@ -41,6 +41,10 @@ namespace Vega.Graphics
 		/// The limits for the selected graphics device and driver.
 		/// </summary>
 		public readonly GraphicsLimits Limits;
+		/// <summary>
+		/// The features that are enabled on the device.
+		/// </summary>
+		public readonly GraphicsFeatures Features;
 
 		#region Resources
 		internal readonly ResourceManager Resources;
@@ -66,13 +70,13 @@ namespace Vega.Graphics
 			Core = core;
 
 			// Create the instance and select the device to use
-			InitializeVulkanInstance(validation, out VkInstanceInfo, out VkDebugUtils, out VkDeviceInfo);
+			InitializeVulkanInstance(validation, out VkInstanceInfo, out VkDebugUtils, out VkDeviceInfo, out Features);
 			VkInstance = VkInstanceInfo.Instance;
 			VkPhysicalDevice = VkDeviceInfo.PhysicalDevice;
 			LINFO($"Selected device '{VkDeviceInfo.DeviceName}'");
 
 			// Create the device and queue objects
-			CreateVulkanDevice(VkDeviceInfo, out VkDevice, out var graphicsQueue, out var graphicsQueueIndex);
+			CreateVulkanDevice(VkDeviceInfo, Features, out VkDevice, out var graphicsQueue, out var graphicsQueueIndex);
 			GraphicsQueue = new(this, graphicsQueue, graphicsQueueIndex);
 			LINFO("Created Vulkan device instance");
 			Limits = new(VkDeviceInfo);

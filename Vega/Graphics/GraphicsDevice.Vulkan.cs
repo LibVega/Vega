@@ -22,7 +22,8 @@ namespace Vega.Graphics
 		// Create the instance, debug utils (if requested), and select the physical device to use
 		private static void InitializeVulkanInstance(
 			bool validation, out InstanceInfo instanceInfo, 
-			out VkDebugUtilsMessengerEXT? debug, out DeviceInfo deviceInfo)
+			out VkDebugUtilsMessengerEXT? debug, out DeviceInfo deviceInfo,
+			out GraphicsFeatures features)
 		{
 			// Get the required layers and extensions
 			var reqExts = Glfw.GetRequiredInstanceExtensions().ToList();
@@ -97,6 +98,7 @@ namespace Vega.Graphics
 
 			// Select physical device, first by events, then first discrete, then any
 			VkPhysicalDevice? pdev = null;
+			GraphicsFeatures? feats = null;
 			foreach (var device in instanceInfo.PhysicalDevices) {
 				var info = new DeviceInfo(device);
 
@@ -104,10 +106,14 @@ namespace Vega.Graphics
 					DeviceName = info.DeviceName,
 					IsDiscrete = info.IsDiscrete,
 					MemorySize = new DataSize((long)info.TotalLocalMemory),
-					Use = false
+					Features = new(),
+					Use = false,
+					RequestedFeatures = null
 				};
+				evt.Features.Populate(info);
 				Core.Events.Publish(evt);
 				if (evt.Use) {
+					feats = evt.RequestedFeatures;
 					pdev = device;
 					deviceInfo = info;
 				}
@@ -123,17 +129,21 @@ namespace Vega.Graphics
 			else {
 				deviceInfo = new(instanceInfo.PhysicalDevices[0]); // NEVER REACHED
 			}
+			features = feats ?? new();
 		}
 
 		// Create the logical device, and the graphics queue
-		private static void CreateVulkanDevice(DeviceInfo pdev, out VkDevice device, out VkQueue gQueue,
-			out uint gQueueIndex)
+		private static void CreateVulkanDevice(DeviceInfo pdev, GraphicsFeatures features,
+			out VkDevice device, out VkQueue gQueue, out uint gQueueIndex)
 		{
-			// Populate the features (TODO: add some feature selection to the public API)
-			VkPhysicalDeviceFeatures feats = new();
+			// Populate the features and extensions for the device
+			List<string> extensions = new();
+			if (!features.TryBuild(pdev.Features, pdev.ExtensionNames, out var feats, extensions, out var missing)) {
+				throw new InvalidOperationException($"Cannot create device - required feature '{missing}' is not present");
+			}
 
 			// Check and populate extensions
-			using var extList = new NativeStringList();
+			using var extList = new NativeStringList(extensions);
 			if (!pdev.ExtensionNames.Contains(VkConstants.KHR_SWAPCHAIN_EXTENSION_NAME)) {
 				throw new PlatformNotSupportedException("Selected device does not support swapchain operations");
 			}

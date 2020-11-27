@@ -12,10 +12,8 @@ using Vulkan;
 
 namespace Vega.Graphics
 {
-	/// <summary>
-	/// Represents an optional feature that can be enabled on a graphics device.
-	/// </summary>
-	public sealed class GraphicsFeature
+	// Represents an optional feature that can be enabled on a graphics device.
+	internal sealed class GraphicsFeature
 	{
 		// Reflection types for device features
 		private static readonly Type VK_BOOL_TYPE = typeof(VkBool32);
@@ -25,9 +23,9 @@ namespace Vega.Graphics
 				.ToDictionary(fld => fld.Name);
 
 		#region Fields
-		/// <summary>
-		/// The request level of the feature.
-		/// </summary>
+		// The feature name
+		public readonly string Name;
+		// The request level
 		public FeatureLevel Level = FeatureLevel.Disabled;
 
 		// The field reference for device features
@@ -36,8 +34,9 @@ namespace Vega.Graphics
 		private readonly string? _extName;
 		#endregion // Fields
 
-		internal GraphicsFeature(string? fieldName, string? extName)
+		public GraphicsFeature(string name, string? fieldName, string? extName)
 		{
+			Name = name;
 			if (fieldName is not null) {
 				if (!FEATURE_FIELDS.TryGetValue(fieldName, out var field)) {
 					throw new Exception($"LIBRARY BUG - No such feature '{fieldName}'");
@@ -49,17 +48,12 @@ namespace Vega.Graphics
 			}
 		}
 
-		/// <summary>
-		/// Set the request level for the feature.
-		/// </summary>
-		public void Set(FeatureLevel level) => Level = level;
-
 		// Checks if the feature is available
-		internal bool Check(in VkPhysicalDeviceFeatures feats, IReadOnlyList<string> extensions)
+		public bool Check(in VkPhysicalDeviceFeatures feats, IReadOnlyList<string> extensions)
 		{
 			if (_field is not null) {
 				var res = _field.GetValue(feats);
-				return (res as VkBool32?)! == VkBool32.True;
+				return ((res as VkBool32?)! == VkBool32.True);
 			}
 			else {
 				return extensions.Contains(_extName!);
@@ -67,7 +61,7 @@ namespace Vega.Graphics
 		}
 
 		// Mutates the correct object to enable the feature
-		internal void Enable(ref VkPhysicalDeviceFeatures feats, List<string> extensions)
+		public void Enable(ref VkPhysicalDeviceFeatures feats, List<string> extensions)
 		{
 			if (_field is not null) {
 				_field.SetValue(feats, VkBool32.True);
@@ -79,7 +73,7 @@ namespace Vega.Graphics
 	}
 
 	/// <summary>
-	/// Represents the level to which a <see cref="GraphicsFeature"/> can be requested.
+	/// Represents the level to which a graphics feature can be requested
 	/// </summary>
 	public enum FeatureLevel : byte
 	{
@@ -92,8 +86,8 @@ namespace Vega.Graphics
 		/// </summary>
 		Optional = 1,
 		/// <summary>
-		/// The feature is required, and an error will be generated if it is not availab.e
+		/// The feature is required, and an error will be generated if it is not available.
 		/// </summary>
-		Required = 2
+		Enabled = 2
 	}
 }
