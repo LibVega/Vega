@@ -23,6 +23,7 @@ namespace Vega.Graphics
 		public readonly bool HasDepth;
 		public readonly uint SubpassCount;
 		public readonly uint? ResolveIndex;
+		public readonly uint NonResolveCount;
 
 		// The objects that fully describe the layout
 		public readonly Attachment[] Attachments;
@@ -40,6 +41,7 @@ namespace Vega.Graphics
 			HasDepth = desc.HasDepthAttachment;
 			SubpassCount = desc.SubpassCount;
 			ResolveIndex = desc.ResolveSubpass;
+			NonResolveCount = (uint)desc.Attachments.Count;
 
 			// For MSAA, calculate which attachments use MSAA and if they need resolves
 			(uint idx, bool msaa, uint? resolve)[]? msaaState = null;
@@ -307,6 +309,8 @@ namespace Vega.Graphics
 			public readonly bool MSAA;          // If the attachment is MSAA (mutually exclusive with Preserve)
 			public readonly bool Resolve;       // If the attachment is specificually used as a resolve attachment
 			public fixed byte Uses[(int)RendererDescription.MAX_SUBPASSES]; // The attachment uses
+			public readonly bool InputUse;
+			public readonly bool OutputUse;
 
 			// The last non-unused use of the attachment
 			public byte LastUse {
@@ -329,8 +333,16 @@ namespace Vega.Graphics
 				MSAA = msaa;
 				Resolve = resolve;
 				int uidx = 0;
+				InputUse = false;
+				OutputUse = false;
 				foreach (var u in uses) {
 					Uses[uidx++] = u;
+					if (u == (byte)AttachmentUse.Input) {
+						InputUse = true;
+					}
+					if (u == (byte)AttachmentUse.Output) {
+						OutputUse = true;
+					}
 				}
 			}
 		}

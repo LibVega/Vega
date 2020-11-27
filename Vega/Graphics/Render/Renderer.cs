@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Linq;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -34,11 +35,15 @@ namespace Vega.Graphics
 		/// The current size of the images being rendered to.
 		/// </summary>
 		public Extent2D Size => RenderTarget.Size;
+		/// <summary>
+		/// The current MSAA setting for the renderer.
+		/// </summary>
+		public MSAA MSAA => RenderTarget.MSAA;
 
 		/// <summary>
 		/// The color used to clear the renderer target image.
 		/// </summary>
-		public ClearValue ClearValue = new(0f, 0f, 0f, 1f);
+		public readonly ClearValue[] ClearValues;
 
 		// The render pass objects
 		internal readonly RenderLayout Layout;
@@ -98,7 +103,9 @@ namespace Vega.Graphics
 			RenderPass = ((initialMSAA == MSAA.X1) ? Layout : MSAALayout!).CreateRenderpass(Graphics, initialMSAA);
 
 			// Create render target
-			RenderTarget = new RenderTarget(this, window);
+			ClearValues = description.Attachments.Select(att =>
+				att.IsColor ? new ClearValue(0f, 0f, 0f, 1f) : new ClearValue(1f, 0)).ToArray();
+			RenderTarget = new RenderTarget(this, window, initialMSAA);
 		}
 		~Renderer()
 		{
@@ -125,13 +132,16 @@ namespace Vega.Graphics
 			Cmd.Cmd.BeginCommandBuffer(&cbbi).Throw("Failed to start renderer command recording");
 
 			// Start the render pass
-			VkClearValue clear = ClearValue.ToVk();
+			var clears = stackalloc VkClearValue[ClearValues.Length];
+			for (int i = 0; i < ClearValues.Length; ++i) {
+				clears[i] = ClearValues[i].ToVk();
+			}
 			VkRenderPassBeginInfo rpbi = new(
 				renderPass: RenderPass,
 				framebuffer: RenderTarget.CurrentFramebuffer,
 				renderArea: new(default, new(Size.Width, Size.Height)),
-				clearValueCount: 1,
-				clearValues: &clear
+				clearValueCount: (uint)ClearValues.Length,
+				clearValues: clears
 			);
 			Cmd.Cmd.CmdBeginRenderPass(&rpbi, VkSubpassContents.SecondaryCommandBuffers);
 		}
@@ -163,7 +173,7 @@ namespace Vega.Graphics
 		// The swapchain will have already waited for device idle at this point
 		internal void OnSwapchainResize()
 		{
-			RenderTarget.Rebuild();
+			RenderTarget.Rebuild(MSAA);
 		}
 
 		#region IDisposable

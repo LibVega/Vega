@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -81,5 +82,13 @@ namespace Vega.Graphics
 		/// <param name="format">The format to check.</param>
 		public static bool IsValidAsInput(this TexelFormat format) =>
 			(format != TexelFormat.Bgr565) && (format != TexelFormat.Rgb565);
+
+		// Gets the vulkan aspect flags for the format
+		internal static VkImageAspectFlags GetAspectFlags(this TexelFormat format) => format switch {
+			TexelFormat.Depth16 => VkImageAspectFlags.Depth,
+			TexelFormat.Depth32 => VkImageAspectFlags.Depth,
+			TexelFormat.Depth24Stencil8 => VkImageAspectFlags.Depth | VkImageAspectFlags.Stencil,
+			_ => VkImageAspectFlags.Color
+		};
 	}
 }
