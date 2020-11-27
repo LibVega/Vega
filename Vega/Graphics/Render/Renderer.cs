@@ -48,7 +48,7 @@ namespace Vega.Graphics
 		// The render pass objects
 		internal readonly RenderLayout Layout;
 		internal readonly RenderLayout? MSAALayout;
-		internal readonly VkRenderPass RenderPass;
+		internal VkRenderPass RenderPass;
 		// The render target
 		internal readonly RenderTarget RenderTarget;
 
@@ -111,6 +111,62 @@ namespace Vega.Graphics
 		{
 			dispose(false);
 		}
+
+		#region Size/MSAA
+		/// <summary>
+		/// Sets the size of the images targeted by the renderer. Note that it is an error to do this for window
+		/// renderers.
+		/// </summary>
+		/// <param name="newSize">The new size of the renderer.</param>
+		public void SetSize(Extent2D newSize)
+		{
+			// Skip expensive rebuild
+			if (newSize == Size) {
+				return;
+			}
+
+			// Check for validity
+			if (Window is not null) {
+				throw new InvalidOperationException("Cannot set the size of a window renderer - it is tied to the window size");
+			}
+
+			// TODO: Rebuild at new size once offscreen renderers are implemented
+		}
+
+		/// <summary>
+		/// Sets the multisample anti-aliasing level of the renderer. If the renderer does not support MSAA operations,
+		/// then an exception is thrown.
+		/// <para>
+		/// Note that this is a very expensive operation, and should be avoided unless necessary.
+		/// </para>
+		/// </summary>
+		/// <param name="msaa">The MSAA level to apply to the renderer.</param>
+		public void SetMSAA(MSAA msaa)
+		{
+			// Skip expensive rebuild
+			if (msaa == MSAA) {
+				return;
+			}
+
+			// Validate
+			if ((msaa != MSAA.X1) && (MSAALayout is null)) {
+				throw new InvalidOperationException("Cannot enable MSAA operations on a non-MSAA renderer");
+			}
+			if (!msaa.IsSupported()) {
+				throw new ArgumentException($"MSAA level {msaa} is not supported on the current system");
+			}
+
+			// Wait for rendering operations to complete before messing with a core object
+			Graphics.VkDevice.DeviceWaitIdle();
+
+			// Destroy old MSAA renderpass, then build new one
+			RenderPass.DestroyRenderPass(null);
+			RenderPass = ((msaa != MSAA.X1) ? MSAALayout! : Layout).CreateRenderpass(Graphics, msaa);
+
+			// Rebuild the render target
+			RenderTarget.Rebuild(msaa);
+		}
+		#endregion // Size/MSAA
 
 		#region Recording
 		/// <summary>

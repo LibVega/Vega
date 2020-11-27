@@ -53,10 +53,11 @@ namespace Vega.Graphics
 				foreach (var att in desc.Attachments) {
 					var needmsaa = att.Uses[(int)ResolveIndex!.Value] == AttachmentUse.Output; // Output in resolve pass
 					var lateuse = (att.Preserve || (att.LastUse.Index > ResolveIndex.Value)); // Preserve or post-resolve use
-					msaaState[ai++] = (ai, needmsaa, (needmsaa && lateuse) ? attidx++ : null);
+					msaaState[ai] = (ai, needmsaa, (needmsaa && lateuse) ? attidx++ : null);
 					if (needmsaa && lateuse) {
 						extraAtt += 1;
 					}
+					++ai;
 				}
 			}
 
@@ -340,7 +341,7 @@ namespace Vega.Graphics
 					if (u == (byte)AttachmentUse.Input) {
 						InputUse = true;
 					}
-					if (u == (byte)AttachmentUse.Output) {
+					if ((u == (byte)AttachmentUse.Output) || (u == RESOLVE)) {
 						OutputUse = true;
 					}
 				}
