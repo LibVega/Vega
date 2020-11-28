@@ -60,6 +60,11 @@ namespace Vega.Graphics
 		public ClearValue(uint r, uint g, uint b, uint a) : this() => ColorU = (r, g, b, a);
 
 		/// <summary>
+		/// Create a new clear value from a color.
+		/// </summary>
+		public ClearValue(Color c) : this() => ColorF = (c.RFloat, c.GFloat, c.BFloat, c.AFloat);
+
+		/// <summary>
 		/// Create a new clear value for a depth or depth/stencil format.
 		/// </summary>
 		public ClearValue(float depth, uint stencil) : this() => DepthStencil = (depth, stencil);
