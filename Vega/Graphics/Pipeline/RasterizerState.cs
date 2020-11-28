@@ -85,7 +85,7 @@ namespace Vega.Graphics
 
 		#region Overrides
 		public readonly override int GetHashCode() =>
-			FillMode.GetHashCode() ^ CullMode.GetHashCode() * FrontFace.GetHashCode() ^
+			FillMode.GetHashCode() ^ CullMode.GetHashCode() ^ FrontFace.GetHashCode() ^
 			LineWidth.GetHashCode() ^ DepthClamp.GetHashCode();
 
 		public readonly override string ToString() => 
@@ -102,65 +102,8 @@ namespace Vega.Graphics
 			(l.LineWidth == r.LineWidth) && (l.DepthClamp == r.DepthClamp);
 
 		public static bool operator != (in RasterizerState l, in RasterizerState r) =>
-			(l.FillMode != r.FillMode) && (l.CullMode != r.CullMode) && (l.FrontFace != r.FrontFace) &&
-			(l.LineWidth != r.LineWidth) && (l.DepthClamp != r.DepthClamp);
+			(l.FillMode != r.FillMode) || (l.CullMode != r.CullMode) || (l.FrontFace != r.FrontFace) ||
+			(l.LineWidth != r.LineWidth) || (l.DepthClamp != r.DepthClamp);
 		#endregion // Operators
-	}
-
-	/// <summary>
-	/// Polygon interior fragment fill mode.
-	/// </summary>
-	public enum FillMode : int
-	{
-		/// <summary>
-		/// Polygons are filled completely in the interior.
-		/// </summary>
-		Solid = VkPolygonMode.Fill,
-		/// <summary>
-		/// Polygons are filled along their edge lines. Requires <see cref="GraphicsFeatures.FillModeNonSolid"/>.
-		/// </summary>
-		Line = VkPolygonMode.Line,
-		/// <summary>
-		/// Polygons are only highlighted at their vertices. Requires <see cref="GraphicsFeatures.FillModeNonSolid"/>.
-		/// </summary>
-		Point = VkPolygonMode.Point
-	}
-
-	/// <summary>
-	/// Face culling modes.
-	/// </summary>
-	public enum CullMode : uint
-	{
-		/// <summary>
-		/// No faces are culled.
-		/// </summary>
-		None = VkCullModeFlags.None,
-		/// <summary>
-		/// The front face is culled.
-		/// </summary>
-		Front = VkCullModeFlags.Front,
-		/// <summary>
-		/// The back face is culled.
-		/// </summary>
-		Back = VkCullModeFlags.Back,
-		/// <summary>
-		/// All faces are culled.
-		/// </summary>
-		Both = VkCullModeFlags.FrontAndBack
-	}
-
-	/// <summary>
-	/// The vertex winding directions to define a front face.
-	/// </summary>
-	public enum Winding : int
-	{
-		/// <summary>
-		/// Counter-clockwise winding defines a front face.
-		/// </summary>
-		CCW = VkFrontFace.CounterClockwise,
-		/// <summary>
-		/// Clockwise winding defines a front face.
-		/// </summary>
-		CW = VkFrontFace.Clockwise
 	}
 }

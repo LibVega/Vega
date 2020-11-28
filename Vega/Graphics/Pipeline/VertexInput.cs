@@ -97,35 +97,4 @@ namespace Vega.Graphics
 		public static implicit operator VertexInput (Topology topo) => new(topo, false);
 		#endregion // Operators
 	}
-
-	/// <summary>
-	/// The possible primitives that a raw vertex buffer can be interpreted as.
-	/// </summary>
-	public enum Topology : int
-	{
-		/// <summary>
-		/// Interpret as individual disconnected points.
-		/// </summary>
-		PointList = VkPrimitiveTopology.PointList,
-		/// <summary>
-		/// Interpret as pairs of points that create individual, disconnected line segments.
-		/// </summary>
-		LineList = VkPrimitiveTopology.LineList,
-		/// <summary>
-		/// Interpret as a set of points creating a continunous connected line.
-		/// </summary>
-		LineStrip = VkPrimitiveTopology.LineStrip,
-		/// <summary>
-		/// Interpret as point triples that create individual, disconnected triangles.
-		/// </summary>
-		TriangleList = VkPrimitiveTopology.TriangleList,
-		/// <summary>
-		/// Interpret as a collection of connected triangles, each sharing a side with the next.
-		/// </summary>
-		TriangleStrip = VkPrimitiveTopology.TriangleStrip,
-		/// <summary>
-		/// Interpret as a collection of connected triangles, each sharing the first point in the vertex stream.
-		/// </summary>
-		TriangleFan = VkPrimitiveTopology.TriangleFan
-	}
 }
