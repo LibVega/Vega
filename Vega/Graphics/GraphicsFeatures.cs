@@ -15,14 +15,41 @@ namespace Vega.Graphics
 	/// </summary>
 	public unsafe struct GraphicsFeatures
 	{
-		private const int FEATURE_COUNT = 1;
+		private const int FEATURE_COUNT = 3;
 		private static readonly GraphicsFeature[] FEATURES = new GraphicsFeature[FEATURE_COUNT] { 
-			new("", null, null)
+			new("FillModeNonSolid", "FillModeNonSolid", null), // Line and Point fill modes
+			new("WideLines", "WideLines", null), // Raster line widths other than one
+			new("DepthClamp", "DepthClamp", null), // Depth clamp operations
 		};
 
 		#region Fields
 		// The array of feature flags
 		private fixed bool _features[FEATURE_COUNT];
+
+		/// <summary>
+		/// Non-solid fill modes (enables use of <see cref="FillMode.Line"/> and <see cref="FillMode.Point"/>).
+		/// </summary>
+		public bool FillModeNonSolid
+		{
+			readonly get => _features[0];
+			set => _features[0] = value;
+		}
+		/// <summary>
+		/// If <see cref="RasterizerState.LineWidth"/> can have a value other than 1.0.
+		/// </summary>
+		public bool WideLines
+		{
+			readonly get => _features[1];
+			set => _features[1] = value;
+		}
+		/// <summary>
+		/// If <see cref="RasterizerState.DepthClamp"/> can be <c>true</c>.
+		/// </summary>
+		public bool DepthClamp
+		{
+			readonly get => _features[2];
+			set => _features[2] = value;
+		}
 		#endregion // Fields
 
 		// Populates the features with support flags

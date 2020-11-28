@@ -20,7 +20,8 @@ namespace Vega.Graphics
 		/// </summary>
 		public readonly GraphicsFeatures AvailableFeatures;
 		/// <summary>
-		/// The mutable set of features to request from the device.
+		/// The mutable set of features to request from the device. Selecting features that are not available will
+		/// result in an error.
 		/// </summary>
 		public GraphicsFeatures EnabledFeatures;
 		#endregion // Fields
