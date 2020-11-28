@@ -197,4 +197,135 @@ namespace Vega.Graphics
 		/// </summary>
 		Default = 3
 	}
+
+	/// <summary>
+	/// Available blending operation input factors. "Inv*" factors perform color inversion operations, which are
+	/// <c>(1, 1, 1) - color</c>, or <c>1 - alpha</c>.
+	/// </summary>
+	public enum BlendFactor : int
+	{
+		/// <summary>
+		/// Input factor is zero (black/transparent).
+		/// </summary>
+		Zero = VkBlendFactor.Zero,
+		/// <summary>
+		/// Input factor is one (white/opaque).
+		/// </summary>
+		One = VkBlendFactor.One,
+		/// <summary>
+		/// Input factor is the unchanged incoming color.
+		/// </summary>
+		SrcColor = VkBlendFactor.SrcColor,
+		/// <summary>
+		/// Input factor is the inverse of the incoming color.
+		/// </summary>
+		InvSrcColor = VkBlendFactor.OneMinusSrcColor,
+		/// <summary>
+		/// Input factor is the unchanged existing color.
+		/// </summary>
+		DstColor = VkBlendFactor.DstColor,
+		/// <summary>
+		/// Input factor is the inverse of the existing color.
+		/// </summary>
+		InvDstColor = VkBlendFactor.OneMinusDstColor,
+		/// <summary>
+		/// Input factor is the unchanged incoming alpha.
+		/// </summary>
+		SrcAlpha = VkBlendFactor.SrcAlpha,
+		/// <summary>
+		/// Input factor is the inverse of the incoming alpha.
+		/// </summary>
+		InvSrcAlpha = VkBlendFactor.OneMinusSrcAlpha,
+		/// <summary>
+		/// Input factor is the unchanged existing alpha.
+		/// </summary>
+		DstAlpha = VkBlendFactor.DstAlpha,
+		/// <summary>
+		/// Input factor is the inverse of the existing alpha.
+		/// </summary>
+		InvDstAlpha = VkBlendFactor.OneMinusDstAlpha,
+		/// <summary>
+		/// Input factor is a constant reference color.
+		/// </summary>
+		RefColor = VkBlendFactor.ConstantColor,
+		/// <summary>
+		/// Input factor is the inverse of a constant reference color.
+		/// </summary>
+		InvRefColor = VkBlendFactor.OneMinusConstantColor,
+		/// <summary>
+		/// Input factor is a constant reference alpha.
+		/// </summary>
+		RefAlpha = VkBlendFactor.ConstantAlpha,
+		/// <summary>
+		/// Input factor is the inverse of a constant reference alpha.
+		/// </summary>
+		InvRefAlpha = VkBlendFactor.OneMinusConstantAlpha,
+		/// <summary>
+		/// Input factor is the minimum of the incoming and existing alphas.
+		/// </summary>
+		SrcAlphaSaturate = VkBlendFactor.SrcAlphaSaturate
+	}
+
+	/// <summary>
+	/// Available operations for combining the inputs during color buffer blending.
+	/// </summary>
+	public enum BlendOp : int
+	{
+		/// <summary>
+		/// The inputs are added (<c>src + dst</c>).
+		/// </summary>
+		Add = VkBlendOp.Add,
+		/// <summary>
+		/// The inputs are subtracted, with src first (<c>src - dst</c>).
+		/// </summary>
+		Subtract = VkBlendOp.Subtract,
+		/// <summary>
+		/// The inputs are subtracted, with dst first (<c>dst - src</c>).
+		/// </summary>
+		InvSubtract = VkBlendOp.ReverseSubtract,
+		/// <summary>
+		/// The component-wise minimum of the inputs is taken (<c>min(src, dst)</c>).
+		/// </summary>
+		Min = VkBlendOp.Min,
+		/// <summary>
+		/// The component-wise maximum of the inputs is taken (<c>max(src, dst)</c>).
+		/// </summary>
+		Max = VkBlendOp.Max
+	}
+
+	/// <summary>
+	/// Represents a mask of different color channels in RGBA color space.
+	/// </summary>
+	[Flags]
+	public enum ColorChannels : uint
+	{
+		/// <summary>
+		/// Mask of no color channels.
+		/// </summary>
+		None = 0,
+		/// <summary>
+		/// Mask of the red color channel.
+		/// </summary>
+		R = VkColorComponentFlags.R,
+		/// <summary>
+		/// Mask of the green color channel.
+		/// </summary>
+		G = VkColorComponentFlags.G,
+		/// <summary>
+		/// Mask of the blue color channel.
+		/// </summary>
+		B = VkColorComponentFlags.B,
+		/// <summary>
+		/// Mask of the alpha channel.
+		/// </summary>
+		A = VkColorComponentFlags.A,
+		/// <summary>
+		/// Mask of the color channels (R, G, B).
+		/// </summary>
+		RGB = (R | G | B),
+		/// <summary>
+		/// Mask of all channels (R, G, B, A).
+		/// </summary>
+		RGBA = (R | G | B | A)
+	}
 }
