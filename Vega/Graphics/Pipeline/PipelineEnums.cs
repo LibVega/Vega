@@ -96,4 +96,105 @@ namespace Vega.Graphics
 		/// </summary>
 		CW = VkFrontFace.Clockwise
 	}
+
+	/// <summary>
+	/// The graphics operations available for comparing values.
+	/// </summary>
+	public enum CompareOp : int
+	{
+		/// <summary>
+		/// The comparison is never true.
+		/// </summary>
+		Never = VkCompareOp.Never,
+		/// <summary>
+		/// The comparison is true if <c>first < second</c>.
+		/// </summary>
+		Less = VkCompareOp.Less,
+		/// <summary>
+		/// The comparison is true if <c>first == second</c>.
+		/// </summary>
+		Equal = VkCompareOp.Equal,
+		/// <summary>
+		/// The comparison is true if <c>first <= second</c>.
+		/// </summary>
+		LessOrEqual = VkCompareOp.LessOrEqual,
+		/// <summary>
+		/// The comparison is true if <c>first > second</c>.
+		/// </summary>
+		Greater = VkCompareOp.Greater,
+		/// <summary>
+		/// The comparison is true if <c>first != second</c>.
+		/// </summary>
+		NotEqual = VkCompareOp.NotEqual,
+		/// <summary>
+		/// The comparison is true if <c>first >= second</c>.
+		/// </summary>
+		GreaterOrEqual = VkCompareOp.GreaterOrEqual,
+		/// <summary>
+		/// The comparison is always true.
+		/// </summary>
+		Always = VkCompareOp.Always
+	}
+
+	/// <summary>
+	/// Operations available on the stencil buffer.
+	/// </summary>
+	public enum StencilOp : int
+	{
+		/// <summary>
+		/// The stencil value is untouched by the operation.
+		/// </summary>
+		Keep = VkStencilOp.Keep,
+		/// <summary>
+		/// The stencil value is set to zero.
+		/// </summary>
+		Zero = VkStencilOp.Zero,
+		/// <summary>
+		/// The stencil value is replaced with a reference constant.
+		/// </summary>
+		Replace = VkStencilOp.Replace,
+		/// <summary>
+		/// The stencil value is incremented with clamping at max value.
+		/// </summary>
+		IncClamp = VkStencilOp.IncrementAndClamp,
+		/// <summary>
+		/// The stencil value is decremented with clamping at zero.
+		/// </summary>
+		DecClamp = VkStencilOp.DecrementAndClamp,
+		/// <summary>
+		/// The stencil value is bitwise inverted.
+		/// </summary>
+		Invert = VkStencilOp.Invert,
+		/// <summary>
+		/// The stencil value is incremented with wrapping at max value.
+		/// </summary>
+		IncWrap = VkStencilOp.IncrementAndWrap,
+		/// <summary>
+		/// The stencil value is decremented with wrapping at zero.
+		/// </summary>
+		DecWrap = VkStencilOp.DecrementAndWrap
+	}
+
+	/// <summary>
+	/// Available depth buffer operation states.
+	/// </summary>
+	public enum DepthMode : int
+	{
+		/// <summary>
+		/// No depth buffer reads or writes are performed.
+		/// </summary>
+		None = 0,
+		/// <summary>
+		/// Depth testing is enabled, but no values are modified or written back to the depth buffer.
+		/// </summary>
+		TestOnly = 1,
+		/// <summary>
+		/// Depth testing is disabled, and all depth buffer writes occur regardless of existing content.
+		/// </summary>
+		Overwrite = 2,
+		/// <summary>
+		/// Depth testing is enabled, and fragments that pass overwrite their value into the depth buffer.
+		/// </summary>
+		Default = 3
+	}
 }
