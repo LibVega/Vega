@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Runtime.CompilerServices;
 
 namespace Vega.Graphics
 {
@@ -47,10 +48,18 @@ namespace Vega.Graphics
 		bool IEquatable<ResourceBase>.Equals(ResourceBase? other) => (other is not null) && (other.RUID == RUID);
 		#endregion // Overrides
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		protected void ThrowIfDisposed()
+		{
+			if (IsDisposed) {
+				throw new ObjectDisposedException(RUID.ToString());
+			}
+		}
+
 		#region IDisposable
 		/// <summary>
-		/// Mark the resource for disposal. Because of the parallel nature of graphics operations, the resource will
-		/// not be disposed until it is no longer in use (within a few frames in most cases).
+		/// Mark the resource for disposal. Because of the parallel nature of graphics operations, some resources will
+		/// not be disposed until they are no longer in use (within a few frames in most cases).
 		/// </summary>
 		public void Dispose()
 		{
@@ -62,6 +71,9 @@ namespace Vega.Graphics
 		}
 
 		protected abstract void OnDispose(bool disposing);
+
+		// Called by the graphics resource manager after the resource is disposed, and no longer in use.
+		internal protected abstract void Destroy();
 		#endregion // IDisposable
 	}
 }

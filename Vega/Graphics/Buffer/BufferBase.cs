@@ -61,7 +61,18 @@ namespace Vega.Graphics
 
 		protected override void OnDispose(bool disposing)
 		{
-			// TODO: Submit to delayed destroy queue
+			if (Core.Instance is not null) {
+				Core.Instance.Graphics.Resources.QueueDestroy(this);
+			}
+			else {
+				Destroy();
+			}
+		}
+
+		protected internal override void Destroy()
+		{
+			Handle?.DestroyBuffer(null);
+			Memory?.Free();
 		}
 
 		private static VkBufferUsageFlags GetUsageFlags(ResourceType type)

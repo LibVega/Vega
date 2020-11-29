@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Runtime.Intrinsics.X86;
 using Vulkan;
 
@@ -27,6 +28,10 @@ namespace Vega.Graphics
 		private readonly MemoryIndex? MemoryTransient;
 		// Gets if the system supports transient memory
 		public bool HasTransientMemory => MemoryTransient.HasValue;
+
+		// Resource delayed destroy queues
+		private readonly (FastMutex Mutex, List<ResourceBase> List)[] _destroyQueues;
+		private uint _destroyIndex = 0;
 
 		#region Thread Local Resources
 		// Per-thread management values
@@ -89,6 +94,13 @@ namespace Vega.Graphics
 					mtra.Value,
 					gs.VkDeviceInfo.MemoryTypes[(int)mtra.Value].HeapIndex);
 			}
+
+			// Destroy queues
+			_destroyQueues = new (FastMutex, List<ResourceBase>)[GraphicsDevice.MAX_PARALLEL_FRAMES];
+			for (int i = 0; i < GraphicsDevice.MAX_PARALLEL_FRAMES; ++i) {
+				_destroyQueues[i].Mutex = new();
+				_destroyQueues[i].List = new(32);
+			}
 		}
 		~ResourceManager()
 		{
@@ -108,6 +120,15 @@ namespace Vega.Graphics
 						if (--count == 0) break; // Dont search the rest, they will be null
 					}
 				} 
+			}
+
+			// Destroy delayed objects that are no longer in use
+			_destroyIndex = (_destroyIndex + 1) % GraphicsDevice.MAX_PARALLEL_FRAMES;
+			using (var _ = _destroyQueues[_destroyIndex].Mutex.AcquireUNSAFE()) {
+				foreach (var res in _destroyQueues[_destroyIndex].List) {
+					res.Destroy();
+				}
+				_destroyQueues[_destroyIndex].List.Clear();
 			}
 		}
 
@@ -278,6 +299,17 @@ namespace Vega.Graphics
 		}
 		#endregion // Threading
 
+		#region Destroy Queue
+		// Queues the resource for delayed destruction
+		public void QueueDestroy(ResourceBase res)
+		{
+			var queue = _destroyQueues[_destroyIndex];
+			using (var _ = queue.Mutex.AcquireUNSAFE()) {
+				queue.List.Add(res);
+			}
+		}
+		#endregion // Destroy Queue
+
 		#region IDisposable
 		public void Dispose()
 		{
@@ -288,6 +320,18 @@ namespace Vega.Graphics
 		private void dispose(bool disposing)
 		{
 			if (!IsDisposed) {
+				if (!disposing) {
+					Graphics.VkDevice?.DeviceWaitIdle(); // We may not be coming from GraphicsDevice.Dispose()
+				}
+
+				// Destroy all delayed resoures
+				foreach (var queue in _destroyQueues) {
+					foreach (var res in queue.List) {
+						res.Destroy();
+					}
+					queue.List.Clear();
+				}
+
 				// Destroy threaded resources
 				foreach (var pool in _commandPools) {
 					pool?.Dispose();
