@@ -10,9 +10,9 @@ using Vulkan;
 namespace Vega.Graphics
 {
 	/// <summary>
-	/// Base type for all graphics data buffer types, providing common functionality.
+	/// Base type for all device-accessible graphics data buffers, providing common functionality.
 	/// </summary>
-	public unsafe abstract class BufferBase : ResourceBase
+	public unsafe abstract class DeviceBuffer : ResourceBase
 	{
 		#region Fields
 		/// <summary>
@@ -30,7 +30,7 @@ namespace Vega.Graphics
 		internal readonly MemoryAllocation Memory;
 		#endregion // Fields
 
-		private protected BufferBase(ulong size, ResourceType type, BufferUsage usage)
+		private protected DeviceBuffer(ulong size, ResourceType type, BufferUsage usage)
 			: base(type)
 		{
 			// Set fields

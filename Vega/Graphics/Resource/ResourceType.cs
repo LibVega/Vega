@@ -9,8 +9,8 @@ using System;
 namespace Vega.Graphics
 {
 	// The different graphics resource types.
-	public enum ResourceType : byte
+	internal enum ResourceType : byte
 	{
-
+		HostBuffer = 1
 	}
 }
