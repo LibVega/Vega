@@ -96,6 +96,7 @@ namespace Vega
 
 			// Initialize graphics services
 			Graphics = new(this, _EnableGraphicsValidation);
+			Graphics.RegisterThread();
 
 			// Initialize audio
 			AudioDriver = new AudioDriver(this);

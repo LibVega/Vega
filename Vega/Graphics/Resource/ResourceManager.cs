@@ -45,6 +45,9 @@ namespace Vega.Graphics
 
 		// Command pools
 		private readonly CommandPool?[] _commandPools = new CommandPool?[MAX_THREADS];
+
+		// Transfer managers
+		private readonly TransferManager?[] _transferManagers = new TransferManager?[MAX_THREADS];
 		#endregion // Thread Local Resources
 
 		// If this manager is disposed
@@ -273,6 +276,7 @@ namespace Vega.Graphics
 
 				// Create thread resources
 				_commandPools[_ThreadIndex.Value] = new(Graphics);
+				_transferManagers[_ThreadIndex.Value] = new(Graphics);
 			}
 		}
 
@@ -285,6 +289,8 @@ namespace Vega.Graphics
 			// Release the thread id
 			lock (_ThreadObjectLock) {
 				// Destroy thread resources
+				_transferManagers[_ThreadIndex.Value]!.Dispose();
+				_transferManagers[_ThreadIndex.Value] = null;
 				_commandPools[_ThreadIndex.Value]!.Dispose();
 				_commandPools[_ThreadIndex.Value] = null;
 

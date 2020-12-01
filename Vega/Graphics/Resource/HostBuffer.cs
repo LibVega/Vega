@@ -27,7 +27,7 @@ namespace Vega.Graphics
 		public void* DataPtr {
 			get {
 				ThrowIfDisposed();
-				return _memory.DataPtr;
+				return Memory.DataPtr;
 			}
 		}
 		/// <summary>
@@ -36,7 +36,7 @@ namespace Vega.Graphics
 		public Span<byte> DataSpan {
 			get {
 				ThrowIfDisposed();
-				return new(_memory.DataPtr, (int)DataSize);
+				return new(Memory.DataPtr, (int)DataSize);
 			}
 		}
 		/// <summary>
@@ -51,8 +51,8 @@ namespace Vega.Graphics
 		private readonly UnmanagedMemoryStream _stream;
 
 		// Vulkan buffer and memory
-		private readonly VkBuffer _buffer;
-		private readonly MemoryAllocation _memory;
+		internal readonly VkBuffer Buffer;
+		internal readonly MemoryAllocation Memory;
 		#endregion // Fields
 
 		/// <summary>
@@ -75,18 +75,18 @@ namespace Vega.Graphics
 			);
 			VulkanHandle<VkBuffer> handle;
 			gd.VkDevice.CreateBuffer(&bci, null, &handle).Throw("Failed to create host buffer");
-			_buffer = new(handle, gd.VkDevice);
+			Buffer = new(handle, gd.VkDevice);
 
 			// Allocate/bind memory
 			VkMemoryRequirements memreq;
-			_buffer.GetBufferMemoryRequirements(&memreq);
-			_memory = gd.Resources.AllocateMemoryHost(memreq) ?? 
+			Buffer.GetBufferMemoryRequirements(&memreq);
+			Memory = gd.Resources.AllocateMemoryUpload(memreq) ?? 
 				throw new Exception("Failed to allocate host buffer memory");
-			_buffer.BindBufferMemory(_memory.Handle, _memory.Offset);
+			Buffer.BindBufferMemory(Memory.Handle, Memory.Offset);
 
 			// Map memory
-			_memory.Map();
-			_stream = new((byte*)_memory.DataPtr, 0, (long)DataSize, FileAccess.Write);
+			Memory.Map();
+			_stream = new((byte*)Memory.DataPtr, 0, (long)DataSize, FileAccess.Write);
 		}
 
 		protected override void OnDispose(bool disposing)
@@ -100,9 +100,9 @@ namespace Vega.Graphics
 
 		protected internal override void Destroy()
 		{
-			_memory.Unmap();
-			_buffer.DestroyBuffer(null);
-			_memory.Free();
+			Memory.Unmap();
+			Buffer.DestroyBuffer(null);
+			Memory.Free();
 		}
 	}
 }

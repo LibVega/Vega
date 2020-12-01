@@ -199,9 +199,9 @@ namespace Vega.Graphics
 		#region Raw Submits
 		public VkResult SubmitRaw(in VkSubmitInfo si, VulkanHandle<VkFence> fence)
 		{
-			SubmitCount += 1;
-			BufferCount += si.CommandBufferCount;
 			lock (_submitLock) {
+				SubmitCount += 1;
+				BufferCount += si.CommandBufferCount;
 				fixed (VkSubmitInfo* siptr = &si) {
 					return Queue.QueueSubmit(1, siptr, fence);
 				}
@@ -210,10 +210,23 @@ namespace Vega.Graphics
 
 		public VkResult SubmitRaw(VkSubmitInfo* si, VulkanHandle<VkFence> fence)
 		{
-			SubmitCount += 1;
-			BufferCount += si->CommandBufferCount;
 			lock (_submitLock) {
+				SubmitCount += 1;
+				BufferCount += si->CommandBufferCount;
 				return Queue.QueueSubmit(1, si, fence);
+			}
+		}
+
+		public VkResult SubmitRaw(VulkanHandle<VkCommandBuffer> cmd, VulkanHandle<VkFence> fence)
+		{
+			lock (_submitLock) {
+				SubmitCount += 1;
+				BufferCount += 1;
+				VkSubmitInfo si = new(
+					commandBufferCount: 1,
+					commandBuffers: &cmd
+				);
+				return Queue.QueueSubmit(1, &si, fence);
 			}
 		}
 

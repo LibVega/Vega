@@ -83,7 +83,6 @@ namespace Vega.Graphics
 
 			// Prepare resources
 			Resources = new(this);
-			Resources.RegisterThread();
 		}
 		~GraphicsDevice()
 		{
