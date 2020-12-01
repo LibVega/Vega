@@ -8,10 +8,18 @@ using System;
 
 namespace Vega.Graphics
 {
-	// The different graphics resource types.
-	internal enum ResourceType : byte
+	/// <summary>
+	/// The size types of index data.
+	/// </summary>
+	public enum IndexType : byte
 	{
-		HostBuffer = 1,
-		IndexBuffer = 2
+		/// <summary>
+		/// The indices are 2-byte unsigned integers.
+		/// </summary>
+		Short = 2,
+		/// <summary>
+		/// The indices are 4-byte unsigned integers.
+		/// </summary>
+		Int = 4
 	}
 }

@@ -34,6 +34,9 @@ namespace Vega.Graphics
 			: base(type)
 		{
 			// Validate data
+			if (size == 0) {
+				throw new ArgumentOutOfRangeException(nameof(size), "Buffer size cannot be zero");
+			}
 			if ((usage == BufferUsage.Static) && (initialData == null)) {
 				throw new InvalidOperationException("Cannot create a static buffer without supplying initial data");
 			}
@@ -42,7 +45,7 @@ namespace Vega.Graphics
 			DataSize = size;
 			Usage = usage;
 			CreateBuffer(size, type, out Handle, out Memory);
-			
+
 			// Set the initial data
 			if (initialData != null) {
 				Core.Instance!.Graphics.Resources.TransferManager.SetBufferData(Handle, 0, initialData, size);
@@ -53,6 +56,9 @@ namespace Vega.Graphics
 			: base(type)
 		{
 			// Validate data
+			if (size == 0) {
+				throw new ArgumentOutOfRangeException(nameof(size), "Buffer size cannot be zero");
+			}
 			if (size > initialData.DataSize) {
 				throw new InvalidOperationException("Host buffer is not large enough to supply device buffer data");
 			}
@@ -64,6 +70,28 @@ namespace Vega.Graphics
 
 			// Set initial data
 			Core.Instance!.Graphics.Resources.TransferManager.SetBufferData(Handle, 0, initialData, 0, size);
+		}
+
+		private protected DeviceBuffer(ulong size, ResourceType type, BufferUsage usage, ReadOnlySpan<byte> initialData)
+			: base(type)
+		{
+			// Validate data
+			if (size == 0) {
+				throw new ArgumentOutOfRangeException(nameof(size), "Buffer size cannot be zero");
+			}
+			if (size > (ulong)initialData.Length) {
+				throw new InvalidOperationException("Source data is not large enough to supply device buffer data");
+			}
+
+			// Set fields
+			DataSize = size;
+			Usage = usage;
+			CreateBuffer(size, type, out Handle, out Memory);
+
+			// Set initial data
+			fixed (byte* dataPtr = initialData) {
+				Core.Instance!.Graphics.Resources.TransferManager.SetBufferData(Handle, 0, dataPtr, size);
+			}
 		}
 
 		protected override void OnDispose(bool disposing)
@@ -86,6 +114,7 @@ namespace Vega.Graphics
 		{
 			var flags = VkBufferUsageFlags.TransferDst;
 			flags |= type switch {
+				ResourceType.IndexBuffer => VkBufferUsageFlags.IndexBuffer,
 				_ => throw new ArgumentOutOfRangeException(nameof(type), "Invalid resource type")
 			};
 			return flags;
