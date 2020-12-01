@@ -48,6 +48,14 @@ namespace Vega.Graphics
 
 		// Transfer managers
 		private readonly TransferManager?[] _transferManagers = new TransferManager?[MAX_THREADS];
+		public TransferManager TransferManager { 
+			get {
+				if (!IsThreadRegistered) {
+					throw new InvalidOperationException("Attempt to perform transfer operations on non-graphics thread");
+				}
+				return _transferManagers[_ThreadIndex!.Value]!;
+			}
+		}
 		#endregion // Thread Local Resources
 
 		// If this manager is disposed

@@ -30,33 +30,40 @@ namespace Vega.Graphics
 		internal readonly MemoryAllocation Memory;
 		#endregion // Fields
 
-		private protected DeviceBuffer(ulong size, ResourceType type, BufferUsage usage)
+		private protected DeviceBuffer(ulong size, ResourceType type, BufferUsage usage, void* initialData)
 			: base(type)
 		{
+			// Validate data
+			if ((usage == BufferUsage.Static) && (initialData == null)) {
+				throw new InvalidOperationException("Cannot create a static buffer without supplying initial data");
+			}
+
 			// Set fields
 			DataSize = size;
 			Usage = usage;
+			CreateBuffer(size, type, out Handle, out Memory);
 			
-			var gd = Core.Instance!.Graphics;
+			// Set the initial data
+			if (initialData != null) {
+				Core.Instance!.Graphics.Resources.TransferManager.SetBufferData(Handle, 0, initialData, size);
+			}
+		}
 
-			// Create buffer handle
-			VkBufferCreateInfo bci = new(
-				flags: VkBufferCreateFlags.NoFlags,
-				size: size,
-				usage: GetUsageFlags(type),
-				sharingMode: VkSharingMode.Exclusive
-			);
-			VulkanHandle<VkBuffer> handle;
-			gd.VkDevice.CreateBuffer(&bci, null, &handle)
-				.Throw("Failed to create buffer handle");
-			Handle = new(handle, gd.VkDevice);
+		private protected DeviceBuffer(ulong size, ResourceType type, BufferUsage usage, HostBuffer initialData)
+			: base(type)
+		{
+			// Validate data
+			if (size > initialData.DataSize) {
+				throw new InvalidOperationException("Host buffer is not large enough to supply device buffer data");
+			}
 
-			// Allocate and bind buffer memory
-			VkMemoryRequirements memreq;
-			Handle.GetBufferMemoryRequirements(&memreq);
-			Memory = gd.Resources.AllocateMemoryDevice(memreq) ??
-				throw new Exception("Failed to allocate memory for buffer");
-			Handle.BindBufferMemory(Memory.Handle, Memory.Offset);
+			// Set fields
+			DataSize = size;
+			Usage = usage;
+			CreateBuffer(size, type, out Handle, out Memory);
+
+			// Set initial data
+			Core.Instance!.Graphics.Resources.TransferManager.SetBufferData(Handle, 0, initialData, 0, size);
 		}
 
 		protected override void OnDispose(bool disposing)
@@ -82,6 +89,30 @@ namespace Vega.Graphics
 				_ => throw new ArgumentOutOfRangeException(nameof(type), "Invalid resource type")
 			};
 			return flags;
+		}
+
+		private static void CreateBuffer(ulong size, ResourceType type, out VkBuffer buffer, out MemoryAllocation memory)
+		{
+			var gd = Core.Instance!.Graphics;
+
+			// Create buffer handle
+			VkBufferCreateInfo bci = new(
+				flags: VkBufferCreateFlags.NoFlags,
+				size: size,
+				usage: GetUsageFlags(type),
+				sharingMode: VkSharingMode.Exclusive
+			);
+			VulkanHandle<VkBuffer> handle;
+			gd.VkDevice.CreateBuffer(&bci, null, &handle)
+				.Throw("Failed to create buffer handle");
+			buffer = new(handle, gd.VkDevice);
+
+			// Allocate and bind buffer memory
+			VkMemoryRequirements memreq;
+			buffer.GetBufferMemoryRequirements(&memreq);
+			memory = gd.Resources.AllocateMemoryDevice(memreq) ??
+				throw new Exception("Failed to allocate memory for buffer");
+			buffer.BindBufferMemory(memory.Handle, memory.Offset);
 		}
 	}
 }
