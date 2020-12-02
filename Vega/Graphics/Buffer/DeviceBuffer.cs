@@ -115,6 +115,7 @@ namespace Vega.Graphics
 			var flags = VkBufferUsageFlags.TransferDst;
 			flags |= type switch {
 				ResourceType.IndexBuffer => VkBufferUsageFlags.IndexBuffer,
+				ResourceType.VertexBuffer => VkBufferUsageFlags.VertexBuffer,
 				_ => throw new ArgumentOutOfRangeException(nameof(type), "Invalid resource type")
 			};
 			return flags;

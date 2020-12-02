@@ -12,6 +12,7 @@ namespace Vega.Graphics
 	internal enum ResourceType : byte
 	{
 		HostBuffer = 1,
-		IndexBuffer = 2
+		IndexBuffer,
+		VertexBuffer
 	}
 }

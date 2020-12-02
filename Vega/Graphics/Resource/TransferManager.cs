@@ -120,6 +120,7 @@ namespace Vega.Graphics
 
 			// Reset pool
 			_pool.ResetCommandPool(VkCommandPoolResetFlags.ReleaseResources);
+			Graphics.VkDevice.ResetFences(1, &waitHandle);
 		}
 
 		// Sets buffer data using the internal host buffer
