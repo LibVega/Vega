@@ -48,7 +48,7 @@ namespace Vega.Graphics
 
 			// Set the initial data
 			if (initialData != null) {
-				Core.Instance!.Graphics.Resources.TransferManager.SetBufferData(Handle, 0, initialData, size);
+				Core.Instance!.Graphics.Resources.TransferManager.SetBufferData(Handle, 0, initialData, size, null);
 			}
 		}
 
@@ -69,7 +69,7 @@ namespace Vega.Graphics
 			CreateBuffer(size, type, out Handle, out Memory);
 
 			// Set initial data
-			Core.Instance!.Graphics.Resources.TransferManager.SetBufferData(Handle, 0, initialData, 0, size);
+			Core.Instance!.Graphics.Resources.TransferManager.SetBufferData(Handle, 0, initialData, 0, size, null);
 		}
 
 		private protected DeviceBuffer(ulong size, ResourceType type, BufferUsage usage, ReadOnlySpan<byte> initialData)
@@ -90,7 +90,7 @@ namespace Vega.Graphics
 
 			// Set initial data
 			fixed (byte* dataPtr = initialData) {
-				Core.Instance!.Graphics.Resources.TransferManager.SetBufferData(Handle, 0, dataPtr, size);
+				Core.Instance!.Graphics.Resources.TransferManager.SetBufferData(Handle, 0, dataPtr, size, null);
 			}
 		}
 

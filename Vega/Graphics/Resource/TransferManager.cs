@@ -63,54 +63,64 @@ namespace Vega.Graphics
 
 		#region Buffers
 		// Sets the buffer data by copying from a prepared host buffer
-		// Future optimizations:
-		//    1. Completely remove pipeline barriers for initial resource upload at ctor
-		//    2. Pass in the pipeline stages for the barriers (TOP_OF_PIPE/BOTTOM_OF_PIPE = bad)
-		public void SetBufferData(VkBuffer dstBuffer, ulong dstOff, HostBuffer srcBuffer, ulong srcOff, ulong count)
+		// Pass null as bufferType to signal a first-time copy that does not need pipeline barriers
+		public void SetBufferData(VkBuffer dstBuffer, ulong dstOff, HostBuffer srcBuffer, ulong srcOff, ulong count,
+			ResourceType? bufferType)
 		{
+			VkPipelineStageFlags srcStage = 0, dstStage = 0;
+			VkAccessFlags srcAccess = 0, dstAccess = 0;
+			if (bufferType.HasValue) {
+				GetBarrierStages(bufferType!.Value, out srcStage, out dstStage);
+				GetAccessFlags(bufferType!.Value, out srcAccess, out dstAccess);
+			}
+
 			// Start command and barrier
 			VkCommandBufferBeginInfo cbbi = new(VkCommandBufferUsageFlags.OneTimeSubmit);
 			_cmd.BeginCommandBuffer(&cbbi);
-			VkBufferMemoryBarrier srcBarrier = new(
-				srcAccessMask: VkAccessFlags.MemoryRead,
-				dstAccessMask: VkAccessFlags.MemoryWrite,
-				srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-				dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-				buffer: dstBuffer,
-				offset: dstOff,
-				size: count
-			);
-			_cmd.CmdPipelineBarrier(
-				VkPipelineStageFlags.BottomOfPipe, // TODO: make this better for non-static resources
-				VkPipelineStageFlags.Transfer,
-				VkDependencyFlags.ByRegion,
-				0, null,
-				1, &srcBarrier,
-				0, null
-			);
+			if (bufferType.HasValue) {
+				VkBufferMemoryBarrier srcBarrier = new(
+						srcAccessMask: srcAccess,
+						dstAccessMask: VkAccessFlags.TransferWrite,
+						srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+						dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+						buffer: dstBuffer,
+						offset: dstOff,
+						size: count
+					);
+				_cmd.CmdPipelineBarrier(
+					srcStage,
+					VkPipelineStageFlags.Transfer,
+					VkDependencyFlags.ByRegion,
+					0, null,
+					1, &srcBarrier,
+					0, null
+				); 
+			}
 
 			// Create copy command
 			VkBufferCopy bc = new(srcOff, dstOff, count);
 			_cmd.CmdCopyBuffer(srcBuffer.Buffer, dstBuffer, 1, &bc);
 
 			// Last barrier and end
-			VkBufferMemoryBarrier dstBarrier = new(
-				srcAccessMask: VkAccessFlags.MemoryWrite,
-				dstAccessMask: VkAccessFlags.MemoryRead,
-				srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-				dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-				buffer: dstBuffer,
-				offset: dstOff,
-				size: count
-			);
-			_cmd.CmdPipelineBarrier(
-				VkPipelineStageFlags.Transfer,
-				VkPipelineStageFlags.TopOfPipe, // TODO: make this better
-				VkDependencyFlags.ByRegion,
-				0, null,
-				1, &dstBarrier,
-				0, null
-			);
+			if (bufferType.HasValue) {
+				VkBufferMemoryBarrier dstBarrier = new(
+						srcAccessMask: VkAccessFlags.TransferWrite,
+						dstAccessMask: dstAccess,
+						srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+						dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+						buffer: dstBuffer,
+						offset: dstOff,
+						size: count
+					);
+				_cmd.CmdPipelineBarrier(
+					VkPipelineStageFlags.Transfer,
+					dstStage,
+					VkDependencyFlags.ByRegion,
+					0, null,
+					1, &dstBarrier,
+					0, null
+				); 
+			}
 			_cmd.EndCommandBuffer().Throw("Failed to record buffer upload commands");
 
 			// Submit and wait
@@ -124,7 +134,7 @@ namespace Vega.Graphics
 		}
 
 		// Sets buffer data using the internal host buffer
-		public void SetBufferData(VkBuffer dstBuffer, ulong dstOff, void* srcData, ulong count)
+		public void SetBufferData(VkBuffer dstBuffer, ulong dstOff, void* srcData, ulong count, ResourceType? bufferType)
 		{
 			ulong remain = count;
 			while (remain > 0) {
@@ -135,12 +145,31 @@ namespace Vega.Graphics
 				System.Buffer.MemoryCopy((byte*)srcData + thisOffset, Buffer.DataPtr, Buffer.DataSize, thisCount);
 
 				// Copy buffer
-				SetBufferData(dstBuffer, thisOffset, Buffer, 0, thisCount);
+				SetBufferData(dstBuffer, thisOffset, Buffer, 0, thisCount, bufferType);
 
 				remain -= thisCount;
 			}
 		}
 		#endregion // Buffers
+
+		private static void GetBarrierStages(ResourceType type, out VkPipelineStageFlags srcStage, 
+			out VkPipelineStageFlags dstStage)
+		{
+			(srcStage, dstStage) = type switch {
+				ResourceType.IndexBuffer => (VkPipelineStageFlags.VertexInput, VkPipelineStageFlags.VertexInput),
+				ResourceType.VertexBuffer => (VkPipelineStageFlags.VertexShader, VkPipelineStageFlags.VertexInput),
+				_ => throw new ArgumentException("LIBRARY BUG - Invalid resource type in transfer buffer")
+			};
+		}
+
+		private static void GetAccessFlags(ResourceType type, out VkAccessFlags srcFlags, out VkAccessFlags dstFlags)
+		{
+			(srcFlags, dstFlags) = type switch { 
+				ResourceType.IndexBuffer => (VkAccessFlags.IndexRead, VkAccessFlags.IndexRead),
+				ResourceType.VertexBuffer => (VkAccessFlags.VertexAttributeRead, VkAccessFlags.VertexAttributeRead),
+				_ => throw new ArgumentException("LIBRARY BUG - Invalid resource type in transfer buffer")
+			};
+		}
 
 		#region IDisposable
 		public void Dispose()
