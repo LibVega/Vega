@@ -79,14 +79,14 @@ namespace Vega.Graphics
 			_cmd.BeginCommandBuffer(&cbbi);
 			if (bufferType.HasValue) {
 				VkBufferMemoryBarrier srcBarrier = new(
-						srcAccessMask: srcAccess,
-						dstAccessMask: VkAccessFlags.TransferWrite,
-						srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-						dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-						buffer: dstBuffer,
-						offset: dstOff,
-						size: count
-					);
+					srcAccessMask: srcAccess,
+					dstAccessMask: VkAccessFlags.TransferWrite,
+					srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+					dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+					buffer: dstBuffer,
+					offset: dstOff,
+					size: count
+				);
 				_cmd.CmdPipelineBarrier(
 					srcStage,
 					VkPipelineStageFlags.Transfer,
@@ -104,14 +104,14 @@ namespace Vega.Graphics
 			// Last barrier and end
 			if (bufferType.HasValue) {
 				VkBufferMemoryBarrier dstBarrier = new(
-						srcAccessMask: VkAccessFlags.TransferWrite,
-						dstAccessMask: dstAccess,
-						srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-						dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-						buffer: dstBuffer,
-						offset: dstOff,
-						size: count
-					);
+					srcAccessMask: VkAccessFlags.TransferWrite,
+					dstAccessMask: dstAccess,
+					srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+					dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+					buffer: dstBuffer,
+					offset: dstOff,
+					size: count
+				);
 				_cmd.CmdPipelineBarrier(
 					VkPipelineStageFlags.Transfer,
 					dstStage,

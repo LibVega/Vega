@@ -39,6 +39,23 @@ namespace Vega.Graphics
 		/// </summary>
 		public Extent2D MaxFramebufferSize =>
 			new(Info.Properties.Limits.MaxFramebufferWidth, Info.Properties.Limits.MaxFramebufferHeight);
+
+		/// <summary>
+		/// Maximum size (width) of a 1D texture.
+		/// </summary>
+		public uint MaxTextureSize1D => Info.Properties.Limits.MaxImageDimension1D;
+		/// <summary>
+		/// Maximum side length of a 2D texture.
+		/// </summary>
+		public uint MaxTextureSize2D => Info.Properties.Limits.MaxImageDimension2D;
+		/// <summary>
+		/// Maximum side length of a 3D texture.
+		/// </summary>
+		public uint MaxTextureSize3D => Info.Properties.Limits.MaxImageDimension3D;
+		/// <summary>
+		/// Maximum number of layers in a texture array.
+		/// </summary>
+		public uint MaxTextureLayers => Info.Properties.Limits.MaxImageArrayLayers;
 		#endregion // Fields
 
 		internal GraphicsLimits(Vulkan.VVK.DeviceInfo info) => Info = info;
