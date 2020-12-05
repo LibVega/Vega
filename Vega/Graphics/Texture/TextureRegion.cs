@@ -50,6 +50,20 @@ namespace Vega.Graphics
 			LayerCount = lc;
 		}
 
+		public override bool Equals(object? obj) => (obj is TextureRegion reg) && (reg == this);
+
+		public override int GetHashCode() =>
+			X.GetHashCode() ^ Y.GetHashCode() ^ Z.GetHashCode() ^ Width.GetHashCode() ^ Height.GetHashCode() ^
+			Depth.GetHashCode() ^ LayerStart.GetHashCode() ^ LayerCount.GetHashCode();
+
 		public ulong GetDataSize(TexelFormat fmt) => Width * Height * Depth * LayerCount * fmt.GetSize();
+
+		public static bool operator == (in TextureRegion l, in TextureRegion r) =>
+			(l.X == r.X) && (l.Y == r.Y) && (l.Z == r.Z) && (l.Width == r.Width) && (l.Height == r.Height) &&
+			(l.LayerStart == r.LayerStart) && (l.LayerCount == r.LayerCount);
+
+		public static bool operator != (in TextureRegion l, in TextureRegion r) =>
+			(l.X != r.X) || (l.Y != r.Y) || (l.Z != r.Z) || (l.Width != r.Width) || (l.Height != r.Height) ||
+			(l.LayerStart != r.LayerStart) || (l.LayerCount != r.LayerCount);
 	}
 }

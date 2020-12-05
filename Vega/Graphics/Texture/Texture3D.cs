@@ -36,7 +36,7 @@ namespace Vega.Graphics
 		/// <param name="depth">The depth of the texture.</param>
 		/// <param name="format">The texel format.</param>
 		public Texture3D(uint width, uint height, uint depth, TexelFormat format)
-			: base(width, height, depth, 1, 1, format, ResourceType.Texture3D)
+			: base(width, height, depth, 1, 1, format, TextureUsage.Static, ResourceType.Texture3D)
 		{
 
 		}

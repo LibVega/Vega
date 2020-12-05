@@ -25,10 +25,20 @@ namespace Vega.Graphics
 			uint Layers,
 			uint Mips
 		) Dimensions;
+		internal readonly TextureRegion FullRegion;
 		/// <summary>
 		/// The format of the texels in the texture.
 		/// </summary>
 		public readonly TexelFormat Format;
+		/// <summary>
+		/// The usage policy for the texture.
+		/// </summary>
+		public readonly TextureUsage Usage;
+
+		/// <summary>
+		/// Gets if the data in the texture has been initialized through at least one call to SetData().
+		/// </summary>
+		public bool Initialized { get; private set; } = false;
 
 		// The specific image type
 		internal readonly VkImageViewType ImageType;
@@ -39,7 +49,8 @@ namespace Vega.Graphics
 		internal readonly VkImageView View;
 		#endregion // Fields
 
-		private protected TextureBase(uint w, uint h, uint d, uint m, uint l, TexelFormat format, ResourceType type)
+		private protected TextureBase(uint w, uint h, uint d, uint m, uint l, TexelFormat format, TextureUsage use,
+				ResourceType type)
 			: base(type)
 		{
 			var gd = Core.Instance!.Graphics;
@@ -55,7 +66,9 @@ namespace Vega.Graphics
 
 			// Set values
 			Dimensions = (w, h, d, m, l);
+			FullRegion = new(0, 0, 0, w, h, d, 0, l);
 			Format = format;
+			Usage = use;
 			ImageType = vType;
 
 			// Create image
@@ -95,6 +108,84 @@ namespace Vega.Graphics
 			VulkanHandle<VkImageView> viewHandle;
 			gd.VkDevice.CreateImageView(&ivci, null, &viewHandle).Throw("Failed to create image view");
 			View = new(viewHandle, gd.VkDevice);
+		}
+
+		#region SetData
+		// Implementation of SetData for general images
+		private protected void SetDataImpl(in TextureRegion region, void* data)
+		{
+			ThrowOnBadRegion(this, region);
+			if (Usage == TextureUsage.Static) {
+				if (Initialized) {
+					throw new InvalidOperationException("Cannot set data on an initialized static texture");
+				}
+			}
+
+			Core.Instance!.Graphics.Resources.TransferManager.SetImageData(
+				Handle, Format, region, data, RUID.Type
+			);
+			Initialized = true;
+		}
+
+		private protected void SetDataImpl(in TextureRegion region, ReadOnlySpan<byte> data)
+		{
+			ThrowOnBadRegion(this, region);
+			if (Usage == TextureUsage.Static) {
+				if (Initialized) {
+					throw new InvalidOperationException("Cannot set data on an initialized static texture");
+				}
+				if (region != FullRegion) {
+					throw new InvalidOperationException("Static texture initialization must fill entire texture");
+				}
+			}
+			if ((ulong)data.Length < region.GetDataSize(Format)) {
+				throw new InvalidOperationException("data span is not large enough for the requested data");
+			}
+
+			fixed (byte* dataptr = data) {
+				Core.Instance!.Graphics.Resources.TransferManager.SetImageData(
+					Handle, Format, region, dataptr, RUID.Type
+				);
+			}
+			Initialized = true;
+		}
+
+		private protected void SetDataImpl(in TextureRegion region, HostBuffer data, ulong dataOffset)
+		{
+			ThrowOnBadRegion(this, region);
+			if (Usage == TextureUsage.Static) {
+				if (Initialized) {
+					throw new InvalidOperationException("Cannot set data on an initialized static texture");
+				}
+				if (region != FullRegion) {
+					throw new InvalidOperationException("Static texture initialization must fill entire texture");
+				}
+			}
+			if ((data.DataSize - dataOffset) < region.GetDataSize(Format)) {
+				throw new InvalidOperationException("host buffer is not large enough for the requested data");
+			}
+
+			Core.Instance!.Graphics.Resources.TransferManager.SetImageData(
+				Handle, Format, region, data, dataOffset, RUID.Type
+			);
+			Initialized = true;
+		}
+		#endregion // SetData
+
+		private static void ThrowOnBadRegion(TextureBase tex, in TextureRegion reg)
+		{
+			if ((reg.X + reg.Width) > tex.Dimensions.Width) {
+				throw new InvalidOperationException("width is outside of texture size range");
+			}
+			if ((reg.Y + reg.Height) > tex.Dimensions.Height) {
+				throw new InvalidOperationException("height is outside of texture size range");
+			}
+			if ((reg.Z + reg.Depth) > tex.Dimensions.Depth) {
+				throw new InvalidOperationException("depth is outside of texture size range");
+			}
+			if ((reg.LayerStart + reg.LayerCount) > tex.Dimensions.Layers) {
+				throw new InvalidOperationException("array layers is outside of texture size range");
+			}
 		}
 
 		protected override void OnDispose(bool disposing)

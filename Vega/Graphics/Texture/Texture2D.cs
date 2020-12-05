@@ -31,7 +31,7 @@ namespace Vega.Graphics
 		/// <param name="height">The height of the texture.</param>
 		/// <param name="format">The texel format.</param>
 		public Texture2D(uint width, uint height, TexelFormat format)
-			: base(width, height, 1, 1, 1, format, ResourceType.Texture2D)
+			: base(width, height, 1, 1, 1, format, TextureUsage.Static, ResourceType.Texture2D)
 		{
 
 		}

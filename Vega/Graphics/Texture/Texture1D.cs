@@ -26,7 +26,7 @@ namespace Vega.Graphics
 		/// <param name="width">The width of the texture.</param>
 		/// <param name="format">The texel format.</param>
 		public Texture1D(uint width, TexelFormat format)
-			: base(width, 1, 1, 1, 1, format, ResourceType.Texture1D)
+			: base(width, 1, 1, 1, 1, format, TextureUsage.Static, ResourceType.Texture1D)
 		{
 
 		}
