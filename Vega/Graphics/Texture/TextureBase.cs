@@ -122,7 +122,7 @@ namespace Vega.Graphics
 			}
 
 			Core.Instance!.Graphics.Resources.TransferManager.SetImageData(
-				Handle, Format, region, data, RUID.Type
+				Handle, Format, region, data, Initialized ? RUID.Type : null
 			);
 			Initialized = true;
 		}
@@ -144,7 +144,7 @@ namespace Vega.Graphics
 
 			fixed (byte* dataptr = data) {
 				Core.Instance!.Graphics.Resources.TransferManager.SetImageData(
-					Handle, Format, region, dataptr, RUID.Type
+					Handle, Format, region, dataptr, Initialized ? RUID.Type : null
 				);
 			}
 			Initialized = true;
@@ -161,12 +161,15 @@ namespace Vega.Graphics
 					throw new InvalidOperationException("Static texture initialization must fill entire texture");
 				}
 			}
+			if (dataOffset >= data.DataSize) {
+				throw new InvalidOperationException("Offset into texture source data is too large");
+			}
 			if ((data.DataSize - dataOffset) < region.GetDataSize(Format)) {
 				throw new InvalidOperationException("host buffer is not large enough for the requested data");
 			}
 
 			Core.Instance!.Graphics.Resources.TransferManager.SetImageData(
-				Handle, Format, region, data, dataOffset, RUID.Type
+				Handle, Format, region, data, dataOffset, Initialized ? RUID.Type : null
 			);
 			Initialized = true;
 		}

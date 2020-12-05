@@ -30,5 +30,45 @@ namespace Vega.Graphics
 		{
 
 		}
+
+		/// <summary>
+		/// Create a new filled texture with the given dimensions and format.
+		/// </summary>
+		/// <param name="width">The width of the texture.</param>
+		/// <param name="format">The texel format.</param>
+		/// <param name="data">The initial texture data. Must be large enough to fill entire texture.</param>
+		public Texture1D(uint width, TexelFormat format, void* data)
+			: base(width, 1, 1, 1, 1, format, TextureUsage.Static, ResourceType.Texture1D)
+		{
+			if (data == null) {
+				throw new ArgumentException("Initial texture data pointer cannot be null", nameof(data));
+			}
+			SetDataImpl(new(0, 0, 0, width, 1, 1, 0, 1), data);
+		}
+
+		/// <summary>
+		/// Create a new filled texture with the given dimensions and format.
+		/// </summary>
+		/// <param name="width">The width of the texture.</param>
+		/// <param name="format">The texel format.</param>
+		/// <param name="data">The initial texture data. Must be large enough to fill entire texture.</param>
+		public Texture1D(uint width, TexelFormat format, ReadOnlySpan<byte> data)
+			: base(width, 1, 1, 1, 1, format, TextureUsage.Static, ResourceType.Texture1D)
+		{
+			SetDataImpl(new(0, 0, 0, width, 1, 1, 0, 1), data);
+		}
+
+		/// <summary>
+		/// Create a new filled texture with the given dimensions and format.
+		/// </summary>
+		/// <param name="width">The width of the texture.</param>
+		/// <param name="format">The texel format.</param>
+		/// <param name="data">The initial texture data. Must be large enough to fill entire texture.</param>
+		/// <param name="dataOff">The offset into the buffered data to upload.</param>
+		public Texture1D(uint width, TexelFormat format, HostBuffer data, ulong dataOff = 0)
+			: base(width, 1, 1, 1, 1, format, TextureUsage.Static, ResourceType.Texture1D)
+		{
+			SetDataImpl(new(0, 0, 0, width, 1, 1, 0, 1), data, dataOff);
+		}
 	}
 }
