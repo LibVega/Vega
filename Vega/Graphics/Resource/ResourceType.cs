@@ -11,8 +11,14 @@ namespace Vega.Graphics
 	// The different graphics resource types.
 	internal enum ResourceType : byte
 	{
-		HostBuffer = 1,
+		Invalid = 0,
+		HostBuffer,
 		IndexBuffer,
-		VertexBuffer
+		VertexBuffer,
+		Texture1D,
+		Texture2D,
+		Texture3D,
+		Texture1DArray,
+		Texture2DArray
 	}
 }

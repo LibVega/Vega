@@ -39,12 +39,11 @@ namespace Vega.Graphics
 		internal readonly VkImageView View;
 		#endregion // Fields
 
-		private protected TextureBase(uint w, uint h, uint d, uint m, uint l, VkImageViewType type, TexelFormat format, 
-				ResourceType rtype)
-			: base(rtype)
+		private protected TextureBase(uint w, uint h, uint d, uint m, uint l, TexelFormat format, ResourceType type)
+			: base(type)
 		{
 			var gd = Core.Instance!.Graphics;
-			GetImageInfo(gd, type, out var imType, out var sizeLim);
+			GetImageInfo(gd, type, out var vType, out var imType, out var sizeLim);
 
 			// Validate
 			if ((w > sizeLim) || (h > sizeLim) || (d > sizeLim)) {
@@ -57,7 +56,7 @@ namespace Vega.Graphics
 			// Set values
 			Dimensions = (w, h, d, m, l);
 			Format = format;
-			ImageType = type;
+			ImageType = vType;
 
 			// Create image
 			VkImageCreateInfo ici = new(
@@ -88,7 +87,7 @@ namespace Vega.Graphics
 			VkImageViewCreateInfo ivci = new(
 				flags: VkImageViewCreateFlags.NoFlags,
 				image: imageHandle,
-				viewType: type,
+				viewType: vType,
 				format: (VkFormat)format,
 				components: new(), // Identity mapping
 				subresourceRange: new(Format.GetAspectFlags(), 0, m, 0, l)
@@ -98,15 +97,32 @@ namespace Vega.Graphics
 			View = new(viewHandle, gd.VkDevice);
 		}
 
-		private static void GetImageInfo(GraphicsDevice gd, VkImageViewType viewType, 
-			out VkImageType imType, out uint sizeLim)
+		protected override void OnDispose(bool disposing)
 		{
-			(imType, sizeLim) = viewType switch {
-				VkImageViewType.E1D => (VkImageType.E1D, gd.Limits.MaxTextureSize1D),
-				VkImageViewType.E2D => (VkImageType.E2D, gd.Limits.MaxTextureSize2D),
-				VkImageViewType.E3D => (VkImageType.E3D, gd.Limits.MaxTextureSize3D),
-				VkImageViewType.E1DArray => (VkImageType.E1D, gd.Limits.MaxTextureSize1D),
-				VkImageViewType.E2DArray => (VkImageType.E2D, gd.Limits.MaxTextureSize2D),
+			if (Core.Instance is not null) {
+				Core.Instance.Graphics.Resources.QueueDestroy(this);
+			}
+			else {
+				Destroy();
+			}
+		}
+
+		protected internal override void Destroy()
+		{
+			View?.DestroyImageView(null);
+			Handle?.DestroyImage(null);
+			Memory?.Free();
+		}
+
+		private static void GetImageInfo(GraphicsDevice gd, ResourceType type,
+			out VkImageViewType viewType, out VkImageType imType, out uint sizeLim)
+		{
+			(viewType, imType, sizeLim) = type switch {
+				ResourceType.Texture1D => (VkImageViewType.E1D, VkImageType.E1D, gd.Limits.MaxTextureSize1D),
+				ResourceType.Texture2D => (VkImageViewType.E2D, VkImageType.E2D, gd.Limits.MaxTextureSize2D),
+				ResourceType.Texture3D => (VkImageViewType.E3D, VkImageType.E3D, gd.Limits.MaxTextureSize3D),
+				ResourceType.Texture1DArray => (VkImageViewType.E1DArray, VkImageType.E1D, gd.Limits.MaxTextureSize1D),
+				ResourceType.Texture2DArray => (VkImageViewType.E2DArray, VkImageType.E2D, gd.Limits.MaxTextureSize2D),
 				_ => throw new Exception("LIBRARY BUG - Invalid image type for TextureBase")
 			};
 		}
