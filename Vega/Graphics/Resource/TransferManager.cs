@@ -20,7 +20,8 @@ namespace Vega.Graphics
 		// Graphics device
 		public readonly GraphicsDevice Graphics;
 
-		// The host buffer used for transfers
+		// The default host buffer used for transfers under a certain size, otherwise a temp buffer is allocated and
+		//    used instead of this
 		public readonly HostBuffer Buffer;
 
 		// The command objects used for upload
@@ -133,42 +134,175 @@ namespace Vega.Graphics
 			Graphics.VkDevice.ResetFences(1, &waitHandle);
 		}
 
-		// Sets buffer data using the internal host buffer
+		// Sets buffer data from raw data
 		public void SetBufferData(VkBuffer dstBuffer, ulong dstOff, void* srcData, ulong count, ResourceType? bufferType)
 		{
-			ulong remain = count;
-			while (remain > 0) {
-				ulong thisCount = Math.Min(remain, Buffer.DataSize);
-				ulong thisOffset = count - remain;
+			// Select which host buffer to use
+			bool useTmp = count > (ulong)HOST_SIZE.B;
+			var srcBuffer = useTmp ? new HostBuffer(count) : Buffer;
 
-				// Copy data into host buffer
-				System.Buffer.MemoryCopy((byte*)srcData + thisOffset, Buffer.DataPtr, Buffer.DataSize, thisCount);
-
-				// Copy buffer
-				SetBufferData(dstBuffer, thisOffset, Buffer, 0, thisCount, bufferType);
-
-				remain -= thisCount;
+			// Copy and transfer
+			System.Buffer.MemoryCopy(srcData, srcBuffer.DataPtr, srcBuffer.DataSize, count);
+			if (useTmp) {
+				// Need Dispose safety to not leak the tmp buffer
+				using (srcBuffer) {
+					SetBufferData(dstBuffer, dstOff, srcBuffer, 0, count, bufferType);
+				}
+			}
+			else {
+				SetBufferData(dstBuffer, dstOff, srcBuffer, 0, count, bufferType);
 			}
 		}
 		#endregion // Buffers
 
-		private static void GetBarrierStages(ResourceType type, out VkPipelineStageFlags srcStage, 
-			out VkPipelineStageFlags dstStage)
+		#region Images
+		// Sets the texture data by copying from a prepared host buffer
+		// Pass null as imageType to signal a first-time copy that does not need pipeline barriers
+		public void SetImageData(VkImage dstImage, TexelFormat fmt, in TextureRegion region, HostBuffer srcBuffer, 
+			ulong srcOff, ResourceType? imageType)
+		{
+			VkPipelineStageFlags srcStage = 0, dstStage = 0;
+			VkAccessFlags srcAccess = 0, dstAccess = 0;
+			if (imageType.HasValue) {
+				GetBarrierStages(imageType!.Value, out srcStage, out dstStage);
+				GetAccessFlags(imageType!.Value, out srcAccess, out dstAccess);
+			}
+			GetLayouts(imageType, out var srcLayout, out var dstLayout);
+
+			// Start command and barrier
+			VkCommandBufferBeginInfo cbbi = new(VkCommandBufferUsageFlags.OneTimeSubmit);
+			_cmd.BeginCommandBuffer(&cbbi);
+			VkImageMemoryBarrier srcBarrier = new(
+				srcAccessMask: srcAccess,
+				dstAccessMask: VkAccessFlags.TransferWrite,
+				oldLayout: srcLayout,
+				newLayout: VkImageLayout.TransferDstOptimal,
+				srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+				dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+				image: dstImage,
+				subresourceRange: new(fmt.GetAspectFlags(), 0, 1, region.LayerStart, region.LayerCount)
+			);
+			_cmd.CmdPipelineBarrier(
+				srcStage,
+				VkPipelineStageFlags.Transfer,
+				VkDependencyFlags.ByRegion,
+				0, null,
+				0, null,
+				1, &srcBarrier
+			);
+
+			// Copy
+			VkBufferImageCopy bic = new(
+				srcOff, 0, 0,
+				new(fmt.GetAspectFlags(), 0, region.LayerStart, region.LayerCount),
+				region.Offset,
+				region.Extent
+			);
+			_cmd.CmdCopyBufferToImage(srcBuffer.Buffer, dstImage, VkImageLayout.TransferDstOptimal, 1, &bic);
+
+			// Transfer back and end
+			VkImageMemoryBarrier dstBarrier = new(
+				srcAccessMask: VkAccessFlags.TransferWrite,
+				dstAccessMask: dstAccess,
+				oldLayout: VkImageLayout.TransferDstOptimal,
+				newLayout: dstLayout,
+				srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+				dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+				image: dstImage,
+				subresourceRange: new(fmt.GetAspectFlags(), 0, 1, region.LayerStart, region.LayerCount)
+			);
+			_cmd.CmdPipelineBarrier(
+				VkPipelineStageFlags.Transfer,
+				dstStage,
+				VkDependencyFlags.ByRegion,
+				0, null,
+				0, null,
+				1, &dstBarrier
+			);
+			_cmd.EndCommandBuffer().Throw("Failed to record image upload commands");
+
+			// Submit and wait
+			Graphics.GraphicsQueue.SubmitRaw(_cmd, _fence);
+			var waitHandle = _fence.Handle;
+			Graphics.VkDevice.WaitForFences(1, &waitHandle, VkBool32.True, UInt64.MaxValue);
+
+			// Reset pool
+			_pool.ResetCommandPool(VkCommandPoolResetFlags.ReleaseResources);
+			Graphics.VkDevice.ResetFences(1, &waitHandle);
+		}
+
+		// Sets image data from raw data
+		public void SetImageData(VkImage dstImage, TexelFormat fmt, in TextureRegion region, void* srcData, 
+			ResourceType? imageType)
+		{
+			// Select which host buffer to use
+			ulong count = region.GetDataSize(fmt);
+			bool useTmp = count > (ulong)HOST_SIZE.B;
+			var srcBuffer = useTmp ? new HostBuffer(count) : Buffer;
+
+			// Copy and transfer
+			System.Buffer.MemoryCopy(srcData, srcBuffer.DataPtr, srcBuffer.DataSize, count);
+			if (useTmp) {
+				// Need Dispose safety to not leak the tmp buffer
+				using (srcBuffer) {
+					SetImageData(dstImage, fmt, region, srcBuffer, 0, imageType);
+				}
+			}
+			else {
+				SetImageData(dstImage, fmt, region, srcBuffer, 0, imageType);
+			}
+		}
+		#endregion // Images
+
+		private static void GetBarrierStages(ResourceType type, 
+			out VkPipelineStageFlags srcStage, out VkPipelineStageFlags dstStage)
 		{
 			(srcStage, dstStage) = type switch {
 				ResourceType.IndexBuffer => (VkPipelineStageFlags.VertexInput, VkPipelineStageFlags.VertexInput),
 				ResourceType.VertexBuffer => (VkPipelineStageFlags.VertexShader, VkPipelineStageFlags.VertexInput),
+				// Until we (maybe) enforce that sampled textures must be in fragment shaders only, assume the worst
+				ResourceType.Texture1D => (VkPipelineStageFlags.FragmentShader, VkPipelineStageFlags.VertexShader),
+				ResourceType.Texture2D => (VkPipelineStageFlags.FragmentShader, VkPipelineStageFlags.VertexShader),
+				ResourceType.Texture3D => (VkPipelineStageFlags.FragmentShader, VkPipelineStageFlags.VertexShader),
+				ResourceType.Texture1DArray => (VkPipelineStageFlags.FragmentShader, VkPipelineStageFlags.VertexShader),
+				ResourceType.Texture2DArray => (VkPipelineStageFlags.FragmentShader, VkPipelineStageFlags.VertexShader),
 				_ => throw new ArgumentException("LIBRARY BUG - Invalid resource type in transfer buffer")
 			};
 		}
 
-		private static void GetAccessFlags(ResourceType type, out VkAccessFlags srcFlags, out VkAccessFlags dstFlags)
+		private static void GetAccessFlags(ResourceType type, 
+			out VkAccessFlags srcFlags, out VkAccessFlags dstFlags)
 		{
 			(srcFlags, dstFlags) = type switch { 
 				ResourceType.IndexBuffer => (VkAccessFlags.IndexRead, VkAccessFlags.IndexRead),
 				ResourceType.VertexBuffer => (VkAccessFlags.VertexAttributeRead, VkAccessFlags.VertexAttributeRead),
-				_ => throw new ArgumentException("LIBRARY BUG - Invalid resource type in transfer buffer")
+				ResourceType.Texture1D => (VkAccessFlags.ShaderRead, VkAccessFlags.ShaderRead),
+				ResourceType.Texture2D => (VkAccessFlags.ShaderRead, VkAccessFlags.ShaderRead),
+				ResourceType.Texture3D => (VkAccessFlags.ShaderRead, VkAccessFlags.ShaderRead),
+				ResourceType.Texture1DArray => (VkAccessFlags.ShaderRead, VkAccessFlags.ShaderRead),
+				ResourceType.Texture2DArray => (VkAccessFlags.ShaderRead, VkAccessFlags.ShaderRead),
+				_ => throw new Exception("LIBRARY BUG - Invalid resource type in transfer buffer")
 			};
+		}
+
+		private static void GetLayouts(ResourceType? type,
+			out VkImageLayout srcLayout, out VkImageLayout dstLayout)
+		{
+			if (type.HasValue) {
+				(srcLayout, dstLayout) = type.Value switch {
+					ResourceType.Texture1D => (VkImageLayout.ShaderReadOnlyOptimal, VkImageLayout.ShaderReadOnlyOptimal),
+					ResourceType.Texture2D => (VkImageLayout.ShaderReadOnlyOptimal, VkImageLayout.ShaderReadOnlyOptimal),
+					ResourceType.Texture3D => (VkImageLayout.ShaderReadOnlyOptimal, VkImageLayout.ShaderReadOnlyOptimal),
+					ResourceType.Texture1DArray => (VkImageLayout.ShaderReadOnlyOptimal, VkImageLayout.ShaderReadOnlyOptimal),
+					ResourceType.Texture2DArray => (VkImageLayout.ShaderReadOnlyOptimal, VkImageLayout.ShaderReadOnlyOptimal),
+					_ => throw new Exception("LIBRARY BUG - Invalid resource type in image layout")
+				};
+			}
+			else {
+				// Will not work for storage images if implemented
+				srcLayout = VkImageLayout.Undefined;
+				dstLayout = VkImageLayout.ShaderReadOnlyOptimal;
+			}
 		}
 
 		#region IDisposable
