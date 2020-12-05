@@ -5,51 +5,46 @@
  */
 
 using System;
-using System.Runtime.InteropServices;
-using System.Security;
+using Vega.Util;
 
 namespace Vega.Content
 {
 	// Functions for the ContentLoader library
-	internal static partial class NativeContent
+	internal unsafe static partial class NativeContent
 	{
-		#region Functions
-		// AUDIO
-		private static readonly Delegates.vegaAudioOpenFile _VegaAudioOpenFile;
-		private static readonly Delegates.vegaAudioCloseFile _VegaAudioCloseFile;
-		private static readonly Delegates.vegaAudioGetType _VegaAudioGetType;
-		private static readonly Delegates.vegaAudioGetError _VegaAudioGetError;
-		private static readonly Delegates.vegaAudioGetFrameCount _VegaAudioGetFrameCount;
-		private static readonly Delegates.vegaAudioGetSampleRate _VegaAudioGetSampleRate;
-		private static readonly Delegates.vegaAudioGetChannelCount _VegaAudioGetChannelCount;
-		private static readonly Delegates.vegaAudioGetInfo _VegaAudioGetInfo;
-		private static readonly Delegates.vegaAudioGetRemainingFrames _VegaAudioGetRemainingFrames;
-		private static readonly Delegates.vegaAudioReadFrames _VegaAudioReadFrames;
-		#endregion // Functions
+		// Library handle
+		public static readonly NativeLibraryHandle Lib;
 
-		public static class Delegates
+		// AUDIO
+		private static readonly delegate* unmanaged<byte*, AudioError*, void*> _AudioOpenFile;
+		private static readonly delegate* unmanaged<void*, void> _AudioCloseFile;
+		private static readonly delegate* unmanaged<void*, AudioType> _AudioGetType;
+		private static readonly delegate* unmanaged<void*, AudioError> _AudioGetError;
+		private static readonly delegate* unmanaged<void*, ulong> _AudioGetFrameCount;
+		private static readonly delegate* unmanaged<void*, uint> _AudioGetSampleRate;
+		private static readonly delegate* unmanaged<void*, uint> _AudioGetChannelCount;
+		private static readonly delegate* unmanaged<void*, ulong*, uint*, uint*, void> _AudioGetInfo;
+		private static readonly delegate* unmanaged<void*, ulong> _AudioGetRemainingFrames;
+		private static readonly delegate* unmanaged<void*, ulong, void*, ulong> _AudioReadFrames;
+
+		// Loads the native library and functions
+		static NativeContent()
 		{
-			// AUDIO
-			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
-			public delegate IntPtr vegaAudioOpenFile(IntPtr path, out AudioError error);
-			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
-			public delegate void vegaAudioCloseFile(IntPtr handle);
-			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
-			public delegate AudioType vegaAudioGetType(IntPtr handle);
-			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
-			public delegate AudioError vegaAudioGetError(IntPtr handle);
-			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
-			public delegate ulong vegaAudioGetFrameCount(IntPtr handle);
-			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
-			public delegate uint vegaAudioGetSampleRate(IntPtr handle);
-			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
-			public delegate uint vegaAudioGetChannelCount(IntPtr handle);
-			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
-			public delegate void vegaAudioGetInfo(IntPtr handle, out ulong frames, out uint rate, out uint channels);
-			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
-			public delegate ulong vegaAudioGetRemainingFrames(IntPtr handle);
-			[UnmanagedFunctionPointer(CallingConvention.Cdecl), SuppressUnmanagedCodeSecurity]
-			public delegate ulong vegaAudioReadFrames(IntPtr handle, ulong frameCount, IntPtr buffer);
+			// Load library
+			Lib = NativeLibraryHandle.FromEmbedded(typeof(NativeContent).Assembly, "Vega.Lib.content", "content");
+			var _ = Lib.Handle; // Force load handle
+
+			// Load audio functions
+			_AudioOpenFile = (delegate* unmanaged<byte*, AudioError*, void*>)Lib.LoadExport("vegaAudioOpenFile");
+			_AudioCloseFile = (delegate* unmanaged<void*, void>)Lib.LoadExport("vegaAudioCloseFile");
+			_AudioGetType = (delegate* unmanaged<void*, AudioType>)Lib.LoadExport("vegaAudioGetType");
+			_AudioGetError = (delegate* unmanaged<void*, AudioError>)Lib.LoadExport("vegaAudioGetError");
+			_AudioGetFrameCount = (delegate* unmanaged<void*, ulong>)Lib.LoadExport("vegaAudioGetFrameCount");
+			_AudioGetSampleRate = (delegate* unmanaged<void*, uint>)Lib.LoadExport("vegaAudioGetSampleRate");
+			_AudioGetChannelCount = (delegate* unmanaged<void*, uint>)Lib.LoadExport("vegaAudioGetChannelCount");
+			_AudioGetInfo = (delegate* unmanaged<void*, ulong*, uint*, uint*, void>)Lib.LoadExport("vegaAudioGetInfo");
+			_AudioGetRemainingFrames = (delegate* unmanaged<void*, ulong>)Lib.LoadExport("vegaAudioGetRemainingFrames");
+			_AudioReadFrames = (delegate* unmanaged<void*, ulong, void*, ulong>)Lib.LoadExport("vegaAudioReadFrames");
 		}
 	}
 }

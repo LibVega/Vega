@@ -42,7 +42,8 @@ namespace Vega.Audio
 			Path = path;
 
 			// Try to load the file
-			_handle = NativeContent.AudioOpenFile(path, out var error);
+			AudioError error;
+			(_handle, error) = NativeContent.AudioOpenFile(path);
 			if (_handle == IntPtr.Zero || error != AudioError.NoError) {
 				throw new ContentLoadException(path, $"audio file loading failed with {error}");
 			}

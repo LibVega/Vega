@@ -15,7 +15,7 @@ namespace Vega.Util
 	/// <summary>
 	/// Manages an handle to a native library loaded by the system.
 	/// </summary>
-	public sealed class NativeLibraryHandle : IDisposable
+	public unsafe sealed class NativeLibraryHandle : IDisposable
 	{
 		/// <summary>
 		/// The folder path that embedded libraries are extracted to.
@@ -114,6 +114,37 @@ namespace Vega.Util
 			using var writer = File.Open(path, FileMode.Create, FileAccess.Write, FileShare.None);
 			reader.CopyTo(writer, 32_768);
 		}
+
+		#region Raw Load
+		/// <summary>
+		/// Attempts to load the named library export as a raw pointer.
+		/// </summary>
+		/// <param name="name">The name of the export to load.</param>
+		/// <returns>The raw export pointer.</returns>
+		public void* LoadExport(string name)
+		{
+			if (NativeLibrary.TryGetExport(Handle, name, out var addr)) {
+				return addr.ToPointer();
+			}
+			throw new ArgumentException($"Native library export '{name}' was not found", nameof(name));
+		}
+
+		/// <summary>
+		/// Attempts to load the named library export as a raw pointer, returning if the load was successful.
+		/// </summary>
+		/// <param name="name">The name of the export to load.</param>
+		/// <param name="addr">The exported symbol address.</param>
+		/// <returns>If the symbol could be loaded.</returns>
+		public bool TryLoadExport(string name, out void* addr)
+		{
+			if (NativeLibrary.TryGetExport(Handle, name, out var addrval)) {
+				addr = addrval.ToPointer();
+				return true;
+			}
+			addr = null;
+			return false;
+		}
+		#endregion // Raw Load
 
 		#region Function Load
 		/// <summary>
