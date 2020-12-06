@@ -28,4 +28,36 @@ namespace Vega.Content
 		Vorbis = 2,             // OGG/Vorbis file
 		Flac = 3,               // Flac file
 	}
+
+	// Maps to the ImageError enum in the ContentLoader library
+	internal enum ImageError : uint
+	{
+		NoError = 0,            // Special no error state
+		FileNotFound = 1,       // The file to open does not exist
+		UnknownType = 2,        // The file is not a known image type
+		InvalidFile = 3,        // The file failed to open (most likely an invalid header)
+		InvalidChannels = 4,    // The file has an unsupported channel count
+		BadDataRead = 5,        // Reading samples failed (most likely corrupt image data)
+		BadStateRead = 6,       // Attempting to read from a file object that is already errored
+	}
+
+	// Maps to the ImageType enum in the ContentLoader library
+	internal enum ImageType : uint
+	{
+		Unknown = 0,			// Special unknown type signifying an error or uninitialized data
+		Jpeg = 1,				// JPEG file
+		Png = 2,				// PNG file
+		Tga = 3,				// TGA file
+		Bmp = 4,				// BMP file
+	}
+
+	// Maps to the ImageChannels enum in the ContentLoader library
+	internal enum ImageChannels : uint
+	{
+		Unknown = 0,			// Unknown or unsupported channel data
+		Gray = 1,				// Grayscale color data only
+		GrayAlpha = 2,			// Grayscale color data with alpha
+		RGB = 3,				// RGB color data
+		RGBA = 4				// RBG color data with alpha
+	}
 }

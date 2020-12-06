@@ -27,6 +27,16 @@ namespace Vega.Content
 		private static readonly delegate* unmanaged<void*, ulong> _AudioGetRemainingFrames;
 		private static readonly delegate* unmanaged<void*, ulong, void*, ulong> _AudioReadFrames;
 
+		// IMAGE
+		private static readonly delegate* unmanaged<byte*, ImageError*, void*> _ImageOpenFile;
+		private static readonly delegate* unmanaged<void*, void> _ImageCloseFile;
+		private static readonly delegate* unmanaged<void*, ImageType> _ImageGetType;
+		private static readonly delegate* unmanaged<void*, ImageError> _ImageGetError;
+		private static readonly delegate* unmanaged<void*, uint*, uint*, void> _ImageGetSize;
+		private static readonly delegate* unmanaged<void*, ImageChannels*, void> _ImageGetChannels;
+		private static readonly delegate* unmanaged<void*, byte**, ImageChannels*, void> _ImageGetLoadedData;
+		private static readonly delegate* unmanaged<void*, byte**, ImageChannels, uint> _ImageLoadData;
+
 		// Loads the native library and functions
 		static NativeContent()
 		{
@@ -45,6 +55,16 @@ namespace Vega.Content
 			_AudioGetInfo = (delegate* unmanaged<void*, ulong*, uint*, uint*, void>)Lib.LoadExport("vegaAudioGetInfo");
 			_AudioGetRemainingFrames = (delegate* unmanaged<void*, ulong>)Lib.LoadExport("vegaAudioGetRemainingFrames");
 			_AudioReadFrames = (delegate* unmanaged<void*, ulong, void*, ulong>)Lib.LoadExport("vegaAudioReadFrames");
+
+			// Load image functions
+			_ImageOpenFile = (delegate* unmanaged<byte*, ImageError*, void*>)Lib.LoadExport("vegaImageOpenFile");
+			_ImageCloseFile = (delegate* unmanaged<void*, void>)Lib.LoadExport("vegaImageCloseFile");
+			_ImageGetType = (delegate* unmanaged<void*, ImageType>)Lib.LoadExport("vegaImageGetType");
+			_ImageGetError = (delegate* unmanaged<void*, ImageError>)Lib.LoadExport("vegaImageGetError");
+			_ImageGetSize = (delegate* unmanaged<void*, uint*, uint*, void>)Lib.LoadExport("vegaImageGetSize");
+			_ImageGetChannels = (delegate* unmanaged<void*, ImageChannels*, void>)Lib.LoadExport("vegaImageGetChannels");
+			_ImageGetLoadedData = (delegate* unmanaged<void*, byte**, ImageChannels*, void>)Lib.LoadExport("vegaImageGetLoadedData");
+			_ImageLoadData = (delegate* unmanaged<void*, byte**, ImageChannels, uint>)Lib.LoadExport("vegaImageLoadData");
 		}
 	}
 }

@@ -13,7 +13,7 @@ namespace Vega.Content
 	internal unsafe static partial class NativeContent
 	{
 		#region Audio API
-		public unsafe static (IntPtr Handle, AudioError Error) AudioOpenFile(string path)
+		public static (IntPtr Handle, AudioError Error) AudioOpenFile(string path)
 		{
 			var sdata = Encoding.ASCII.GetBytes(path);
 			fixed (byte* sptr = sdata) {
@@ -46,12 +46,59 @@ namespace Vega.Content
 
 		public static ulong AudioGetRemainingFrames(IntPtr handle) => _AudioGetRemainingFrames(handle.ToPointer());
 
-		public unsafe static ulong AudioReadFrames(IntPtr handle, ulong frameCount, ReadOnlySpan<short> buffer)
+		public static ulong AudioReadFrames(IntPtr handle, ulong frameCount, ReadOnlySpan<short> buffer)
 		{
 			fixed (short* bptr = buffer) {
 				return _AudioReadFrames(handle.ToPointer(), frameCount, bptr);
 			}
 		}
 		#endregion // Audio API
+
+		#region Image API
+		public static (IntPtr Handle, ImageError Error) ImageOpenFile(string path)
+		{
+			var sdata = Encoding.ASCII.GetBytes(path);
+			fixed (byte* sptr = sdata) {
+				ImageError err;
+				return (new(_ImageOpenFile(sptr, &err)), err);
+			}
+		}
+
+		public static void ImageCloseFile(IntPtr handle) => _ImageCloseFile(handle.ToPointer());
+
+		public static ImageType ImageGetType(IntPtr handle) => _ImageGetType(handle.ToPointer());
+
+		public static ImageError ImageGetError(IntPtr handle) => _ImageGetError(handle.ToPointer());
+
+		public static (uint W, uint H) ImageGetSize(IntPtr handle)
+		{
+			uint w, h;
+			_ImageGetSize(handle.ToPointer(), &w, &h);
+			return (w, h);
+		}
+
+		public static ImageChannels ImageGetChannels(IntPtr handle)
+		{
+			ImageChannels c;
+			_ImageGetChannels(handle.ToPointer(), &c);
+			return c;
+		}
+
+		public static void* ImageGetLoadedData(IntPtr handle, out ImageChannels channels)
+		{
+			byte* data;
+			ImageChannels c;
+			_ImageGetLoadedData(handle.ToPointer(), &data, &c);
+			channels = c;
+			return data;
+		}
+
+		public static void* ImageLoadData(IntPtr handle, ImageChannels channels)
+		{
+			byte* data;
+			_ImageLoadData(handle.ToPointer(), &data, channels);
+			return data;
+		}
+		#endregion // Image API
 	}
 }
