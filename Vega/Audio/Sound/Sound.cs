@@ -112,8 +112,8 @@ namespace Vega.Audio
 		/// Supported audio file types are WAVE (.wav), OGG/Vorbis (.ogg), and Flac (.flac).
 		/// </summary>
 		/// <param name="path">The path to the audio file.</param>
-		/// <returns></returns>
-		public static Sound LoadFromFile(string path)
+		/// <returns>The loaded audio data as a Sound.</returns>
+		public static Sound LoadFile(string path)
 		{
 			using (var file = new AudioFile(path)) {
 				// Load file data

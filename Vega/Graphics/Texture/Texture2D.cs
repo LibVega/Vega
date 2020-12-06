@@ -5,6 +5,8 @@
  */
 
 using System;
+using System.Runtime.InteropServices;
+using Vega.Content;
 
 namespace Vega.Graphics
 {
@@ -78,5 +80,24 @@ namespace Vega.Graphics
 		{
 			SetDataImpl(new(0, 0, 0, width, height, 1, 0, 1), data, dataOff);
 		}
+
+		#region Content Load
+		/// <summary>
+		/// Attempts to open and load the image file at the given path. Supported image types are JPEG (.jpg/.jpeg),
+		/// PNG (.png), TGA (.tga), and BMP (.bmp).
+		/// </summary>
+		/// <param name="path">The path to the image file to load.</param>
+		/// <returns>The loaded image data as a Texture2D.</returns>
+		public static Texture2D LoadFile(string path)
+		{
+			using (var file = new ImageFile(path)) {
+				// Load data
+				var data = file.LoadDataRGBA();
+
+				// Create image
+				return new Texture2D(file.Width, file.Height, TexelFormat.Color, MemoryMarshal.AsBytes(data));
+			}
+		}
+		#endregion // Content Load
 	}
 }
