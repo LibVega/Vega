@@ -6,9 +6,8 @@
 
 using System;
 using System.IO;
-using Vega.Content;
 
-namespace Vega.Audio
+namespace Vega.Content
 {
 	// Represents a handle to a AudioFile object in the native content loader
 	internal sealed class AudioFile : IDisposable

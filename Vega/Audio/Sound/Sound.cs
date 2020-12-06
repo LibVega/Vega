@@ -5,6 +5,7 @@
  */
 
 using System;
+using Vega.Content;
 
 namespace Vega.Audio
 {
