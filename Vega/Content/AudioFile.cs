@@ -14,7 +14,7 @@ namespace Vega.Content
 	{
 		#region Fields
 		// The content loader native handle
-		private readonly IntPtr _handle;
+		private IntPtr _handle;
 
 		// Audio file info
 		public readonly string Path;
@@ -94,6 +94,7 @@ namespace Vega.Content
 			if (_handle != IntPtr.Zero) {
 				NativeContent.AudioCloseFile(_handle);
 			}
+			_handle = IntPtr.Zero;
 		}
 		#endregion // IDisposable
 	}
