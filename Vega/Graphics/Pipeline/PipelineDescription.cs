@@ -51,7 +51,10 @@ namespace Vega.Graphics
 		private ColorBlendState[]? _colorBlends = null;
 		private VkPipelineColorBlendAttachmentState[]? _colorBlendsVk = null;
 
-
+		/// <summary>
+		/// Optional constants for color attachment blend operations.
+		/// </summary>
+		public BlendConstants BlendConstants = default;
 
 		/// <summary>
 		/// Gets if the pipeline is fully described by all fields (no required fields are <c>null</c>).
@@ -108,10 +111,10 @@ namespace Vega.Graphics
 					logicOp: VkLogicOp.Clear,
 					attachmentCount: cacnt,
 					attachments: colorBlendPtr,
-					blendConstants_0: 0,
-					blendConstants_1: 0,
-					blendConstants_2: 0,
-					blendConstants_3: 0
+					blendConstants_0: BlendConstants.R,
+					blendConstants_1: BlendConstants.G,
+					blendConstants_2: BlendConstants.B,
+					blendConstants_3: BlendConstants.A
 				);
 
 				// Create info

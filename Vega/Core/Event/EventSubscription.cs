@@ -67,7 +67,7 @@ namespace Vega
 
 		void IEventSubscription.Dispatch(object? sender, TimeSpan time, object? data)
 		{
-			var msgData = (T)data;
+			var msgData = (T?)data;
 			if (Filter?.Accept(sender, time, msgData) ?? true) {
 				Action(sender, time, msgData);
 			}
