@@ -19,6 +19,7 @@ namespace Vega.Graphics
 	/// <item><see cref="VertexInput"/></item>
 	/// <item><see cref="Rasterizer"/></item>
 	/// <item><see cref="VertexDescriptions"/></item>
+	/// <item><see cref="Shader"/></item>
 	/// </list>
 	/// </summary>
 	public sealed class PipelineDescription
@@ -127,11 +128,20 @@ namespace Vega.Graphics
 		private VkPipelineRasterizationStateCreateInfo _rasterizerVk;
 
 		/// <summary>
+		/// The shader program to execute for the pipieline.
+		/// </summary>
+		public Shader? Shader {
+			get => _shader;
+			set => _shader = value; // TODO: Validity check
+		}
+		private Shader? _shader;
+
+		/// <summary>
 		/// Gets if the pipeline is fully described by all fields (no required fields are <c>null</c>).
 		/// </summary>
 		public bool IsValid =>
 			(_colorBlends is not null) && _depthStencil.HasValue && _vertexInput.HasValue && _rasterizer.HasValue &&
-			(VertexDescriptions is not null);
+			(VertexDescriptions is not null) && (_shader is not null);
 		#endregion // Fields
 
 		/// <summary>
@@ -142,12 +152,14 @@ namespace Vega.Graphics
 		/// <param name="vertexInput">The vertex input assembly state.</param>
 		/// <param name="vertexDescs">The vertex layout description.</param>
 		/// <param name="rasterizer">The pipeline rasterization state.</param>
+		/// <param name="shader">The shader program for the pipeline.</param>
 		public PipelineDescription(
 			ColorBlendState[]? colorBlends = null,
 			DepthStencilState? depthStencil = null,
 			VertexInput? vertexInput = null,
 			VertexDescription[]? vertexDescs = null,
-			RasterizerState? rasterizer = null
+			RasterizerState? rasterizer = null,
+			Shader? shader = null
 		)
 		{
 			AllColorBlends = colorBlends;
@@ -155,6 +167,7 @@ namespace Vega.Graphics
 			VertexInput = vertexInput;
 			VertexDescriptions = vertexDescs;
 			Rasterizer = rasterizer;
+			Shader = shader;
 		}
 
 		/// <summary>
@@ -165,12 +178,14 @@ namespace Vega.Graphics
 		/// <param name="vertexInput">The vertex input assembly state.</param>
 		/// <param name="vertexDescs">The vertex layout description.</param>
 		/// <param name="rasterizer">The pipeline rasterization state.</param>
+		/// <param name="shader">The shader program for the pipeline.</param>
 		public PipelineDescription(
 			ColorBlendState? colorBlend = null,
 			DepthStencilState? depthStencil = null,
 			VertexInput? vertexInput = null,
 			VertexDescription[]? vertexDescs = null,
-			RasterizerState? rasterizer = null
+			RasterizerState? rasterizer = null,
+			Shader? shader = null
 		)
 		{
 			SharedColorBlend = colorBlend;
@@ -178,12 +193,16 @@ namespace Vega.Graphics
 			VertexInput = vertexInput;
 			VertexDescriptions = vertexDescs;
 			Rasterizer = rasterizer;
+			Shader = shader;
 		}
 
 		// Populate the pipeline create info
 		internal unsafe void CreatePipeline(Renderer renderer, uint subpass, MSAA msaa, out VkPipeline pipeline)
 		{
-			var dynstates = stackalloc VkDynamicState[2] { VkDynamicState.Viewport, VkDynamicState.Scissor };
+			var mainBytes = stackalloc byte[5] { (byte)'m', (byte)'a', (byte)'i', (byte)'n', (byte)0 };
+			var dynstates = stackalloc VkDynamicState[2] { 
+				VkDynamicState.Viewport, VkDynamicState.Scissor
+			};
 
 			// Validate
 			var rlayout = (msaa != MSAA.X1) ? renderer.MSAALayout! : renderer.Layout;
@@ -223,8 +242,18 @@ namespace Vega.Graphics
 				dynamicStates: dynstates
 			);
 
+			// Shader create info
+			var stageCIs = _shader!.EnumerateModules().Select(mod => new VkPipelineShaderStageCreateInfo(
+				flags: VkPipelineShaderStageCreateFlags.NoFlags,
+				stage: (VkShaderStageFlags)mod.Stage,
+				module: mod.Module,
+				name: mainBytes,
+				specializationInfo: null // TODO: Public API for specialization
+			)).ToArray();
+
 			// Create the pipeline
 			fixed (VkPipelineColorBlendAttachmentState* colorBlendPtr = cblends)
+			fixed (VkPipelineShaderStageCreateInfo* stagePtr = stageCIs)
 			fixed (VkVertexInputAttributeDescription* attributePtr = _vertexAttributesVk)
 			fixed (VkVertexInputBindingDescription* bindingPtr = _vertexBindingsVk)
 			fixed (VkPipelineDepthStencilStateCreateInfo* depthStencilPtr = &_depthStencilVk) 
@@ -253,8 +282,8 @@ namespace Vega.Graphics
 				// Create info
 				VkGraphicsPipelineCreateInfo ci = new(
 					flags: VkPipelineCreateFlags.NoFlags, // TODO: see if we can utilize some of the flags
-					stageCount: 0, // TODO
-					stages: null, // TODO
+					stageCount: (uint)stageCIs.Length,
+					stages: stagePtr,
 					vertexInputState: &vertexCI,
 					inputAssemblyState: inputAssemblyPtr,
 					tessellationState: null, // TODO

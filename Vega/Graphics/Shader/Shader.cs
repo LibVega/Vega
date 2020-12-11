@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Vega.Content;
 using Vulkan;
@@ -32,6 +33,11 @@ namespace Vega.Graphics
 		internal readonly VkShaderModule? TessEvalModule;
 		internal readonly VkShaderModule? GeometryModule;
 		internal readonly VkShaderModule FragmentModule;
+		// Number of shader stages
+		internal uint StageCount => 2u +
+			((TessControlModule is not null) ? 1u : 0u) +
+			((TessEvalModule is not null) ? 1u : 0u) +
+			((GeometryModule is not null) ? 1u : 0u);
 		#endregion // Fields
 
 		#region File Ctor
@@ -190,6 +196,21 @@ namespace Vega.Graphics
 				((gCode.Length != 0) ? ShaderStages.Geometry : ShaderStages.None);
 		}
 		#endregion // Code Ctor
+
+		internal IEnumerable<(ShaderStages Stage, VkShaderModule Module)> EnumerateModules()
+		{
+			yield return (ShaderStages.Vertex, VertexModule);
+			if (TessControlModule is not null) {
+				yield return (ShaderStages.TessControl, TessControlModule);
+			}
+			if (TessEvalModule is not null) {
+				yield return (ShaderStages.TessEval, TessEvalModule);
+			}
+			if (GeometryModule is not null) {
+				yield return (ShaderStages.Geometry, GeometryModule);
+			}
+			yield return (ShaderStages.Fragment, FragmentModule);
+		}
 
 		#region IDisposable
 		protected override void OnDispose(bool disposing)
