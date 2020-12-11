@@ -15,11 +15,13 @@ namespace Vega.Graphics
 	/// </summary>
 	public unsafe struct GraphicsFeatures
 	{
-		private const int FEATURE_COUNT = 3;
+		private const int FEATURE_COUNT = 5;
 		private static readonly GraphicsFeature[] FEATURES = new GraphicsFeature[FEATURE_COUNT] { 
 			new("FillModeNonSolid", "FillModeNonSolid", null), // Line and Point fill modes
 			new("WideLines", "WideLines", null), // Raster line widths other than one
 			new("DepthClamp", "DepthClamp", null), // Depth clamp operations
+			new("TessellationShader", "TessellationShader", null), // Tessellation shaders
+			new("GeometryShader", "GeometryShader", null), // Geometry shaders
 		};
 
 		#region Fields
@@ -49,6 +51,22 @@ namespace Vega.Graphics
 		{
 			readonly get => _features[2];
 			set => _features[2] = value;
+		}
+		/// <summary>
+		/// If tessellation shader stages can be used in pipelines.
+		/// </summary>
+		public bool TessellationShaders
+		{
+			readonly get => _features[3];
+			set => _features[3] = value;
+		}
+		/// <summary>
+		/// If geometry shaders can be used in pipelines.
+		/// </summary>
+		public bool GeometryShaders
+		{
+			readonly get => _features[4];
+			set => _features[4] = value;
 		}
 		#endregion // Fields
 

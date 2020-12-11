@@ -82,6 +82,8 @@ namespace Vega.Graphics
 		public Shader(string vPath, string? tcPath, string? tePath, string? gPath, string fPath)
 			: base(ResourceType.Shader)
 		{
+			var gd = Core.Instance!.Graphics;
+
 			// Validate
 			if (tcPath?.Length == 0) {
 				tcPath = null;
@@ -100,6 +102,12 @@ namespace Vega.Graphics
 			}
 			if (fPath.Length == 0) {
 				throw new ArgumentException("Cannot use empty path for fragment shader file", nameof(fPath));
+			}
+			if ((tcPath is not null) && !gd.Features.TessellationShaders) {
+				throw new InvalidOperationException("Cannot use tessellation shaders if they are not enabled");
+			}
+			if ((gPath is not null) && !gd.Features.GeometryShaders) {
+				throw new InvalidOperationException("Cannot use geometry shaders if they are not enabled");
 			}
 
 			// Load bytecodes
@@ -171,6 +179,8 @@ namespace Vega.Graphics
 			ReadOnlySpan<uint> gCode, ReadOnlySpan<uint> fCode)
 			: base(ResourceType.Shader)
 		{
+			var gd = Core.Instance!.Graphics;
+
 			// Validate
 			if (vCode.Length == 0) {
 				throw new ArgumentException("Cannot use empty bytecode for vertex shader", nameof(vCode));
@@ -180,6 +190,12 @@ namespace Vega.Graphics
 			}
 			if (fCode.Length == 0) {
 				throw new ArgumentException("Cannot use empty bytecode for fragment shader", nameof(fCode));
+			}
+			if ((tcCode.Length != 0) && !gd.Features.TessellationShaders) {
+				throw new InvalidOperationException("Cannot use tessellation shaders if they are not enabled");
+			}
+			if ((gCode.Length != 0) && !gd.Features.GeometryShaders) {
+				throw new InvalidOperationException("Cannot use geometry shaders if they are not enabled");
 			}
 
 			// Create modules
