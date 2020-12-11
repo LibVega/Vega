@@ -18,6 +18,7 @@ namespace Vega.Graphics
 	/// <item><see cref="DepthStencil"/></item>
 	/// <item><see cref="VertexInput"/></item>
 	/// <item><see cref="Rasterizer"/></item>
+	/// <item><see cref="VertexDescriptions"/></item>
 	/// </list>
 	/// </summary>
 	public sealed class PipelineDescription
@@ -90,6 +91,29 @@ namespace Vega.Graphics
 		private VkPipelineInputAssemblyStateCreateInfo _vertexInputVk;
 
 		/// <summary>
+		/// The description of the vertex layout for the pipeline.
+		/// </summary>
+		public VertexDescription[]? VertexDescriptions {
+			get => _vertexDescriptions;
+			set {
+				_vertexDescriptions = value;
+				if (value?.Length == 0) {
+					throw new InvalidOperationException("Cannot use an array of length zero for vertex descriptions");
+				}
+				if (value is not null) {
+					CalculateVertexInfo(value, out _vertexAttributesVk, out _vertexBindingsVk);
+				}
+				else {
+					_vertexAttributesVk = null;
+					_vertexBindingsVk = null;
+				}
+			}
+		}
+		private VertexDescription[]? _vertexDescriptions;
+		private VkVertexInputAttributeDescription[]? _vertexAttributesVk;
+		private VkVertexInputBindingDescription[]? _vertexBindingsVk;
+
+		/// <summary>
 		/// The rasterizer engine state to use in the pipeline.
 		/// </summary>
 		public RasterizerState? Rasterizer {
@@ -106,7 +130,8 @@ namespace Vega.Graphics
 		/// Gets if the pipeline is fully described by all fields (no required fields are <c>null</c>).
 		/// </summary>
 		public bool IsValid =>
-			(_colorBlends is not null) && _depthStencil.HasValue && _vertexInput.HasValue && _rasterizer.HasValue;
+			(_colorBlends is not null) && _depthStencil.HasValue && _vertexInput.HasValue && _rasterizer.HasValue &&
+			(VertexDescriptions is not null);
 		#endregion // Fields
 
 		/// <summary>
@@ -115,17 +140,20 @@ namespace Vega.Graphics
 		/// <param name="colorBlends">The blend states to use for the color attachments.</param>
 		/// <param name="depthStencil">The depth/stencil state.</param>
 		/// <param name="vertexInput">The vertex input assembly state.</param>
+		/// <param name="vertexDescs">The vertex layout description.</param>
 		/// <param name="rasterizer">The pipeline rasterization state.</param>
 		public PipelineDescription(
 			ColorBlendState[]? colorBlends = null,
 			DepthStencilState? depthStencil = null,
 			VertexInput? vertexInput = null,
+			VertexDescription[]? vertexDescs = null,
 			RasterizerState? rasterizer = null
 		)
 		{
 			AllColorBlends = colorBlends;
 			DepthStencil = depthStencil;
 			VertexInput = vertexInput;
+			VertexDescriptions = vertexDescs;
 			Rasterizer = rasterizer;
 		}
 
@@ -135,17 +163,20 @@ namespace Vega.Graphics
 		/// <param name="colorBlend">The blend state to use for all color attachments.</param>
 		/// <param name="depthStencil">The depth/stencil state.</param>
 		/// <param name="vertexInput">The vertex input assembly state.</param>
+		/// <param name="vertexDescs">The vertex layout description.</param>
 		/// <param name="rasterizer">The pipeline rasterization state.</param>
 		public PipelineDescription(
 			ColorBlendState? colorBlend = null,
 			DepthStencilState? depthStencil = null,
 			VertexInput? vertexInput = null,
+			VertexDescription[]? vertexDescs = null,
 			RasterizerState? rasterizer = null
 		)
 		{
 			SharedColorBlend = colorBlend;
 			DepthStencil = depthStencil;
 			VertexInput = vertexInput;
+			VertexDescriptions = vertexDescs;
 			Rasterizer = rasterizer;
 		}
 
@@ -193,7 +224,9 @@ namespace Vega.Graphics
 			);
 
 			// Create the pipeline
-			fixed (VkPipelineColorBlendAttachmentState* colorBlendPtr = cblends) 
+			fixed (VkPipelineColorBlendAttachmentState* colorBlendPtr = cblends)
+			fixed (VkVertexInputAttributeDescription* attributePtr = _vertexAttributesVk)
+			fixed (VkVertexInputBindingDescription* bindingPtr = _vertexBindingsVk)
 			fixed (VkPipelineDepthStencilStateCreateInfo* depthStencilPtr = &_depthStencilVk) 
 			fixed (VkPipelineInputAssemblyStateCreateInfo* inputAssemblyPtr = &_vertexInputVk) 
 			fixed (VkPipelineRasterizationStateCreateInfo* rasterizerPtr = &_rasterizerVk) {
@@ -209,13 +242,20 @@ namespace Vega.Graphics
 					blendConstants_2: BlendConstants.B,
 					blendConstants_3: BlendConstants.A
 				);
+				VkPipelineVertexInputStateCreateInfo vertexCI = new(
+					flags: VkPipelineVertexInputStateCreateFlags.NoFlags,
+					vertexBindingDescriptionCount: (uint)_vertexBindingsVk!.Length,
+					vertexBindingDescriptions: bindingPtr,
+					vertexAttributeDescriptionCount: (uint)_vertexAttributesVk!.Length,
+					vertexAttributeDescriptions: attributePtr
+				);
 
 				// Create info
 				VkGraphicsPipelineCreateInfo ci = new(
 					flags: VkPipelineCreateFlags.NoFlags, // TODO: see if we can utilize some of the flags
 					stageCount: 0, // TODO
 					stages: null, // TODO
-					vertexInputState: null, // TODO
+					vertexInputState: &vertexCI,
 					inputAssemblyState: inputAssemblyPtr,
 					tessellationState: null, // TODO
 					viewportState: &viewportCI,
@@ -234,6 +274,35 @@ namespace Vega.Graphics
 				renderer.Graphics.Resources.PipelineCache.CreateGraphicsPipelines(1, &ci, null, &pipelineHandle)
 					.Throw("Failed to create pipeline object");
 				pipeline = new(pipelineHandle, renderer.Graphics.VkDevice);
+			}
+		}
+
+		// Creates the set of vertex attributes and bindings from the descriptions
+		private static void CalculateVertexInfo(VertexDescription[] descs,
+			out VkVertexInputAttributeDescription[] attrs, out VkVertexInputBindingDescription[] binds)
+		{
+			// Create arrays
+			var attrcnt = descs.Sum(vd => vd.Elements.Count);
+			attrs = new VkVertexInputAttributeDescription[attrcnt];
+			binds = new VkVertexInputBindingDescription[descs.Length];
+
+			// Populate attributes & bindings
+			var attroff = 0;
+			for (var bi = 0; bi < descs.Length; ++bi) {
+				var vd = descs[bi];
+				for (var ei = 0; ei < vd.Elements.Count; ++ei) {
+					attrs[attroff++] = new(
+						location: vd.Locations[ei],
+						binding: (uint)bi,
+						format: (VkFormat)vd.Elements[ei].Format,
+						offset: vd.Elements[ei].Offset
+					);
+				}
+				binds[bi] = new(
+					binding: (uint)bi,
+					stride: vd.Stride,
+					inputRate: (VkVertexInputRate)vd.Rate
+				);
 			}
 		}
 	}

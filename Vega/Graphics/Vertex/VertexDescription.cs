@@ -34,6 +34,11 @@ namespace Vega.Graphics
 		/// </summary>
 		public readonly uint Stride;
 
+		/// <summary>
+		/// The input rate for the vertex.
+		/// </summary>
+		public readonly VertexRate Rate;
+
 		// A precalculated hash code for faster comparisons and lookups
 		private readonly int _hashCode;
 		#endregion // Fields
@@ -44,7 +49,9 @@ namespace Vega.Graphics
 		/// <param name="elements">The vertex elements.</param>
 		/// <param name="locations">The shader binding locations for the elements.</param>
 		/// <param name="stride">The stride, or <c>null</c> to auto-calculate.</param>
-		public VertexDescription(IEnumerable<VertexElement> elements, IEnumerable<uint> locations, uint? stride = null)
+		/// <param name="rate">The input rate for the vertex data.</param>
+		public VertexDescription(IEnumerable<VertexElement> elements, IEnumerable<uint> locations, uint? stride = null,
+			VertexRate rate = VertexRate.Vertex)
 		{
 			_elements = elements.ToArray();
 			if (_elements.Length == 0) {
@@ -55,14 +62,16 @@ namespace Vega.Graphics
 				throw new ArgumentException("Mismatch between element and binding location lengths", nameof(locations));
 			}
 			Stride = stride.HasValue ? stride.Value : _elements.Max(e => e.Offset + e.Format.GetSize());
-			_hashCode = CalculateHash(_elements, _locations);
+			Rate = rate;
+			_hashCode = CalculateHash(rate, _elements, _locations);
 		}
 
 		/// <summary>
 		/// Describes a new vertex description with pairs of binding locations and elements, stride is calcuated.
 		/// </summary>
+		/// <param name="rate">The vertex input rate.</param>
 		/// <param name="elements">The pairs of binding locations and vertex elements.</param>
-		public VertexDescription(params (uint location, VertexElement element)[] elements)
+		public VertexDescription(VertexRate rate, params (uint location, VertexElement element)[] elements)
 		{
 			if (elements.Length == 0) {
 				throw new ArgumentException("Cannot have a vertex description with zero elements.", nameof(elements));
@@ -70,7 +79,8 @@ namespace Vega.Graphics
 			_elements = elements.Select(p => p.element).ToArray();
 			_locations = elements.Select(p => p.location).ToArray();
 			Stride = _elements.Max(e => e.Offset + e.Format.GetSize());
-			_hashCode = CalculateHash(_elements, _locations);
+			Rate = rate;
+			_hashCode = CalculateHash(rate, _elements, _locations);
 		}
 
 		/// <summary>
@@ -78,7 +88,9 @@ namespace Vega.Graphics
 		/// </summary>
 		/// <param name="elements">The vertex elements.</param>
 		/// <param name="stride">The stride, or <c>null</c> to auto-calculate.</param>
-		public VertexDescription(IEnumerable<VertexElement> elements, uint? stride = null)
+		/// <param name="rate">The input rate for the vertex data.</param>
+		public VertexDescription(IEnumerable<VertexElement> elements, uint? stride = null, 
+			VertexRate rate = VertexRate.Vertex)
 		{
 			_elements = elements.ToArray();
 			if (_elements.Length == 0) {
@@ -86,14 +98,16 @@ namespace Vega.Graphics
 			}
 			_locations = Enumerable.Range(0, _elements.Length).Select(i => (uint)i).ToArray();
 			Stride = stride.HasValue ? stride.Value : _elements.Max(e => e.Offset + e.Format.GetSize());
-			_hashCode = CalculateHash(_elements, _locations);
+			Rate = rate;
+			_hashCode = CalculateHash(rate, _elements, _locations);
 		}
 
 		/// <summary>
 		/// Describes a new vertex description, automatically assigning binding locations and the stride.
 		/// </summary>
+		/// <param name="rate">The vertex input data.</param>
 		/// <param name="elements">The vertex elements.</param>
-		public VertexDescription(params VertexElement[] elements)
+		public VertexDescription(VertexRate rate, params VertexElement[] elements)
 		{
 			if (elements.Length == 0) {
 				throw new ArgumentException("Cannot have a vertex description with zero elements.", nameof(elements));
@@ -101,14 +115,16 @@ namespace Vega.Graphics
 			_elements = elements;
 			_locations = Enumerable.Range(0, _elements.Length).Select(i => (uint)i).ToArray();
 			Stride = _elements.Max(e => e.Offset + e.Format.GetSize());
-			_hashCode = CalculateHash(_elements, _locations);
+			Rate = rate;
+			_hashCode = CalculateHash(rate, _elements, _locations);
 		}
 
 		/// <summary>
 		/// Describes a new vertex description, with tightly packed formats and adjacent binding locations.
 		/// </summary>
+		/// <param name="rate">The vertex input rate.</param>
 		/// <param name="formats">The element formats to create tightly packed elements for.</param>
-		public VertexDescription(params VertexFormat[] formats)
+		public VertexDescription(VertexRate rate, params VertexFormat[] formats)
 		{
 			if (formats.Length == 0) {
 				throw new ArgumentException("Cannot have a vertex description with zero elements.", nameof(formats));
@@ -121,25 +137,28 @@ namespace Vega.Graphics
 			}).ToArray();
 			_locations = Enumerable.Range(0, _elements.Length).Select(i => (uint)i).ToArray();
 			Stride = off;
-			_hashCode = CalculateHash(_elements, _locations);
+			Rate = rate;
+			_hashCode = CalculateHash(rate, _elements, _locations);
 		}
 
 		#region Overrides
 		public override int GetHashCode() => _hashCode;
 
-		public override string ToString() => $"[{Stride}:{{{String.Join(":", _elements)}}}]";
+		public override string ToString() => $"[{Stride}:{Rate}:{{{String.Join(":", _elements)}}}]";
 
 		public override bool Equals(object? obj) => (obj is IEquatable<VertexDescription> vd) && vd.Equals(this);
 
 		bool IEquatable<VertexDescription>.Equals(VertexDescription? other) =>
 			(other is not null) && (other._hashCode == _hashCode) && (other.Stride == Stride) && 
+			(other.Rate == Rate) &&
 			other._elements.SequenceEqual(_elements) && other._locations.SequenceEqual(_locations);
 		#endregion // Overrides
 
 		// Calculates a hash code for a set of elements and locations
-		private static int CalculateHash(VertexElement[] elements, uint[] locations)
+		private static int CalculateHash(VertexRate rate, VertexElement[] elements, uint[] locations)
 		{
 			HashCode code = new();
+			code.Add(rate);
 			for (int i = 0; i < elements.Length; ++i) {
 				code.Add(elements[i].GetHashCode() ^ locations[i].GetHashCode());
 			}
