@@ -24,6 +24,7 @@ namespace Vega.Graphics
 		public readonly uint SubpassCount;
 		public readonly uint? ResolveIndex;
 		public readonly uint NonResolveCount;
+		public readonly uint ColorAttachmentCount;
 
 		// The objects that fully describe the layout
 		public readonly Attachment[] Attachments;
@@ -42,6 +43,7 @@ namespace Vega.Graphics
 			SubpassCount = desc.SubpassCount;
 			ResolveIndex = desc.ResolveSubpass;
 			NonResolveCount = (uint)desc.Attachments.Count;
+			ColorAttachmentCount = 0;
 
 			// For MSAA, calculate which attachments use MSAA and if they need resolves
 			(uint idx, bool msaa, uint? resolve)[]? msaaState = null;
@@ -58,6 +60,9 @@ namespace Vega.Graphics
 						extraAtt += 1;
 					}
 					++ai;
+					if (att.Format.IsColorFormat()) {
+						ColorAttachmentCount += 1;
+					}
 				}
 			}
 

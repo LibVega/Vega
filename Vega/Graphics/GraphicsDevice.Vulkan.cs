@@ -145,6 +145,7 @@ namespace Vega.Graphics
 			if (!features.TryBuild(pdev.Features, pdev.ExtensionNames, out var feats, extensions, out var missing)) {
 				throw new InvalidOperationException($"Cannot create device - required feature '{missing}' is not present");
 			}
+			feats.IndependentBlend = true; // Always enable independent blending (available in >99.5% of systems)
 
 			// Check and populate extensions
 			using var extList = new NativeStringList(extensions);

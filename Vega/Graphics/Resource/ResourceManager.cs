@@ -29,6 +29,9 @@ namespace Vega.Graphics
 		// Gets if the system supports transient memory
 		public bool HasTransientMemory => MemoryTransient.HasValue;
 
+		// Pipeline cache
+		internal readonly VkPipelineCache PipelineCache;
+
 		// Resource delayed destroy queues
 		private readonly (FastMutex Mutex, List<ResourceBase> List)[] _destroyQueues;
 		private uint _destroyIndex = 0;
@@ -105,6 +108,17 @@ namespace Vega.Graphics
 					mtra.Value,
 					gs.VkDeviceInfo.MemoryTypes[(int)mtra.Value].HeapIndex);
 			}
+
+			// Create the pipeline cache
+			VkPipelineCacheCreateInfo pcci = new(
+				flags: VkPipelineCacheCreateFlags.NoFlags, // TODO: Look into VK_EXT_pipeline_creation_cache_control
+				initialDataSize: 0, // TODO: Allow save/load of pipeline cache data
+				initialData: null
+			);
+			VulkanHandle<VkPipelineCache> cacheHandle;
+			gs.VkDevice.CreatePipelineCache(&pcci, null, &cacheHandle)
+				.Throw("Failed to create core pipeline cache");
+			PipelineCache = new(cacheHandle, gs.VkDevice);
 
 			// Destroy queues
 			_destroyQueues = new (FastMutex, List<ResourceBase>)[GraphicsDevice.MAX_PARALLEL_FRAMES];
@@ -345,6 +359,9 @@ namespace Vega.Graphics
 					}
 					queue.List.Clear();
 				}
+
+				// Destroy pipeline cache
+				PipelineCache?.DestroyPipelineCache(null);
 
 				// Destroy threaded resources
 				foreach (var pool in _commandPools) {
