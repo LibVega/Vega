@@ -19,6 +19,7 @@ namespace Vega.Graphics
 		Texture2D,
 		Texture3D,
 		Texture1DArray,
-		Texture2DArray
+		Texture2DArray,
+		Shader
 	}
 }
