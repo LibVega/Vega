@@ -37,6 +37,18 @@ namespace Vega.Content
 		private static readonly delegate* unmanaged<void*, byte**, ImageChannels*, void> _ImageGetLoadedData;
 		private static readonly delegate* unmanaged<void*, byte**, ImageChannels, uint> _ImageLoadData;
 
+		// SPIRV
+		private static readonly delegate* unmanaged<uint*, ulong, ReflectError*, void*> _SpirvCreateModule;
+		private static readonly delegate* unmanaged<void*, ReflectError> _SpirvGetError;
+		private static readonly delegate* unmanaged<void*, ReflectStage> _SpirvGetStage;
+		private static readonly delegate* unmanaged<void*, byte*> _SpirvGetEntryPoint;
+		private static readonly delegate* unmanaged<void*, uint> _SpirvGetDescriptorCount;
+		private static readonly delegate* unmanaged<void*, uint> _SpirvGetInputCount;
+		private static readonly delegate* unmanaged<void*, uint> _SpirvGetOutputCount;
+		private static readonly delegate* unmanaged<void*, uint> _SpirvGetPushSize;
+		private static readonly delegate* unmanaged<void*, uint, DescriptorInfo*, uint> _SpirvReflectDescriptor;
+		private static readonly delegate* unmanaged<void*, void> _SpirvDestroyModule;
+
 		// Loads the native library and functions
 		static NativeContent()
 		{
@@ -65,6 +77,18 @@ namespace Vega.Content
 			_ImageGetChannels = (delegate* unmanaged<void*, ImageChannels*, void>)Lib.LoadExport("vegaImageGetChannels");
 			_ImageGetLoadedData = (delegate* unmanaged<void*, byte**, ImageChannels*, void>)Lib.LoadExport("vegaImageGetLoadedData");
 			_ImageLoadData = (delegate* unmanaged<void*, byte**, ImageChannels, uint>)Lib.LoadExport("vegaImageLoadData");
+
+			// Load SPIRV functions
+			_SpirvCreateModule = (delegate* unmanaged<uint*, ulong, ReflectError*, void*>)Lib.LoadExport("vegaSpirvCreateModule");
+			_SpirvGetError = (delegate* unmanaged<void*, ReflectError>)Lib.LoadExport("vegaSpirvGetError");
+			_SpirvGetStage = (delegate* unmanaged<void*, ReflectStage>)Lib.LoadExport("vegaSpirvGetStage");
+			_SpirvGetEntryPoint = (delegate* unmanaged<void*, byte*>)Lib.LoadExport("vegaSpirvGetEntryPoint");
+			_SpirvGetDescriptorCount = (delegate* unmanaged<void*, uint>)Lib.LoadExport("vegaSpirvGetDescriptorCount");
+			_SpirvGetInputCount = (delegate* unmanaged<void*, uint>)Lib.LoadExport("vegaSpirvGetInputCount");
+			_SpirvGetOutputCount = (delegate* unmanaged<void*, uint>)Lib.LoadExport("vegaSpirvGetOutputCount");
+			_SpirvGetPushSize = (delegate* unmanaged<void*, uint>)Lib.LoadExport("vegaSpirvGetPushSize");
+			_SpirvReflectDescriptor = (delegate* unmanaged<void*, uint, DescriptorInfo*, uint>)Lib.LoadExport("vegaSpirvReflectDescriptor");
+			_SpirvDestroyModule = (delegate* unmanaged<void*, void>)Lib.LoadExport("vegaSpirvDestroyModule");
 		}
 	}
 }

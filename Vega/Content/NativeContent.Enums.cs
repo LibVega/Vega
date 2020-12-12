@@ -60,4 +60,48 @@ namespace Vega.Content
 		RGB = 3,				// RGB color data
 		RGBA = 4				// RBG color data with alpha
 	}
+
+	// Maps to ReflectError
+	internal enum ReflectError : uint
+	{
+		None = 0,
+		NullModule = 1,
+		InvalidBytecode = 2,
+		InvalidStage = 3,
+		InvalidPushBlockCount = 4,
+		BadMemberIndex = 5,
+		BadDescriptorType  = 6,
+		BadImageType = 7
+	}
+
+	// Maps to ReflectStage
+	internal enum ReflectStage : uint
+	{
+		Invalid = 0,
+		Vertex = 1,
+		TessControl = 2,
+		TessEval = 3,
+		Geometry = 4,
+		Fragment = 5
+	}
+
+	// Maps to DescriptorType
+	internal enum DescriptorType : uint
+	{
+		Unknown = 0,
+		Sampler = 1,
+		Image = 2,
+		ImageSampler = 3,
+		UniformBuffer = 4,
+		InputAttachment = 5
+	}
+
+	// Maps to ImageDims
+	internal enum ImageDims : uint
+	{
+		Unknown = 0,
+		E1D = 1,
+		E2D = 2,
+		E3D = 3
+	}
 }

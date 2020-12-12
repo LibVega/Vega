@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Vega.Content
@@ -100,5 +101,39 @@ namespace Vega.Content
 			return data;
 		}
 		#endregion // Image API
+
+		#region SPIRV API
+		public static (IntPtr handle, ReflectError Error) SpirvCreateModule(ReadOnlySpan<uint> code)
+		{
+			fixed (uint* codePtr = code) {
+				ReflectError error;
+				return (new(_SpirvCreateModule(codePtr, (uint)code.Length * 4, &error)), error);
+			}
+		}
+
+		public static ReflectError SpirvGetError(IntPtr handle) => _SpirvGetError(handle.ToPointer());
+
+		public static ReflectStage SpirvGetStage(IntPtr handle) => _SpirvGetStage(handle.ToPointer());
+
+		public static string SpirvGetEntryPoint(IntPtr handle) => 
+			Marshal.PtrToStringAnsi(new(_SpirvGetEntryPoint(handle.ToPointer()))) ?? String.Empty;
+
+		public static uint SpirvGetDescriptorCount(IntPtr handle) => _SpirvGetDescriptorCount(handle.ToPointer());
+
+		public static uint SpirvGetInputCount(IntPtr handle) => _SpirvGetInputCount(handle.ToPointer());
+
+		public static uint SpirvGetOutputCount(IntPtr handle) => _SpirvGetOutputCount(handle.ToPointer());
+
+		public static uint SpirvGetPushSize(IntPtr handle) => _SpirvGetPushSize(handle.ToPointer());
+
+		public static bool SpirvReflectDescriptor(IntPtr handle, uint index, out DescriptorInfo info)
+		{
+			fixed (DescriptorInfo* infoPtr = &info) {
+				return _SpirvReflectDescriptor(handle.ToPointer(), index, infoPtr) == 1;
+			}
+		}
+
+		private static void SpirvDestroyModule(IntPtr handle) => _SpirvDestroyModule(handle.ToPointer());
+		#endregion // SPIRV API
 	}
 }
