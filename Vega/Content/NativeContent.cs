@@ -103,37 +103,61 @@ namespace Vega.Content
 		#endregion // Image API
 
 		#region SPIRV API
-		public static (IntPtr handle, ReflectError Error) SpirvCreateModule(ReadOnlySpan<uint> code)
+		public static (IntPtr Handle, ReflectError Error) SpirvCreateModule(ReadOnlySpan<uint> code)
 		{
 			fixed (uint* codePtr = code) {
-				ReflectError error;
-				return (new(_SpirvCreateModule(codePtr, (uint)code.Length * 4, &error)), error);
+				void* handle;
+				var err = _SpirvCreateModule(codePtr, (ulong)code.Length * 4, &handle);
+				return (new(handle), err);
 			}
 		}
 
 		public static ReflectError SpirvGetError(IntPtr handle) => _SpirvGetError(handle.ToPointer());
 
-		public static ReflectStage SpirvGetStage(IntPtr handle) => _SpirvGetStage(handle.ToPointer());
-
-		public static string SpirvGetEntryPoint(IntPtr handle) => 
-			Marshal.PtrToStringAnsi(new(_SpirvGetEntryPoint(handle.ToPointer()))) ?? String.Empty;
-
-		public static uint SpirvGetDescriptorCount(IntPtr handle) => _SpirvGetDescriptorCount(handle.ToPointer());
-
-		public static uint SpirvGetInputCount(IntPtr handle) => _SpirvGetInputCount(handle.ToPointer());
-
-		public static uint SpirvGetOutputCount(IntPtr handle) => _SpirvGetOutputCount(handle.ToPointer());
-
-		public static uint SpirvGetPushSize(IntPtr handle) => _SpirvGetPushSize(handle.ToPointer());
-
-		public static bool SpirvReflectDescriptor(IntPtr handle, uint index, out DescriptorInfo info)
+		public static (ReflectError Error, uint Set, uint Slot) SpirvGetBindingError(IntPtr handle)
 		{
-			fixed (DescriptorInfo* infoPtr = &info) {
-				return _SpirvReflectDescriptor(handle.ToPointer(), index, infoPtr) == 1;
-			}
+			uint set, slot;
+			var err = _SpirvGetBindingError(handle.ToPointer(), &set, &slot);
+			return (err, set, slot);
 		}
 
-		private static void SpirvDestroyModule(IntPtr handle) => _SpirvDestroyModule(handle.ToPointer());
+		public static (ReflectError Error, ReflectStage Stage) SpirvGetStage(IntPtr handle)
+		{
+			ReflectStage stage;
+			var err = _SpirvGetStage(handle.ToPointer(), &stage);
+			return (err, stage);
+		}
+
+		public static (ReflectError Error, string EntryPoint) SpirvGetEntryPoint(IntPtr handle)
+		{
+			byte* name;
+			var err = _SpirvGetEntryPoint(handle.ToPointer(), &name);
+			return (err, Marshal.PtrToStringAnsi(new(name)) ?? String.Empty);
+		}
+
+		public static (ReflectError Error, uint Size) SpirvGetPushSize(IntPtr handle)
+		{
+			uint size;
+			var err = _SpirvGetPushSize(handle.ToPointer(), &size);
+			return (err, size);
+		}
+
+		public static (ReflectError Error, uint Mask) SpirvGetSetMask(IntPtr handle, BindingSet set)
+		{
+			uint mask;
+			var err = _SpirvGetSetMask(handle.ToPointer(), set, &mask);
+			return (err, mask);
+		}
+
+		public static ReflectError SpirvGetBindingInfo(IntPtr handle, BindingSet set, uint slot, BindingInfo* info)
+		{
+			BindingInfo* infoptr;
+			var err = _SpirvGetBindingInfo(handle.ToPointer(), set, slot, &infoptr);
+			info = infoptr;
+			return err;
+		}
+
+		public static void SpirvDestroyModule(IntPtr handle) => _SpirvDestroyModule(handle.ToPointer());
 		#endregion // SPIRV API
 	}
 }

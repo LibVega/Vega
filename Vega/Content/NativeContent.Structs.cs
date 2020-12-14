@@ -12,19 +12,17 @@ namespace Vega.Content
 	// Structs specific to the native content library
 	internal unsafe static partial class NativeContent
 	{
-		// Maps to DescriptorInfo struct for SPIRV api (Pack = 1 to match pack(push, 1))
+		// Maps to BindingInfo struct for SPIRV api (Pack = 1 to match pack(push, 1))
 		[StructLayout(LayoutKind.Sequential, Pack = 1)]
-		internal struct DescriptorInfo
+		public struct BindingInfo
 		{
 			public byte* Name;
-			public uint Set;
-			public uint Binding;
-			public uint InputIndex;
-			public DescriptorType Type;
-			public uint Size;
+			public BindingSet Set;
+			public uint Slot;
+			public BindingType Type;
 			public uint ArraySize;
-			public ImageDims ImageType;
-			public uint ImageMS;
+			public uint BlockSize;
+			public ImageDims ImageDims;
 		}
 	}
 }

@@ -5,6 +5,7 @@
  */
 
 using System;
+using Vega.Graphics;
 
 namespace Vega.Content
 {
@@ -64,14 +65,17 @@ namespace Vega.Content
 	// Maps to ReflectError
 	internal enum ReflectError : uint
 	{
-		None = 0,
-		NullModule = 1,
-		InvalidBytecode = 2,
-		InvalidStage = 3,
-		InvalidPushBlockCount = 4,
-		BadMemberIndex = 5,
-		BadDescriptorType  = 6,
-		BadImageType = 7
+		None = 0,                    // No error
+		NullModule = 1,              // Special public API error for passing a null module
+		InvalidBytecode = 2,         // Bad bytecode or other parsing error
+		InvalidStage = 3,            // Unsupported shader stage
+		MultiplePushBlocks = 4,      // Too many push blocks (>1)
+		MultipleEntryPoints = 5,     // Module has more than one entry point
+		UnsupportedBindingType = 6,  // The descriptor type is unknown or unsupported
+		InvalidBindingType = 7,      // The descriptor type is invalid for the set it appears in
+		InvalidImageDims = 8,        // Invalid or unsupported image dims (includes multi-sampled)
+		BindingSetOutOfRange = 9,    // A descriptor is bound to an invalid set index (>= VEGA_MAX_SET_COUNT)
+		BindingSlotOutOfRange = 10,  // A descriptor is bound to an invalid slot index (>= VEGA_MAX_PER_SET_SLOTS)
 	}
 
 	// Maps to ReflectStage
@@ -85,15 +89,28 @@ namespace Vega.Content
 		Fragment = 5
 	}
 
-	// Maps to DescriptorType
-	internal enum DescriptorType : uint
+	// Maps to BindingSet
+	internal enum BindingSet : uint
+	{
+		Buffer = 0,            // Buffer objects set (=0)
+		ReadOnlyTexel = 1,     // Read-Only texel objects set (=1)
+		ReadWriteTexel = 2,    // Read/Write texel objects set (=2)
+		InputAttachments = 3,  // Input attachments set (=3)
+	}
+
+	// Maps to BindingType
+	internal enum BindingType : uint
 	{
 		Unknown = 0,
 		Sampler = 1,
-		Image = 2,
-		ImageSampler = 3,
-		UniformBuffer = 4,
-		InputAttachment = 5
+		CombinedImageSampler = 2,
+		SampledImage = 3,
+		StorageImage = 4,
+		UniformTexelBuffer = 5,
+		StorageTexelBuffer = 6,
+		UniformBuffer = 7,
+		StorageBuffer = 8,
+		InputAttachment = 9
 	}
 
 	// Maps to ImageDims
@@ -101,7 +118,27 @@ namespace Vega.Content
 	{
 		Unknown = 0,
 		E1D = 1,
-		E2D = 2,
-		E3D = 3
+		E1DArray = 2,
+		E2D = 3,
+		E2DArray = 4,
+		E3D = 5,
+		Cube = 6,
+		CubeArray = 7,
+		Buffer = 8,        // The image is a uniform texel buffer or storage texel buffer
+		SubpassInput = 9,  // The image is a subpass input attachment
+	}
+
+	// Enum utilities
+	internal static class NativeContentEnumUtils
+	{
+		// ReflectStage -> ShaderStages
+		public static ShaderStages ToShaderStages(this ReflectStage stage) => stage switch {
+			ReflectStage.Vertex => ShaderStages.Vertex,
+			ReflectStage.TessControl => ShaderStages.TessControl,
+			ReflectStage.TessEval => ShaderStages.TessEval,
+			ReflectStage.Geometry => ShaderStages.Geometry,
+			ReflectStage.Fragment => ShaderStages.Fragment,
+			_ => ShaderStages.None
+		};
 	}
 }
