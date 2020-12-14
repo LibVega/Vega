@@ -20,11 +20,11 @@ namespace Vega.Content
 		public readonly string Path;
 		public readonly uint Width;
 		public readonly uint Height;
-		public readonly ImageChannels Channels;
-		public readonly ImageType Type;
+		public readonly NativeContent.ImageChannels Channels;
+		public readonly NativeContent.ImageType Type;
 
 		// Error info
-		public ImageError Error => NativeContent.ImageGetError(_handle);
+		public NativeContent.ImageError Error => NativeContent.ImageGetError(_handle);
 		#endregion // Fields
 
 		public ImageFile(string path)
@@ -36,9 +36,9 @@ namespace Vega.Content
 			Path = path;
 
 			// Try to load the file
-			ImageError error;
+			NativeContent.ImageError error;
 			(_handle, error) = NativeContent.ImageOpenFile(path);
-			if (_handle == IntPtr.Zero || error != ImageError.NoError) {
+			if (_handle == IntPtr.Zero || error != NativeContent.ImageError.NoError) {
 				throw new ContentLoadException(path, $"image file loading failed with {error}");
 			}
 
@@ -46,7 +46,7 @@ namespace Vega.Content
 			(Width, Height) = NativeContent.ImageGetSize(_handle);
 			Channels = NativeContent.ImageGetChannels(_handle);
 			Type = NativeContent.ImageGetType(_handle);
-			if (Channels == ImageChannels.Unknown) {
+			if (Channels == NativeContent.ImageChannels.Unknown) {
 				throw new ContentLoadException(path, "image file has unsupported color channel count");
 			}
 		}
@@ -58,8 +58,8 @@ namespace Vega.Content
 		// Loads the texture as RGBA data
 		public ReadOnlySpan<Color> LoadDataRGBA()
 		{
-			var data = NativeContent.ImageLoadData(_handle, ImageChannels.RGBA);
-			if ((data == null) || (Error != ImageError.NoError)) {
+			var data = NativeContent.ImageLoadData(_handle, NativeContent.ImageChannels.RGBA);
+			if ((data == null) || (Error != NativeContent.ImageError.NoError)) {
 				throw new ContentLoadException(Path, $"image file data read failed with {Error}");
 			}
 			return new(data, (int)(Width * Height));

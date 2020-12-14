@@ -21,11 +21,11 @@ namespace Vega.Content
 		public readonly ulong FrameCount;
 		public readonly uint SampleRate;
 		public readonly bool Stereo;
-		public readonly AudioType AudioType;
+		public readonly NativeContent.AudioType AudioType;
 		public ulong TotalSampleCount => FrameCount * (Stereo ? 2u : 1u);
 
 		// Error info
-		public AudioError Error => NativeContent.AudioGetError(_handle);
+		public NativeContent.AudioError Error => NativeContent.AudioGetError(_handle);
 
 		// Streaming info
 		public ulong RemainingFrames => NativeContent.AudioGetRemainingFrames(_handle);
@@ -41,9 +41,9 @@ namespace Vega.Content
 			Path = path;
 
 			// Try to load the file
-			AudioError error;
+			NativeContent.AudioError error;
 			(_handle, error) = NativeContent.AudioOpenFile(path);
-			if (_handle == IntPtr.Zero || error != AudioError.NoError) {
+			if (_handle == IntPtr.Zero || error != NativeContent.AudioError.NoError) {
 				throw new ContentLoadException(path, $"audio file loading failed with {error}");
 			}
 
