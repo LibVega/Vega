@@ -30,6 +30,14 @@ namespace Vega.Graphics
 		/// The pipeline stage that this 
 		/// </summary>
 		public readonly ShaderStages Stage;
+		/// <summary>
+		/// The name of the module entry point function.
+		/// </summary>
+		public readonly string EntryPoint;
+		/// <summary>
+		/// The size of the module push constant block, in bytes.
+		/// </summary>
+		public readonly uint PushConstantSize;
 
 		/// <summary>
 		/// The number of <see cref="Shader"/> instances referencing this module.
@@ -60,6 +68,9 @@ namespace Vega.Graphics
 		{
 			var gd = Core.Instance!.Graphics;
 			SourceFile = null;
+
+			// Perform reflection
+			ReflectModule(bytecode, out Stage, out EntryPoint, out PushConstantSize);
 
 			// Create handle
 			var handle = CreateShaderModule(bytecode);
@@ -139,8 +150,41 @@ namespace Vega.Graphics
 				);
 				VulkanHandle<VkShaderModule> handle;
 				Core.Instance!.Graphics.VkDevice.CreateShaderModule(&smci, null, &handle)
-					.Throw("Failed to create shader module - invalid bytecode");
+					.Throw("Failed to create shader module");
 				return new(handle, Core.Instance!.Graphics.VkDevice);
+			}
+		}
+
+		// Shader module reflection
+		private static void ReflectModule(ReadOnlySpan<uint> code, out ShaderStages stage, out string entryPoint,
+			out uint pushSize)
+		{
+			IntPtr refmod = IntPtr.Zero;
+
+			try {
+				// Create module, check resulting errors
+				var cres = NativeContent.SpirvCreateModule(code);
+				refmod = cres.Handle;
+				if (cres.Error == NativeContent.ReflectError.InvalidBytecode) {
+					throw new InvalidSpirvException();
+				}
+				if (cres.Error.IsBindingError()) {
+					var berr = NativeContent.SpirvGetBindingError(refmod);
+					throw new InvalidBindingException(berr.Set, berr.Slot, cres.Error);
+				}
+				if (cres.Error != NativeContent.ReflectError.None) {
+					throw new InvalidShaderModuleException(cres.Error);
+				}
+
+				// Top-level reflection
+				stage = NativeContent.SpirvGetStage(refmod).Stage.ToShaderStages();
+				entryPoint = NativeContent.SpirvGetEntryPoint(refmod).EntryPoint;
+				pushSize = NativeContent.SpirvGetPushSize(refmod).Size;
+			}
+			finally {
+				if (refmod != IntPtr.Zero) {
+					NativeContent.SpirvDestroyModule(refmod);
+				}
 			}
 		}
 	}

@@ -144,5 +144,29 @@ namespace Vega.Content
 			NativeContent.ReflectStage.Fragment => ShaderStages.Fragment,
 			_ => ShaderStages.None
 		};
+
+		// If a ReflectError value represents an issue with a specific binding
+		public static bool IsBindingError(this NativeContent.ReflectError error) =>
+			(error == NativeContent.ReflectError.BindingSetOutOfRange) ||
+			(error == NativeContent.ReflectError.BindingSlotOutOfRange) ||
+			(error == NativeContent.ReflectError.InvalidBindingType) ||
+			(error == NativeContent.ReflectError.InvalidImageDims) ||
+			(error == NativeContent.ReflectError.UnsupportedBindingType);
+
+		// Human-readable error string for ReflectError
+		public static string GetErrorText(this NativeContent.ReflectError error) => error switch {
+			NativeContent.ReflectError.None => "No error",
+			NativeContent.ReflectError.NullModule => "Reflection module is null",
+			NativeContent.ReflectError.InvalidBytecode => "Shader bytecode is invalid",
+			NativeContent.ReflectError.InvalidStage => "Unsupported shader stage",
+			NativeContent.ReflectError.MultiplePushBlocks => "Multiple push blocks specified (0 or 1 supported)",
+			NativeContent.ReflectError.MultipleEntryPoints => "Multiple entry points specified (must be exactly 1)",
+			NativeContent.ReflectError.UnsupportedBindingType => "Unknown or unsupported uniform binding type",
+			NativeContent.ReflectError.InvalidBindingType => "Invalid binding type for the given set",
+			NativeContent.ReflectError.InvalidImageDims => "Unknown or unsupported image binding dims",
+			NativeContent.ReflectError.BindingSetOutOfRange => "Binding set index is out of range (must be <= 3)",
+			NativeContent.ReflectError.BindingSlotOutOfRange => "Binding slot index is out of range (must be <= 7)",
+			_ => "UNKNOWN ERROR"
+		};
 	}
 }
