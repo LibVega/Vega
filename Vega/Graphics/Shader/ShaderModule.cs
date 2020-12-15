@@ -115,7 +115,7 @@ namespace Vega.Graphics
 		#region ResourceBase
 		protected override void OnDispose(bool disposing)
 		{
-			if (RefCount != 0) {
+			if (disposing && (RefCount != 0)) {
 				throw new InvalidOperationException("Cannot dispose a shader module that is still in use");
 			}
 

@@ -246,7 +246,7 @@ namespace Vega.Graphics
 			var stageCIs = _shader!.EnumerateModules().Select(mod => new VkPipelineShaderStageCreateInfo(
 				flags: VkPipelineShaderStageCreateFlags.NoFlags,
 				stage: (VkShaderStageFlags)mod.Stage,
-				module: mod.Module,
+				module: mod.Module.Handle,
 				name: mainBytes,
 				specializationInfo: null // TODO: Public API for specialization
 			)).ToArray();
