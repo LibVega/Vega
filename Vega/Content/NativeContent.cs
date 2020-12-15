@@ -149,11 +149,11 @@ namespace Vega.Content
 			return (err, mask);
 		}
 
-		public static ReflectError SpirvGetBindingInfo(IntPtr handle, BindingSet set, uint slot, BindingInfo* info)
+		public static ReflectError SpirvGetBindingInfo(IntPtr handle, BindingSet set, uint slot, BindingInfo** info)
 		{
 			BindingInfo* infoptr;
 			var err = _SpirvGetBindingInfo(handle.ToPointer(), set, slot, &infoptr);
-			info = infoptr;
+			*info = infoptr;
 			return err;
 		}
 

@@ -168,5 +168,24 @@ namespace Vega.Content
 			NativeContent.ReflectError.BindingSlotOutOfRange => "Binding slot index is out of range (must be <= 7)",
 			_ => "UNKNOWN ERROR"
 		};
+
+		// BindingType -> Reflection.BindingType
+		public static Graphics.Reflection.BindingType? ToReflectionType(this NativeContent.BindingType type) =>
+			type switch {
+				NativeContent.BindingType.Sampler => Graphics.Reflection.BindingType.Sampler,
+				NativeContent.BindingType.CombinedImageSampler => Graphics.Reflection.BindingType.BoundSampler,
+				NativeContent.BindingType.SampledImage => Graphics.Reflection.BindingType.Texture,
+				NativeContent.BindingType.InputAttachment => Graphics.Reflection.BindingType.InputAttachment,
+				_ => null
+			};
+
+		// ImageDims -> TextureDims
+		public static Graphics.Reflection.TextureDims? ToReflectionType(this NativeContent.ImageDims dims) =>
+			dims switch {
+				NativeContent.ImageDims.E1D => Graphics.Reflection.TextureDims.E1D,
+				NativeContent.ImageDims.E2D => Graphics.Reflection.TextureDims.E2D,
+				NativeContent.ImageDims.E3D => Graphics.Reflection.TextureDims.E3D,
+				_ => null
+			};
 	}
 }

@@ -64,4 +64,24 @@ namespace Vega.Graphics
 			Error = error;
 		}
 	}
+
+	/// <summary>
+	/// Represents an error from attempting to create a <see cref="ShaderModule"/> with an unsupported binding
+	/// resource type.
+	/// </summary>
+	public sealed class UnsupportedBindingTypeException : Exception
+	{
+		#region Fields
+		/// <summary>
+		/// The unsupported binding type name.
+		/// </summary>
+		public readonly string BadType;
+		#endregion // Fields
+
+		internal UnsupportedBindingTypeException(string badType)
+			: base($"Unsupported shader binding type - {badType}")
+		{
+			BadType = badType;
+		}
+	}
 }

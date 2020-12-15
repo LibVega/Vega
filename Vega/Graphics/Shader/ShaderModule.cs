@@ -5,9 +5,11 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using Vega.Content;
+using Vega.Graphics.Reflection;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -19,6 +21,8 @@ namespace Vega.Graphics
 	{
 		// Magic number for SPIR-V files (little endian)
 		private const uint SPIRV_MAGIC = 0x07230203;
+		// Collection of all binding groups
+		private static readonly BindingGroup[] BIND_GROUPS = Enum.GetValues<BindingGroup>();
 
 		#region Fields
 		/// <summary>
@@ -38,6 +42,23 @@ namespace Vega.Graphics
 		/// The size of the module push constant block, in bytes.
 		/// </summary>
 		public readonly uint PushConstantSize;
+
+		/// <summary>
+		/// Information about the bindings for <see cref="BindingGroup.Buffers"/> for this module.
+		/// </summary>
+		public readonly BindingSet BufferGroup = new(BindingGroup.Buffers);
+		/// <summary>
+		/// Information about the bindings for <see cref="BindingGroup.Samplers"/> for this module.
+		/// </summary>
+		public readonly BindingSet SamplerGroup = new(BindingGroup.Samplers);
+		/// <summary>
+		/// Information about the bindings for <see cref="BindingGroup.Textures"/> for this module.
+		/// </summary>
+		public readonly BindingSet TextureGroup = new(BindingGroup.Textures);
+		/// <summary>
+		/// Information about the bindings for <see cref="BindingGroup.InputAttachments"/> for this module.
+		/// </summary>
+		public readonly BindingSet InputAttachmentGroup = new(BindingGroup.InputAttachments);
 
 		/// <summary>
 		/// The number of <see cref="Shader"/> instances referencing this module.
@@ -70,7 +91,17 @@ namespace Vega.Graphics
 			SourceFile = null;
 
 			// Perform reflection
-			ReflectModule(bytecode, out Stage, out EntryPoint, out PushConstantSize);
+			ReflectModule(bytecode, out Stage, out EntryPoint, out PushConstantSize, out var bindings);
+			foreach (var bind in bindings) {
+				var set = bind.Group switch { 
+					BindingGroup.Buffers => BufferGroup,
+					BindingGroup.Samplers => SamplerGroup,
+					BindingGroup.Textures => TextureGroup,
+					BindingGroup.InputAttachments => InputAttachmentGroup,
+					_ => throw new Exception("LIBRARY BUG - Invalid binding group reflection")
+				};
+				set.TryAdd(bind.Info); // Will always succeed, since the reflection would have failed otherwise
+			}
 
 			// Create handle
 			var handle = CreateShaderModule(bytecode);
@@ -157,7 +188,7 @@ namespace Vega.Graphics
 
 		// Shader module reflection
 		private static void ReflectModule(ReadOnlySpan<uint> code, out ShaderStages stage, out string entryPoint,
-			out uint pushSize)
+			out uint pushSize, out List<(BindingGroup Group, BindingInfo Info)> bindings)
 		{
 			IntPtr refmod = IntPtr.Zero;
 
@@ -180,6 +211,22 @@ namespace Vega.Graphics
 				stage = NativeContent.SpirvGetStage(refmod).Stage.ToShaderStages();
 				entryPoint = NativeContent.SpirvGetEntryPoint(refmod).EntryPoint;
 				pushSize = NativeContent.SpirvGetPushSize(refmod).Size;
+
+				// Reflect the bindings
+				bindings = new();
+				foreach (var group in BIND_GROUPS) {
+					var mask = NativeContent.SpirvGetSetMask(refmod, (NativeContent.BindingSet)group).Mask;
+					if (mask == 0) {
+						continue;
+					}
+					for (uint i = 0; i < BindingSet.MAX_SLOT_COUNT; ++i) {
+						if ((mask & (1u << (int)i)) > 0) {
+							NativeContent.BindingInfo* info;
+							NativeContent.SpirvGetBindingInfo(refmod, (NativeContent.BindingSet)group, i, &info);
+							bindings.Add((group, new(info)));
+						}
+					}
+				}
 			}
 			finally {
 				if (refmod != IntPtr.Zero) {

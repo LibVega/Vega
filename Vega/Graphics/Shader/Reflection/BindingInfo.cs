@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Runtime.InteropServices;
 using Vega.Content;
 
 namespace Vega.Graphics.Reflection
@@ -51,6 +52,19 @@ namespace Vega.Graphics.Reflection
 			ArraySize = arrSize;
 			BlockSize = blockSize;
 			TextureDims = dims;
+		}
+
+		unsafe internal BindingInfo(NativeContent.BindingInfo* info)
+		{
+			Name = Marshal.PtrToStringAnsi(new(info->Name)) ??
+				throw new ArgumentException("LIBRARY BUG - Invalid binding reflection info");
+			Type = info->Type.ToReflectionType() ??
+				throw new UnsupportedBindingTypeException(info->Type.ToString());
+			Slot = info->Slot;
+			ArraySize = (info->ArraySize == 0) ? null : info->ArraySize;
+			BlockSize = (info->BlockSize == 0) ? null : info->BlockSize;
+			TextureDims = info->ImageDims.ToReflectionType() ??
+				throw new UnsupportedBindingTypeException($"{info->Type} (dim={info->ImageDims})");
 		}
 
 		public override string ToString() => $"[{Slot}:{Type}{(ArraySize.HasValue ? $"[{ArraySize.Value}]" : "")}]";

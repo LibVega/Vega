@@ -58,6 +58,7 @@ namespace Vega.Graphics.Reflection
 			}
 			else {
 				_bindings[info.Slot] = info;
+				BindingCount += 1;
 				return true;
 			}
 		}
