@@ -100,7 +100,7 @@ namespace Vega.Graphics
 					BindingGroup.InputAttachments => InputAttachmentGroup,
 					_ => throw new Exception("LIBRARY BUG - Invalid binding group reflection")
 				};
-				set.TryAdd(bind.Info); // Will always succeed, since the reflection would have failed otherwise
+				set.Set(bind.Info);
 			}
 
 			// Create handle

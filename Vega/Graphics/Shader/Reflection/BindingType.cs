@@ -12,7 +12,7 @@ namespace Vega.Graphics.Reflection
 	/// <summary>
 	/// Represents the resource types that can be used as bound resources for shader uniforms.
 	/// </summary>
-	public enum BindingType
+	public enum BindingType : uint
 	{
 		/// <summary>
 		/// A <see cref="Graphics.Sampler"/> object used to load sampled texels from a raw texture.

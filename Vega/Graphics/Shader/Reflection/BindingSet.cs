@@ -50,16 +50,21 @@ namespace Vega.Graphics.Reflection
 			(index < MAX_SLOT_COUNT) ? _bindings[index] : throw new ArgumentOutOfRangeException(nameof(index));
 
 		// Attempts to add the binding, success if not yet set, or matches existing binding
-		internal bool TryAdd(BindingInfo info)
+		internal void Set(BindingInfo info)
 		{
-			if (_bindings[info.Slot] is not null) {
-				var ex = _bindings[info.Slot]!;
-				return ex.IsCompatible(info);
-			}
-			else {
-				_bindings[info.Slot] = info;
+			if (_bindings[info.Slot] is null) {
 				BindingCount += 1;
-				return true;
+			}
+			_bindings[info.Slot] = info;
+		}
+
+		// Enumerate over the set slots
+		internal IEnumerable<BindingInfo> EnumerateFilledBindings()
+		{
+			foreach (var slot in _bindings) {
+				if (slot is not null) {
+					yield return slot;
+				}
 			}
 		}
 	}

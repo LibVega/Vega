@@ -62,6 +62,9 @@ namespace Vega.Graphics.Reflection
 				throw new UnsupportedBindingTypeException(info->Type.ToString());
 			Slot = info->Slot;
 			ArraySize = (info->ArraySize == 0) ? null : info->ArraySize;
+			if (ArraySize.GetValueOrDefault() == UInt32.MaxValue) {
+				throw new InvalidBindingException((uint)info->Set, info->Slot, "Arrays must be given a constant size");
+			}
 			BlockSize = (info->BlockSize == 0) ? null : info->BlockSize;
 			TextureDims = info->ImageDims.ToReflectionType() ??
 				throw new UnsupportedBindingTypeException($"{info->Type} (dim={info->ImageDims})");

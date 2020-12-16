@@ -35,7 +35,7 @@ namespace Vega.Graphics
 		public readonly uint Slot;
 
 		// Specific error code
-		internal readonly NativeContent.ReflectError Error;
+		internal readonly NativeContent.ReflectError? Error;
 		#endregion // Fields
 
 		internal InvalidBindingException(uint set, uint slot, NativeContent.ReflectError error)
@@ -44,6 +44,14 @@ namespace Vega.Graphics
 			Set = set;
 			Slot = slot;
 			Error = error;
+		}
+
+		internal InvalidBindingException(uint set, uint slot, string message)
+			: base($"Invalid binding {set}.{slot} - {message}")
+		{
+			Set = set;
+			Slot = slot;
+			Error = null;
 		}
 	}
 
@@ -82,6 +90,26 @@ namespace Vega.Graphics
 			: base($"Unsupported shader binding type - {badType}")
 		{
 			BadType = badType;
+		}
+	}
+
+	/// <summary>
+	/// Represents an error from attempting to construct a <see cref="Shader"/> using <see cref="ShaderModule"/>s that
+	/// have incompatible bindings or push constants.
+	/// </summary>
+	public sealed class IncompatibleModuleException : Exception
+	{
+		#region Fields
+		/// <summary>
+		/// The shader stage module that is incompatible with the existing modules.
+		/// </summary>
+		public readonly ShaderStages BadStage;
+		#endregion // Fields
+
+		internal IncompatibleModuleException(ShaderStages stage, string message)
+			: base($"Invalid {stage} module - {message}")
+		{
+			BadStage = stage;
 		}
 	}
 }
