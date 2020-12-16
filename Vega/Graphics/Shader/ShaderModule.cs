@@ -9,7 +9,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using Vega.Content;
-using Vega.Graphics.Reflection;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -44,21 +43,21 @@ namespace Vega.Graphics
 		public readonly uint PushConstantSize;
 
 		/// <summary>
-		/// Information about the bindings for <see cref="BindingGroup.Buffers"/> for this module.
+		/// Layout for <see cref="BindingGroup.Buffers"/> for this module.
 		/// </summary>
-		public readonly BindingSet BufferGroup = new(BindingGroup.Buffers);
+		public readonly BindingLayout BufferLayout = new(BindingGroup.Buffers);
 		/// <summary>
-		/// Information about the bindings for <see cref="BindingGroup.Samplers"/> for this module.
+		/// Layout for <see cref="BindingGroup.Samplers"/> for this module.
 		/// </summary>
-		public readonly BindingSet SamplerGroup = new(BindingGroup.Samplers);
+		public readonly BindingLayout SamplerLayout = new(BindingGroup.Samplers);
 		/// <summary>
-		/// Information about the bindings for <see cref="BindingGroup.Textures"/> for this module.
+		/// Layout for <see cref="BindingGroup.Textures"/> for this module.
 		/// </summary>
-		public readonly BindingSet TextureGroup = new(BindingGroup.Textures);
+		public readonly BindingLayout TextureLayout = new(BindingGroup.Textures);
 		/// <summary>
-		/// Information about the bindings for <see cref="BindingGroup.InputAttachments"/> for this module.
+		/// Layout for <see cref="BindingGroup.InputAttachments"/> for this module.
 		/// </summary>
-		public readonly BindingSet InputAttachmentGroup = new(BindingGroup.InputAttachments);
+		public readonly BindingLayout InputAttachmentLayout = new(BindingGroup.InputAttachments);
 
 		/// <summary>
 		/// The number of <see cref="Shader"/> instances referencing this module.
@@ -93,14 +92,14 @@ namespace Vega.Graphics
 			// Perform reflection
 			ReflectModule(bytecode, out Stage, out EntryPoint, out PushConstantSize, out var bindings);
 			foreach (var bind in bindings) {
-				var set = bind.Group switch { 
-					BindingGroup.Buffers => BufferGroup,
-					BindingGroup.Samplers => SamplerGroup,
-					BindingGroup.Textures => TextureGroup,
-					BindingGroup.InputAttachments => InputAttachmentGroup,
+				var layout = bind.Group switch { 
+					BindingGroup.Buffers => BufferLayout,
+					BindingGroup.Samplers => SamplerLayout,
+					BindingGroup.Textures => TextureLayout,
+					BindingGroup.InputAttachments => InputAttachmentLayout,
 					_ => throw new Exception("LIBRARY BUG - Invalid binding group reflection")
 				};
-				set.Set(bind.Info);
+				layout.SetSlot((NativeContent.BindingInfo*)bind.InfoPtr, Stage);
 			}
 
 			// Create handle
@@ -188,7 +187,7 @@ namespace Vega.Graphics
 
 		// Shader module reflection
 		private static void ReflectModule(ReadOnlySpan<uint> code, out ShaderStages stage, out string entryPoint,
-			out uint pushSize, out List<(BindingGroup Group, BindingInfo Info)> bindings)
+			out uint pushSize, out List<(BindingGroup Group, ulong InfoPtr)> bindings)
 		{
 			IntPtr refmod = IntPtr.Zero;
 
@@ -201,10 +200,10 @@ namespace Vega.Graphics
 				}
 				if (cres.Error.IsBindingError()) {
 					var berr = NativeContent.SpirvGetBindingError(refmod);
-					throw new InvalidBindingException(berr.Set, berr.Slot, cres.Error);
+					throw new InvalidBindingException(berr.Set, berr.Slot, cres.Error.ToString());
 				}
 				if (cres.Error != NativeContent.ReflectError.None) {
-					throw new InvalidShaderModuleException(cres.Error);
+					throw new InvalidModuleException(cres.Error);
 				}
 
 				// Top-level reflection
@@ -219,11 +218,11 @@ namespace Vega.Graphics
 					if (mask == 0) {
 						continue;
 					}
-					for (uint i = 0; i < BindingSet.MAX_SLOT_COUNT; ++i) {
+					for (uint i = 0; i < BindingLayout.SLOT_COUNT; ++i) {
 						if ((mask & (1u << (int)i)) > 0) {
 							NativeContent.BindingInfo* info;
 							NativeContent.SpirvGetBindingInfo(refmod, (NativeContent.BindingSet)group, i, &info);
-							bindings.Add((group, new(info)));
+							bindings.Add((group, (ulong)info));
 						}
 					}
 				}

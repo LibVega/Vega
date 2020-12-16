@@ -6,7 +6,7 @@
 
 using System;
 using System.Collections.Generic;
-using Vega.Graphics.Reflection;
+using Vega.Content;
 
 namespace Vega.Graphics
 {
@@ -18,7 +18,7 @@ namespace Vega.Graphics
 		/// <summary>
 		/// The number of slots available in a binding layout.
 		/// </summary>
-		public const uint SLOT_COUNT = BindingSet.MAX_SLOT_COUNT;
+		public const uint SLOT_COUNT = 8;
 
 		#region Fields
 		/// <summary>
@@ -32,6 +32,11 @@ namespace Vega.Graphics
 		/// </summary>
 		public IReadOnlyList<Slot> Slots => _slots;
 		private readonly Slot[] _slots = new Slot[SLOT_COUNT];
+
+		/// <summary>
+		/// Gets the number of slots that are filled in this layout.
+		/// </summary>
+		public uint SlotCount { get; private set; } = 0;
 		#endregion // Fields
 
 		internal BindingLayout(BindingGroup group)
@@ -39,38 +44,61 @@ namespace Vega.Graphics
 			Group = group;
 		}
 
-		// Attempts to add a slot, throws an exception if the slot is incompatible
-		internal void Add(BindingInfo info, ShaderStages stage)
+		// Attempts to merge the other binding layout into this one, throws an exception if a slot is incompatible
+		internal void Merge(BindingLayout other, ShaderStages stage)
+		{
+			for (int i = 0; i < SLOT_COUNT; ++i) {
+				// Get slots
+				ref var newSlot = ref other._slots[i];
+				if (!newSlot.Enabled) {
+					continue;
+				}
+				ref var oldSlot = ref _slots[i];
+
+				// If no old slot, just replace
+				if (!oldSlot.Enabled) {
+					_slots[i] = newSlot;
+					SlotCount += 1; // Increment for new slot
+				}
+				else { // Check merge validity
+					if (newSlot.Type != oldSlot.Type) {
+						throw new IncompatibleModuleException(stage, $"mismatch for binding {Group}:{i} type");
+					}
+					if (newSlot.Count != oldSlot.Count) {
+						throw new IncompatibleModuleException(stage, $"mismatch for binding {Group}:{i} array size");
+					}
+					if (newSlot.BlockSize != oldSlot.BlockSize) {
+						throw new IncompatibleModuleException(stage, $"mismatch for binding {Group}:{i} block size");
+					}
+					if (newSlot.Dims != oldSlot.Dims) {
+						throw new IncompatibleModuleException(stage, $"mismatch for binding {Group}:{i} dims");
+					}
+					oldSlot.Stages |= stage; // Simply update the existing slot with the new stage flag
+				}
+			}
+		}
+
+		// Set a slot based on reflected binding info
+		internal void SetSlot(NativeContent.BindingInfo* info, ShaderStages stage)
 		{
 			// Validate
-			var slot = info.Slot;
-			if (slot >= SLOT_COUNT) {
-				throw new ArgumentOutOfRangeException(nameof(info), "Invalid slot index");
+			var type = info->Type.ToPublicType();
+			if (!type.HasValue) {
+				throw new InvalidBindingException((uint)Group, info->Slot, $"unsupported binding type {info->Type}");
+			}
+			if (info->ArraySize == UInt32.MaxValue) {
+				throw new InvalidBindingException((uint)Group, info->Slot, "arrays must have a constant size");
+			}
+			var dims = info->ImageDims.ToPublicType();
+			if (!dims.HasValue) {
+				throw new InvalidBindingException((uint)Group, info->Slot, "unsupported or invalid binding dims");
 			}
 
-			// Check or add slot
-			var asize = info.ArraySize.GetValueOrDefault(1);
-			var bsize = info.BlockSize.GetValueOrDefault(0);
-			var tdims = info.TextureDims.GetValueOrDefault(TextureDims.E1D);
-			if (_slots[info.Slot].Enabled) {
-				ref var exslot = ref _slots[slot];
-				if (info.Type != exslot.Type) {
-					throw new IncompatibleModuleException(stage, $"mismatch for binding {Group}:{slot} type");
-				}
-				if (asize != exslot.Count) {
-					throw new IncompatibleModuleException(stage, $"mismatch for binding {Group}:{slot} array size");
-				}
-				if (bsize != exslot.BlockSize) {
-					throw new IncompatibleModuleException(stage, $"mismatch for binding {Group}:{slot} block size");
-				}
-				if (tdims != exslot.TextureDims) {
-					throw new IncompatibleModuleException(stage, $"mismatch for binding {Group}:{slot} texture dims");
-				}
-				exslot.Stages |= stage; // Update access stage flags
+			// Create slot
+			if (!_slots[info->Slot].Enabled) {
+				SlotCount += 1; // Increment for new slot
 			}
-			else {
-				_slots[info.Slot] = new(info.Type, asize, bsize, tdims, stage);
-			}
+			_slots[info->Slot] = new(type!.Value, Math.Max(info->ArraySize, 1), info->BlockSize, dims!.Value, stage);
 		}
 
 		/// <summary>
@@ -94,7 +122,7 @@ namespace Vega.Graphics
 			/// <summary>
 			/// The dimensions of the texture or sampler resource.
 			/// </summary>
-			public TextureDims TextureDims;
+			public BindingDims Dims;
 			/// <summary>
 			/// The shader stages in which the slot binding is accessed.
 			/// </summary>
@@ -106,12 +134,12 @@ namespace Vega.Graphics
 			public readonly bool Enabled => Count != 0;
 			#endregion // Fields
 
-			internal Slot(BindingType type, uint count, uint bsize, TextureDims dims, ShaderStages stage)
+			internal Slot(BindingType type, uint count, uint bsize, BindingDims dims, ShaderStages stage)
 			{
 				Type = type;
 				Count = count;
 				BlockSize = bsize;
-				TextureDims = dims;
+				Dims = dims;
 				Stages = stage;
 			}
 		}

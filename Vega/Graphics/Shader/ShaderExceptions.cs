@@ -20,7 +20,7 @@ namespace Vega.Graphics
 	}
 
 	/// <summary>
-	/// Represents an invalid descriptor binding for a <see cref="ShaderModule"/>.
+	/// Represents an invalid descriptor binding for a shader program.
 	/// </summary>
 	public sealed class InvalidBindingException : Exception
 	{
@@ -33,25 +33,13 @@ namespace Vega.Graphics
 		/// The slot index of the invalid binding ("binding" value of <c>layout(...)</c>).
 		/// </summary>
 		public readonly uint Slot;
-
-		// Specific error code
-		internal readonly NativeContent.ReflectError? Error;
 		#endregion // Fields
-
-		internal InvalidBindingException(uint set, uint slot, NativeContent.ReflectError error)
-			: base($"Invalid binding {set}.{slot} - {error.GetErrorText()}")
-		{
-			Set = set;
-			Slot = slot;
-			Error = error;
-		}
 
 		internal InvalidBindingException(uint set, uint slot, string message)
 			: base($"Invalid binding {set}.{slot} - {message}")
 		{
 			Set = set;
 			Slot = slot;
-			Error = null;
 		}
 	}
 
@@ -59,37 +47,17 @@ namespace Vega.Graphics
 	/// Represents a general structural or interface error for a <see cref="ShaderModule"/>. This is distinct from
 	/// invalid shader code, which is handled by <see cref="InvalidSpirvException"/>.
 	/// </summary>
-	public sealed class InvalidShaderModuleException : Exception
+	public sealed class InvalidModuleException : Exception
 	{
 		#region Fields
 		// Specific error code
 		internal readonly NativeContent.ReflectError Error;
 		#endregion // Fields
 
-		internal InvalidShaderModuleException(NativeContent.ReflectError error)
+		internal InvalidModuleException(NativeContent.ReflectError error)
 			: base($"Invalid shader module - {error.GetErrorText()}")
 		{
 			Error = error;
-		}
-	}
-
-	/// <summary>
-	/// Represents an error from attempting to create a <see cref="ShaderModule"/> with an unsupported binding
-	/// resource type.
-	/// </summary>
-	public sealed class UnsupportedBindingTypeException : Exception
-	{
-		#region Fields
-		/// <summary>
-		/// The unsupported binding type name.
-		/// </summary>
-		public readonly string BadType;
-		#endregion // Fields
-
-		internal UnsupportedBindingTypeException(string badType)
-			: base($"Unsupported shader binding type - {badType}")
-		{
-			BadType = badType;
 		}
 	}
 

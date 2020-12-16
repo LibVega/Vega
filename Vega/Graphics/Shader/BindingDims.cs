@@ -7,12 +7,12 @@
 using System;
 using Vulkan;
 
-namespace Vega.Graphics.Reflection
+namespace Vega.Graphics
 {
 	/// <summary>
-	/// The different dimensionality types that textures, storage images, and samplers can have.
+	/// The different dimensionality types that texture, storage image, and sampler shader resources can have.
 	/// </summary>
-	public enum TextureDims
+	public enum BindingDims
 	{
 		/// <summary>
 		/// One-dimensional texel data (matches <see cref="Texture1D"/>).

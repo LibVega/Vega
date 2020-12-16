@@ -169,22 +169,22 @@ namespace Vega.Content
 			_ => "UNKNOWN ERROR"
 		};
 
-		// BindingType -> Reflection.BindingType
-		public static Graphics.Reflection.BindingType? ToReflectionType(this NativeContent.BindingType type) =>
+		// BindingType -> Graphics.BindingType
+		public static BindingType? ToPublicType(this NativeContent.BindingType type) =>
 			type switch {
-				NativeContent.BindingType.Sampler => Graphics.Reflection.BindingType.Sampler,
-				NativeContent.BindingType.CombinedImageSampler => Graphics.Reflection.BindingType.BoundSampler,
-				NativeContent.BindingType.SampledImage => Graphics.Reflection.BindingType.Texture,
-				NativeContent.BindingType.InputAttachment => Graphics.Reflection.BindingType.InputAttachment,
+				NativeContent.BindingType.Sampler => BindingType.Sampler,
+				NativeContent.BindingType.CombinedImageSampler => BindingType.BoundSampler,
+				NativeContent.BindingType.SampledImage => BindingType.Texture,
+				NativeContent.BindingType.InputAttachment => BindingType.InputAttachment,
 				_ => null
 			};
 
-		// ImageDims -> TextureDims
-		public static Graphics.Reflection.TextureDims? ToReflectionType(this NativeContent.ImageDims dims) =>
+		// ImageDims -> BindingDims
+		public static BindingDims? ToPublicType(this NativeContent.ImageDims dims) =>
 			dims switch {
-				NativeContent.ImageDims.E1D => Graphics.Reflection.TextureDims.E1D,
-				NativeContent.ImageDims.E2D => Graphics.Reflection.TextureDims.E2D,
-				NativeContent.ImageDims.E3D => Graphics.Reflection.TextureDims.E3D,
+				NativeContent.ImageDims.E1D => BindingDims.E1D,
+				NativeContent.ImageDims.E2D => BindingDims.E2D,
+				NativeContent.ImageDims.E3D => BindingDims.E3D,
 				_ => null
 			};
 	}

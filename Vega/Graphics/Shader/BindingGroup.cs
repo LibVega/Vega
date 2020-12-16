@@ -6,11 +6,11 @@
 
 using System;
 
-namespace Vega.Graphics.Reflection
+namespace Vega.Graphics
 {
 	/// <summary>
-	/// Represents the different <see cref="BindingSet"/> groups (resource namespaces). They have the numeric values
-	/// matching their shader set indices.
+	/// Represents the different shader binding groups (resource namespaces). They have the numeric values matching 
+	/// their shader set indices.
 	/// </summary>
 	public enum BindingGroup : byte
 	{

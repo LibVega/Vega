@@ -7,7 +7,7 @@
 using System;
 using Vulkan;
 
-namespace Vega.Graphics.Reflection
+namespace Vega.Graphics
 {
 	/// <summary>
 	/// Represents the resource types that can be used as bound resources for shader uniforms.

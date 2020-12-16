@@ -6,7 +6,6 @@
 
 using System;
 using System.Collections.Generic;
-using Vega.Graphics.Reflection;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -154,30 +153,22 @@ namespace Vega.Graphics
 				((geom is not null) ? ShaderStages.Geometry : ShaderStages.None);
 
 			// Populate binding layouts
-			PopulateBindingLayout(BufferLayout, vert.BufferGroup, tesc?.BufferGroup, tese?.BufferGroup,
-				geom?.BufferGroup, frag.BufferGroup);
-			PopulateBindingLayout(SamplerLayout, vert.SamplerGroup, tesc?.SamplerGroup, tese?.SamplerGroup,
-				geom?.SamplerGroup, frag.SamplerGroup);
-			PopulateBindingLayout(TextureLayout, vert.TextureGroup, tesc?.TextureGroup, tese?.TextureGroup,
-				geom?.TextureGroup, frag.TextureGroup);
-			PopulateBindingLayout(InputAttachmentLayout, vert.InputAttachmentGroup, tesc?.InputAttachmentGroup, 
-				tese?.InputAttachmentGroup, geom?.InputAttachmentGroup, frag.InputAttachmentGroup);
+			MergeBindingLayouts(BufferLayout, vert.BufferLayout, tesc?.BufferLayout, tese?.BufferLayout,
+				geom?.BufferLayout, frag.BufferLayout);
+			MergeBindingLayouts(SamplerLayout, vert.SamplerLayout, tesc?.SamplerLayout, tese?.SamplerLayout,
+				geom?.SamplerLayout, frag.SamplerLayout);
+			MergeBindingLayouts(TextureLayout, vert.TextureLayout, tesc?.TextureLayout, tese?.TextureLayout,
+				geom?.TextureLayout, frag.TextureLayout);
+			MergeBindingLayouts(InputAttachmentLayout, vert.InputAttachmentLayout, tesc?.InputAttachmentLayout, 
+				tese?.InputAttachmentLayout, geom?.InputAttachmentLayout, frag.InputAttachmentLayout);
 
 			// Get push size info
 			PushConstantSize = vert.PushConstantSize;
 			PushConstantStages = (vert.PushConstantSize != 0) ? ShaderStages.Vertex : ShaderStages.None;
-			if (!CheckPushConstantSize(tesc, ref PushConstantSize, ref PushConstantStages)) {
-				throw new IncompatibleModuleException(ShaderStages.TessControl, "Push constant block size mismatch");
-			}
-			if (!CheckPushConstantSize(tese, ref PushConstantSize, ref PushConstantStages)) {
-				throw new IncompatibleModuleException(ShaderStages.TessEval, "Push constant block size mismatch");
-			}
-			if (!CheckPushConstantSize(geom, ref PushConstantSize, ref PushConstantStages)) {
-				throw new IncompatibleModuleException(ShaderStages.Geometry, "Push constant block size mismatch");
-			}
-			if (!CheckPushConstantSize(frag, ref PushConstantSize, ref PushConstantStages)) {
-				throw new IncompatibleModuleException(ShaderStages.Fragment, "Push constant block size mismatch");
-			}
+			CheckPushConstantSize(tesc, ref PushConstantSize, ref PushConstantStages);
+			CheckPushConstantSize(tese, ref PushConstantSize, ref PushConstantStages);
+			CheckPushConstantSize(geom, ref PushConstantSize, ref PushConstantStages);
+			CheckPushConstantSize(frag, ref PushConstantSize, ref PushConstantStages);
 		}
 		#endregion // Ctor
 
@@ -219,50 +210,40 @@ namespace Vega.Graphics
 		}
 		#endregion // ResourceBase
 
-		// Adds the binding information into the binding layout
-		private static void PopulateBindingLayout(BindingLayout layout, BindingSet vert, BindingSet? tesc,
-			BindingSet? tese, BindingSet? geom, BindingSet frag)
+		// Merge all module layouts into the single layout
+		private static void MergeBindingLayouts(BindingLayout layout, BindingLayout vert, BindingLayout? tesc,
+			BindingLayout? tese, BindingLayout? geom, BindingLayout frag)
 		{
-			foreach (var info in vert.EnumerateFilledBindings()) {
-				layout.Add(info, ShaderStages.Vertex);
+			if (vert.SlotCount > 0) {
+				layout.Merge(vert, ShaderStages.Vertex);
 			}
-			if (tesc is not null) {
-				foreach (var info in tesc.EnumerateFilledBindings()) {
-					layout.Add(info, ShaderStages.TessControl);
-				}
+			if (tesc?.SlotCount > 0) {
+				layout.Merge(tesc, ShaderStages.TessControl);
 			}
-			if (tese is not null) {
-				foreach (var info in tese.EnumerateFilledBindings()) {
-					layout.Add(info, ShaderStages.TessEval);
-				}
+			if (tese?.SlotCount > 0) {
+				layout.Merge(tese, ShaderStages.TessEval);
 			}
-			if (geom is not null) {
-				foreach (var info in geom.EnumerateFilledBindings()) {
-					layout.Add(info, ShaderStages.Geometry);
-				}
+			if (geom?.SlotCount > 0) {
+				layout.Merge(geom, ShaderStages.Geometry);
 			}
-			foreach (var info in frag.EnumerateFilledBindings()) {
-				layout.Add(info, ShaderStages.Fragment);
+			if (frag.SlotCount > 0) {
+				layout.Merge(frag, ShaderStages.Fragment);
 			}
 		}
 
 		// Checks a module push constant size against the expected
-		private static bool CheckPushConstantSize(ShaderModule? mod, ref uint targSize, ref ShaderStages stages)
+		private static void CheckPushConstantSize(ShaderModule? mod, ref uint targSize, ref ShaderStages stages)
 		{
 			if (mod?.PushConstantSize != 0) {
 				if (targSize != 0) {
 					if (mod!.PushConstantSize != targSize) {
-						return false;
+						throw new IncompatibleModuleException(mod.Stage, "incompatible push constant block size");
 					}
 				}
 				else {
 					targSize = mod!.PushConstantSize;
 				}
 				stages |= stages;
-				return true;
-			}
-			else {
-				return true;
 			}
 		}
 	}
