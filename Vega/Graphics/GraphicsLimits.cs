@@ -12,7 +12,7 @@ namespace Vega.Graphics
 	/// <summary>
 	/// Provides the set of queryable limits for the current graphics device and driver.
 	/// </summary>
-	public struct GraphicsLimits
+	public class GraphicsLimits
 	{
 		#region Fields
 		// The actual Vulkan limits
@@ -56,6 +56,16 @@ namespace Vega.Graphics
 		/// Maximum number of layers in a texture array.
 		/// </summary>
 		public uint MaxTextureLayers => Info.Properties.Limits.MaxImageArrayLayers;
+
+		/// <summary>
+		/// The maximum size of a tessellation patch as given in <see cref="Shader.PatchSize"/>.
+		/// </summary>
+		public uint MaxPatchSize => Info.Properties.Limits.MaxTessellationPatchSize;
+
+		/// <summary>
+		/// The maximum size, in bytes, of allowable push constant blocks in shaders.
+		/// </summary>
+		public uint MaxPushConstantSize => Info.Properties.Limits.MaxPushConstantsSize;
 		#endregion // Fields
 
 		internal GraphicsLimits(Vulkan.VVK.DeviceInfo info) => Info = info;

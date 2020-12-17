@@ -51,13 +51,19 @@ namespace Vega.Graphics
 	{
 		#region Fields
 		// Specific error code
-		internal readonly NativeContent.ReflectError Error;
+		internal readonly NativeContent.ReflectError? Error;
 		#endregion // Fields
 
 		internal InvalidModuleException(NativeContent.ReflectError error)
 			: base($"Invalid shader module - {error.GetErrorText()}")
 		{
 			Error = error;
+		}
+
+		internal InvalidModuleException(string error)
+			: base($"Invalid shader module - {error}")
+		{
+			Error = null;
 		}
 	}
 

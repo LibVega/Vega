@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -44,6 +45,15 @@ namespace Vega.Graphics
 		public readonly ShaderModule FragmentModule;
 
 		/// <summary>
+		/// For shaders using tessellation, this is the number of control points (vertices) that make up a tessellation
+		/// patch.
+		/// <para>
+		/// This value is limited by <see cref="GraphicsLimits.MaxPatchSize"/>.
+		/// </para>
+		/// </summary>
+		public readonly uint PatchSize;
+
+		/// <summary>
 		/// The binding layout for the buffers binding group.
 		/// </summary>
 		public readonly BindingLayout BufferLayout = new(BindingGroup.Buffers);
@@ -62,6 +72,9 @@ namespace Vega.Graphics
 
 		/// <summary>
 		/// The size of the shader push constant block, in bytes.
+		/// <para>
+		/// This value is limited by <see cref="GraphicsLimits.MaxPushConstantSize"/>.
+		/// </para>
 		/// </summary>
 		public readonly uint PushConstantSize;
 		/// <summary>
@@ -109,8 +122,9 @@ namespace Vega.Graphics
 		/// <param name="tesc">The tessellation control module.</param>
 		/// <param name="tese">The tessellation evaluation module.</param>
 		/// <param name="frag">The fragment module.</param>
-		public Shader(ShaderModule vert, ShaderModule tesc, ShaderModule tese, ShaderModule frag)
-			: this(vert, tesc, tese, null, frag)
+		/// <param name="patchSize">The number of control points (vertices) that make up a tessellation patch.</param>
+		public Shader(ShaderModule vert, ShaderModule tesc, ShaderModule tese, ShaderModule frag, uint patchSize)
+			: this(vert, tesc, tese, null, frag, patchSize)
 		{ }
 		/// <summary>
 		/// Describe a new shader with explicit modules for each stage.
@@ -120,7 +134,12 @@ namespace Vega.Graphics
 		/// <param name="tese">The optional tessellation eval module.</param>
 		/// <param name="geom">The optional geometry module.</param>
 		/// <param name="frag">The required fragment module.</param>
-		public Shader(ShaderModule vert, ShaderModule? tesc, ShaderModule? tese, ShaderModule? geom, ShaderModule frag)
+		/// <param name="patchSize">
+		/// The number of control points (vertices) that make up a tessellation patch. <c>null</c> if tessellation is
+		/// not enabled.
+		/// </param>
+		public Shader(ShaderModule vert, ShaderModule? tesc, ShaderModule? tese, ShaderModule? geom, ShaderModule frag,
+				uint? patchSize = null)
 			: base(ResourceType.Shader)
 		{
 			var gd = Core.Instance!.Graphics;
@@ -134,6 +153,12 @@ namespace Vega.Graphics
 			}
 			if ((tesc is not null) && !gd.Features.TessellationShaders) {
 				throw new InvalidOperationException("Tessellation shaders feature must be enabled");
+			}
+			if ((tesc is not null) && !patchSize.HasValue) {
+				throw new ArgumentException("A patch size must be given for shaders using tessellation", nameof(patchSize));
+			}
+			if (patchSize.HasValue && (patchSize.Value > Core.Instance!.Graphics.Limits.MaxPatchSize)) {
+				throw new ArgumentException("The patch size is larger than the device limits", nameof(patchSize));
 			}
 			if ((geom is not null) && !gd.Features.GeometryShaders) {
 				throw new InvalidOperationException("Geometry shaders feature must be enabled");
@@ -153,6 +178,7 @@ namespace Vega.Graphics
 			TessEvalModule?.IncRef();
 			GeometryModule?.IncRef();
 			FragmentModule.IncRef();
+			PatchSize = patchSize.GetValueOrDefault();
 
 			// Set reflection values
 			Stages = ShaderStages.Vertex | ShaderStages.Fragment |

@@ -217,6 +217,9 @@ namespace Vega.Graphics
 				stage = NativeContent.SpirvGetStage(refmod).Stage.ToShaderStages();
 				entryPoint = NativeContent.SpirvGetEntryPoint(refmod).EntryPoint;
 				pushSize = NativeContent.SpirvGetPushSize(refmod).Size;
+				if (pushSize > Core.Instance!.Graphics.Limits.MaxPushConstantSize) {
+					throw new InvalidModuleException("Push constant size is higher than the device limit");
+				}
 
 				// Reflect the bindings
 				bindings = new();

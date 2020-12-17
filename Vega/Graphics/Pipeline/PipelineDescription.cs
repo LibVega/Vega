@@ -249,6 +249,10 @@ namespace Vega.Graphics
 				name: mod.Module.NativeEntryPoint.Data,
 				specializationInfo: null // TODO: Public API for specialization
 			)).ToArray();
+			VkPipelineTessellationStateCreateInfo tessCI = new(
+				flags: VkPipelineTessellationStateCreateFlags.NoFlags,
+				patchControlPoints: _shader.PatchSize
+			);
 
 			// Create the pipeline
 			fixed (VkPipelineColorBlendAttachmentState* colorBlendPtr = cblends)
@@ -285,7 +289,7 @@ namespace Vega.Graphics
 					stages: stagePtr,
 					vertexInputState: &vertexCI,
 					inputAssemblyState: inputAssemblyPtr,
-					tessellationState: null, // TODO
+					tessellationState: &tessCI,
 					viewportState: &viewportCI,
 					rasterizationState: rasterizerPtr,
 					multisampleState: &msaaCI,
