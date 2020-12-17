@@ -67,6 +67,8 @@ namespace Vega.Graphics
 
 		// Module handle
 		internal readonly VkShaderModule Handle;
+		// Fixed buffer for entry point name
+		internal readonly Vulkan.VVK.NativeString NativeEntryPoint;
 		#endregion // Fields
 
 		/// <summary>
@@ -101,6 +103,7 @@ namespace Vega.Graphics
 				};
 				layout.SetSlot((NativeContent.BindingInfo*)bind.InfoPtr, Stage);
 			}
+			NativeEntryPoint = new(EntryPoint);
 
 			// Create handle
 			var handle = CreateShaderModule(bytecode);
@@ -116,6 +119,10 @@ namespace Vega.Graphics
 		{
 			if (disposing && (RefCount != 0)) {
 				throw new InvalidOperationException("Cannot dispose a shader module that is still in use");
+			}
+
+			if (disposing) {
+				NativeEntryPoint.Dispose();
 			}
 
 			if (Core.Instance is not null) {

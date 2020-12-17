@@ -199,7 +199,6 @@ namespace Vega.Graphics
 		// Populate the pipeline create info
 		internal unsafe void CreatePipeline(Renderer renderer, uint subpass, MSAA msaa, out VkPipeline pipeline)
 		{
-			var mainBytes = stackalloc byte[5] { (byte)'m', (byte)'a', (byte)'i', (byte)'n', (byte)0 };
 			var dynstates = stackalloc VkDynamicState[2] { 
 				VkDynamicState.Viewport, VkDynamicState.Scissor
 			};
@@ -247,7 +246,7 @@ namespace Vega.Graphics
 				flags: VkPipelineShaderStageCreateFlags.NoFlags,
 				stage: (VkShaderStageFlags)mod.Stage,
 				module: mod.Module.Handle,
-				name: mainBytes,
+				name: mod.Module.NativeEntryPoint.Data,
 				specializationInfo: null // TODO: Public API for specialization
 			)).ToArray();
 
@@ -293,7 +292,7 @@ namespace Vega.Graphics
 					depthStencilState: depthStencilPtr,
 					colorBlendState: &colorBlendCI,
 					dynamicState: &dynamicCI,
-					layout: VulkanHandle<VkPipelineLayout>.Null, // TODO
+					layout: _shader.PipelineLayoutHandle,
 					renderPass: renderer.RenderPass,
 					subpass: subpass,
 					basePipelineHandle: VulkanHandle<VkPipeline>.Null,

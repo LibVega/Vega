@@ -69,6 +69,14 @@ namespace Vega.Graphics
 		/// </summary>
 		public readonly ShaderStages PushConstantStages;
 
+		// Descriptor set layout objects
+		internal readonly VkDescriptorSetLayout? BufferLayoutHandle;
+		internal readonly VkDescriptorSetLayout? SamplerLayoutHandle;
+		internal readonly VkDescriptorSetLayout? TextureLayoutHandle;
+		internal readonly VkDescriptorSetLayout? InputAttachmentLayoutHandle;
+		// Pipeline layout object
+		internal readonly VkPipelineLayout PipelineLayoutHandle;
+
 		// Number of shader stages
 		internal uint StageCount => 2u +
 			((TessControlModule is not null) ? 1u : 0u) +
@@ -169,6 +177,13 @@ namespace Vega.Graphics
 			CheckPushConstantSize(tese, ref PushConstantSize, ref PushConstantStages);
 			CheckPushConstantSize(geom, ref PushConstantSize, ref PushConstantStages);
 			CheckPushConstantSize(frag, ref PushConstantSize, ref PushConstantStages);
+
+			// Create the layout objects
+			BufferLayoutHandle = BufferLayout.CreateDescriptorSetLayout();
+			SamplerLayoutHandle = SamplerLayout.CreateDescriptorSetLayout();
+			TextureLayoutHandle = TextureLayout.CreateDescriptorSetLayout();
+			InputAttachmentLayoutHandle = InputAttachmentLayout.CreateDescriptorSetLayout();
+			PipelineLayoutHandle = CreatePipelineLayout(this);
 		}
 		#endregion // Ctor
 
@@ -206,7 +221,11 @@ namespace Vega.Graphics
 
 		protected internal override void Destroy()
 		{
-
+			BufferLayoutHandle?.DestroyDescriptorSetLayout(null);
+			SamplerLayoutHandle?.DestroyDescriptorSetLayout(null);
+			TextureLayoutHandle?.DestroyDescriptorSetLayout(null);
+			InputAttachmentLayoutHandle?.DestroyDescriptorSetLayout(null);
+			PipelineLayoutHandle?.DestroyPipelineLayout(null);
 		}
 		#endregion // ResourceBase
 
@@ -245,6 +264,46 @@ namespace Vega.Graphics
 				}
 				stages |= stages;
 			}
+		}
+
+		// Create a pipeline layout object
+		private static VkPipelineLayout CreatePipelineLayout(Shader shader)
+		{
+			// Collect descriptor layouts
+			var layouts = stackalloc VulkanHandle<VkDescriptorSetLayout>[4];
+			uint lidx = 0;
+			if (shader.BufferLayoutHandle is not null) {
+				layouts[lidx++] = shader.BufferLayoutHandle;
+			}
+			if (shader.SamplerLayoutHandle is not null) {
+				layouts[lidx++] = shader.SamplerLayoutHandle;
+			}
+			if (shader.TextureLayoutHandle is not null) {
+				layouts[lidx++] = shader.TextureLayoutHandle;
+			}
+			if (shader.InputAttachmentLayoutHandle is not null) {
+				layouts[lidx++] = shader.InputAttachmentLayoutHandle;
+			}
+
+			// Describe push constants
+			VkPushConstantRange pcrange = new(
+				stageFlags: (VkShaderStageFlags)shader.PushConstantStages,
+				offset: 0,
+				size: shader.PushConstantSize
+			);
+
+			// Create layout
+			VkPipelineLayoutCreateInfo plci = new(
+				flags: VkPipelineLayoutCreateFlags.NoFlags,
+				setLayoutCount: lidx,
+				setLayouts: layouts,
+				pushConstantRangeCount: (pcrange.Size != 0) ? 1 : 0,
+				pushConstantRanges: &pcrange
+			);
+			VulkanHandle<VkPipelineLayout> handle;
+			Core.Instance!.Graphics.VkDevice.CreatePipelineLayout(&plci, null, &handle)
+				.Throw("Failed to create pipeline layout");
+			return new(handle, Core.Instance!.Graphics.VkDevice);
 		}
 	}
 }

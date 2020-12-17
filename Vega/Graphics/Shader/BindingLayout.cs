@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using Vega.Content;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -99,6 +100,42 @@ namespace Vega.Graphics
 				SlotCount += 1; // Increment for new slot
 			}
 			_slots[info->Slot] = new(type!.Value, Math.Max(info->ArraySize, 1), info->BlockSize, dims!.Value, stage);
+		}
+
+		// Create a descriptor set layout from the current slots, returns null if there are no slots
+		internal VkDescriptorSetLayout? CreateDescriptorSetLayout()
+		{
+			if (SlotCount == 0) {
+				return null;
+			}
+
+			// Create the binding info
+			var bindings = stackalloc VkDescriptorSetLayoutBinding[(int)SlotCount];
+			for (int si = 0, bi = 0; si < SLOT_COUNT; ++si) {
+				if (!_slots[si].Enabled) {
+					continue;
+				}
+
+				ref var slot = ref _slots[si];
+				bindings[bi++] = new(
+					binding: (uint)si,
+					descriptorType: (VkDescriptorType)slot.Type,
+					descriptorCount: slot.Count,
+					stageFlags: (VkShaderStageFlags)slot.Stages,
+					immutableSamplers: null
+				);
+			}
+
+			// Create the set layout
+			VkDescriptorSetLayoutCreateInfo dslci = new(
+				flags: VkDescriptorSetLayoutCreateFlags.NoFlags, // TODO: Look into push descriptors and template updates
+				bindingCount: SlotCount,
+				bindings: bindings
+			);
+			VulkanHandle<VkDescriptorSetLayout> handle;
+			Core.Instance!.Graphics.VkDevice.CreateDescriptorSetLayout(&dslci, null, &handle)
+				.Throw("Failed to create binding layout object");
+			return new(handle, Core.Instance!.Graphics.VkDevice);
 		}
 
 		/// <summary>
