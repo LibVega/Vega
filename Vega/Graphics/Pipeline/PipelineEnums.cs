@@ -12,7 +12,7 @@ namespace Vega.Graphics
 	/// <summary>
 	/// The possible primitives that a raw vertex buffer can be interpreted as.
 	/// </summary>
-	public enum Topology : int
+	public enum Topology : sbyte
 	{
 		/// <summary>
 		/// Interpret as individual disconnected points.
@@ -43,7 +43,7 @@ namespace Vega.Graphics
 	/// <summary>
 	/// Polygon interior fragment fill mode.
 	/// </summary>
-	public enum FillMode : int
+	public enum FillMode : sbyte
 	{
 		/// <summary>
 		/// Polygons are filled completely in the interior.
@@ -62,30 +62,30 @@ namespace Vega.Graphics
 	/// <summary>
 	/// Face culling modes.
 	/// </summary>
-	public enum CullMode : uint
+	public enum CullMode : byte
 	{
 		/// <summary>
 		/// No faces are culled.
 		/// </summary>
-		None = VkCullModeFlags.None,
+		None = (byte)VkCullModeFlags.None,
 		/// <summary>
 		/// The front face is culled.
 		/// </summary>
-		Front = VkCullModeFlags.Front,
+		Front = (byte)VkCullModeFlags.Front,
 		/// <summary>
 		/// The back face is culled.
 		/// </summary>
-		Back = VkCullModeFlags.Back,
+		Back = (byte)VkCullModeFlags.Back,
 		/// <summary>
 		/// All faces are culled.
 		/// </summary>
-		Both = VkCullModeFlags.FrontAndBack
+		Both = (byte)VkCullModeFlags.FrontAndBack
 	}
 
 	/// <summary>
 	/// The vertex winding directions to define a front face.
 	/// </summary>
-	public enum Winding : int
+	public enum Winding : sbyte
 	{
 		/// <summary>
 		/// Counter-clockwise winding defines a front face.
@@ -100,7 +100,7 @@ namespace Vega.Graphics
 	/// <summary>
 	/// The graphics operations available for comparing values.
 	/// </summary>
-	public enum CompareOp : int
+	public enum CompareOp : sbyte
 	{
 		/// <summary>
 		/// The comparison is never true.
@@ -139,7 +139,7 @@ namespace Vega.Graphics
 	/// <summary>
 	/// Operations available on the stencil buffer.
 	/// </summary>
-	public enum StencilOp : int
+	public enum StencilOp : sbyte
 	{
 		/// <summary>
 		/// The stencil value is untouched by the operation.
@@ -178,7 +178,7 @@ namespace Vega.Graphics
 	/// <summary>
 	/// Available depth buffer operation states.
 	/// </summary>
-	public enum DepthMode : int
+	public enum DepthMode : sbyte
 	{
 		/// <summary>
 		/// No depth buffer reads or writes are performed.
@@ -202,7 +202,7 @@ namespace Vega.Graphics
 	/// Available blending operation input factors. "Inv*" factors perform color inversion operations, which are
 	/// <c>(1, 1, 1) - color</c>, or <c>1 - alpha</c>.
 	/// </summary>
-	public enum BlendFactor : int
+	public enum BlendFactor : sbyte
 	{
 		/// <summary>
 		/// Input factor is zero (black/transparent).
@@ -269,7 +269,7 @@ namespace Vega.Graphics
 	/// <summary>
 	/// Available operations for combining the inputs during color buffer blending.
 	/// </summary>
-	public enum BlendOp : int
+	public enum BlendOp : sbyte
 	{
 		/// <summary>
 		/// The inputs are added (<c>src + dst</c>).
@@ -297,7 +297,7 @@ namespace Vega.Graphics
 	/// Represents a mask of different color channels in RGBA color space.
 	/// </summary>
 	[Flags]
-	public enum ColorChannels : uint
+	public enum ColorChannels : byte
 	{
 		/// <summary>
 		/// Mask of no color channels.
@@ -306,19 +306,19 @@ namespace Vega.Graphics
 		/// <summary>
 		/// Mask of the red color channel.
 		/// </summary>
-		R = VkColorComponentFlags.R,
+		R = (byte)VkColorComponentFlags.R,
 		/// <summary>
 		/// Mask of the green color channel.
 		/// </summary>
-		G = VkColorComponentFlags.G,
+		G = (byte)VkColorComponentFlags.G,
 		/// <summary>
 		/// Mask of the blue color channel.
 		/// </summary>
-		B = VkColorComponentFlags.B,
+		B = (byte)VkColorComponentFlags.B,
 		/// <summary>
 		/// Mask of the alpha channel.
 		/// </summary>
-		A = VkColorComponentFlags.A,
+		A = (byte)VkColorComponentFlags.A,
 		/// <summary>
 		/// Mask of the color channels (R, G, B).
 		/// </summary>
