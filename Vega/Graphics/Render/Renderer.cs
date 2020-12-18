@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Vulkan;
 
@@ -73,6 +74,13 @@ namespace Vega.Graphics
 		// The current primary command buffer recording render commands
 		private CommandBuffer? _cmd = null;
 		#endregion // Recording
+
+		#region Pipelines
+		// The pipelines that have been created for this renderer
+		internal IReadOnlyList<Pipeline> Pipelines => _pipelines;
+		private readonly List<Pipeline> _pipelines = new();
+		private readonly object _pipelineLock = new();
+		#endregion // Pipelines
 
 		/// <summary>
 		/// Disposal flag.
@@ -177,6 +185,11 @@ namespace Vega.Graphics
 
 			// Rebuild the render target
 			RenderTarget.Rebuild(msaa);
+
+			// Rebuild all associated pipelines
+			foreach (var pipeline in _pipelines) {
+				pipeline.Rebuild();
+			}
 		}
 		#endregion // Size/MSAA
 
@@ -340,6 +353,32 @@ namespace Vega.Graphics
 			RenderTarget.Rebuild(MSAA);
 		}
 
+		#region Pipelines
+		// Adds a new pipeline to be tracked by this renderer
+		internal void AddPipeline(Pipeline pipeline)
+		{
+			if (!ReferenceEquals(this, pipeline.Renderer)) {
+				throw new ArgumentException("LIBRARY BUG - renderer instance mismatch for pipeline", nameof(pipeline));
+			}
+
+			lock (_pipelineLock) {
+				_pipelines.Add(pipeline);
+			}
+		}
+
+		// Removes the pipeline from being tracked and managed by this renderer
+		internal void RemovePipeline(Pipeline pipeline)
+		{
+			if (!ReferenceEquals(this, pipeline.Renderer)) {
+				throw new ArgumentException("LIBRARY BUG - renderer instance mismatch for pipeline", nameof(pipeline));
+			}
+
+			lock (_pipelineLock) {
+				_pipelines.Remove(pipeline);
+			}
+		}
+		#endregion // Pipelines
+
 		#region IDisposable
 		public void Dispose()
 		{
@@ -353,6 +392,10 @@ namespace Vega.Graphics
 				if (disposing) {
 					Graphics.VkDevice.DeviceWaitIdle();
 					RenderTarget.Dispose();
+
+					while (_pipelines.Count > 0) {
+						_pipelines[^1].Dispose(); // Removes this pipeline from the list
+					}
 				}
 				RenderPass.DestroyRenderPass(null);
 			}

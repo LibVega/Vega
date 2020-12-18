@@ -17,6 +17,10 @@ namespace Vega.Graphics
 	/// This is the core type for defining how rendering occurs in the library. Instances are tied to specific
 	/// <see cref="Renderer"/>s, and are automatically rebuilt if the renderer changes.
 	/// </para>
+	/// <para>
+	/// Pipeline lifetimes are managed by their parent renderers. They can still be manually disposed, but will also
+	/// be destroyed alongside their parent renderer.
+	/// </para>
 	/// </summary>
 	public unsafe sealed class Pipeline : ResourceBase
 	{
@@ -37,8 +41,7 @@ namespace Vega.Graphics
 		// The pipeline handle
 		internal VkPipeline Handle { get; private set; }
 		// The cached build state for pipeline rebuilds
-		internal readonly BuildStates? BuildState;
-		internal bool CanRebuild => BuildState is not null;
+		internal readonly BuildStates? BuildCache;
 		#endregion // Fields
 
 		/// <summary>
@@ -51,12 +54,25 @@ namespace Vega.Graphics
 			: base(ResourceType.Pipeline)
 		{
 			// Create the pipeline handle
-			Handle = CreatePipeline(description, renderer, subpass, out BuildState);
+			Handle = CreatePipeline(description, renderer, subpass, out BuildCache);
 
 			// Assign fields
 			Shader = description.Shader!;
 			Renderer = renderer;
 			Subpass = subpass;
+
+			// Register to the renderer
+			renderer.AddPipeline(this);
+		}
+
+		// Called by the parent renderer when the MSAA changes
+		internal void Rebuild()
+		{
+			// Destroy old handle
+			Handle?.DestroyPipeline(null);
+
+			// Create new handle
+			Handle = RebuildPipeline(BuildCache!, Renderer, Subpass, Shader);
 		}
 
 		#region ResourceBase
@@ -64,6 +80,10 @@ namespace Vega.Graphics
 		{
 			if (Core.Instance is not null) {
 				Core.Instance.Graphics.Resources.QueueDestroy(this);
+
+				if (disposing && !Renderer.IsDisposed) {
+					Renderer.RemovePipeline(this);
+				}
 			}
 			else {
 				Destroy();
