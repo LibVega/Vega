@@ -16,7 +16,7 @@ namespace Vega.Graphics
 	/// Renderer is ended, all command lists for the current frame (even if not submitted) become invalid.
 	/// </para>
 	/// </summary>
-	public sealed class CommandList
+	public sealed class RenderTask
 	{
 		#region Fields
 		/// <summary>
@@ -36,7 +36,7 @@ namespace Vega.Graphics
 		public bool IsValid => Buffer is not null;
 		#endregion // Fields
 
-		internal CommandList(Renderer renderer, uint subpass, CommandBuffer cmd)
+		internal RenderTask(Renderer renderer, uint subpass, CommandBuffer cmd)
 		{
 			Renderer = renderer;
 			Subpass = subpass;

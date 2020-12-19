@@ -284,27 +284,27 @@ namespace Vega.Graphics
 		/// Submits the given command list to be executed at the current recording location of the renderer. The
 		/// command list is invalidated and cannot be reused after this call.
 		/// </summary>
-		/// <param name="list">The list of commands to execute.</param>
-		public void Submit(CommandList list)
+		/// <param name="task">The list of commands to execute.</param>
+		public void Submit(RenderTask task)
 		{
 			// Validate
 			if (!IsRecording) {
 				throw new InvalidOperationException("Cannot call Submit() on a renderer that is not recording");
 			}
-			if (!list.IsValid) {
-				throw new InvalidOperationException("Cannot submit an invalid CommandList to a renderer");
+			if (!task.IsValid) {
+				throw new InvalidOperationException("Cannot submit an invalid RenderTask to a renderer");
 			}
-			if (!ReferenceEquals(list.Renderer, this)) {
-				throw new InvalidOperationException("Cannot submit a CommandList to the renderer it was not recorded for");
+			if (!ReferenceEquals(task.Renderer, this)) {
+				throw new InvalidOperationException("Cannot submit a RenderTask to the renderer it was not recorded for");
 			}
-			if (list.Subpass != CurrentSubpass) {
-				throw new InvalidOperationException("Cannot submit a CommandList in a subpass it was not recorded for");
+			if (task.Subpass != CurrentSubpass) {
+				throw new InvalidOperationException("Cannot submit a RenderTask in a subpass it was not recorded for");
 			}
 
 			// Submit
-			var handle = list.Buffer!.Cmd.Handle;
+			var handle = task.Buffer!.Cmd.Handle;
 			_cmd!.Cmd.CmdExecuteCommands(1, &handle);
-			list.Invalidate();
+			task.Invalidate();
 		}
 
 		/// <summary>
@@ -314,35 +314,35 @@ namespace Vega.Graphics
 		/// The submited command lists will be executed in the order they are given.
 		/// </para>
 		/// </summary>
-		/// <param name="lists">The set of command lists to submit.</param>
-		public void Submit(params CommandList[] lists)
+		/// <param name="tasks">The set of render tasks to submit.</param>
+		public void Submit(params RenderTask[] tasks)
 		{
 			// Validate
-			if (lists.Length == 0) {
+			if (tasks.Length == 0) {
 				return;
 			}
 			if (!IsRecording) {
 				throw new InvalidOperationException("Cannot call Submit() on a renderer that is not recording");
 			}
-			foreach (var list in lists) {
+			foreach (var list in tasks) {
 				if (!list.IsValid) {
-					throw new InvalidOperationException("Cannot submit an invalid CommandList to a renderer");
+					throw new InvalidOperationException("Cannot submit an invalid RenderTask to a renderer");
 				}
 				if (!ReferenceEquals(list.Renderer, this)) {
-					throw new InvalidOperationException("Cannot submit a CommandList to the renderer it was not recorded for");
+					throw new InvalidOperationException("Cannot submit a RenderTask to the renderer it was not recorded for");
 				}
 				if (list.Subpass != CurrentSubpass) {
-					throw new InvalidOperationException("Cannot submit a CommandList in a subpass it was not recorded for");
+					throw new InvalidOperationException("Cannot submit a RenderTask in a subpass it was not recorded for");
 				}
 			}
 
 			// Submit
-			var handles = stackalloc VulkanHandle<VkCommandBuffer>[lists.Length];
-			for (int i = 0; i < lists.Length; ++i) {
-				handles[i] = lists[i].Buffer!.Cmd.Handle;
-				lists[i].Invalidate();
+			var handles = stackalloc VulkanHandle<VkCommandBuffer>[tasks.Length];
+			for (int i = 0; i < tasks.Length; ++i) {
+				handles[i] = tasks[i].Buffer!.Cmd.Handle;
+				tasks[i].Invalidate();
 			}
-			_cmd!.Cmd.CmdExecuteCommands((uint)lists.Length, handles);
+			_cmd!.Cmd.CmdExecuteCommands((uint)tasks.Length, handles);
 		}
 		#endregion // Commands
 

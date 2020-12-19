@@ -15,7 +15,7 @@ namespace Vega.Graphics
 	/// graphics processing pipeline.
 	/// <para>
 	/// This is the core type for defining how rendering occurs in the library. Instances are tied to specific
-	/// <see cref="Renderer"/>s, and are automatically rebuilt if the renderer changes.
+	/// <see cref="Graphics.Renderer"/>s, and are automatically rebuilt if the renderer changes.
 	/// </para>
 	/// <para>
 	/// Pipeline lifetimes are managed by their parent renderers. They can still be manually disposed, but will also
@@ -58,6 +58,7 @@ namespace Vega.Graphics
 
 			// Assign fields
 			Shader = description.Shader!;
+			Shader.IncRef();
 			Renderer = renderer;
 			Subpass = subpass;
 
@@ -78,6 +79,8 @@ namespace Vega.Graphics
 		#region ResourceBase
 		protected override void OnDispose(bool disposing)
 		{
+			Shader?.DecRef();
+
 			if (Core.Instance is not null) {
 				Core.Instance.Graphics.Resources.QueueDestroy(this);
 

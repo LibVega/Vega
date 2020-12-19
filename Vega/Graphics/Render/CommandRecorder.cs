@@ -100,7 +100,7 @@ namespace Vega.Graphics
 		/// <see cref="BoundRenderer"/>.
 		/// </summary>
 		/// <returns>The set of recorded commands to submit to the renderer.</returns>
-		public CommandList End()
+		public RenderTask End()
 		{
 			// Validate
 			if (!IsRecording) {
@@ -113,7 +113,7 @@ namespace Vega.Graphics
 
 			// End buffer
 			_cmd!.Cmd.EndCommandBuffer().Throw("Failed to record commands");
-			CommandList list = new(BoundRenderer!, BoundSubpass!.Value, _cmd);
+			RenderTask task = new(BoundRenderer!, BoundSubpass!.Value, _cmd);
 
 			// Set values
 			BoundRenderer = null;
@@ -122,7 +122,7 @@ namespace Vega.Graphics
 			_cmd = null;
 
 			// Return list
-			return list;
+			return task;
 		}
 
 		/// <summary>

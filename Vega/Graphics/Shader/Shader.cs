@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -95,6 +96,13 @@ namespace Vega.Graphics
 			((TessControlModule is not null) ? 1u : 0u) +
 			((TessEvalModule is not null) ? 1u : 0u) +
 			((GeometryModule is not null) ? 1u : 0u);
+
+		/// <summary>
+		/// The number of <see cref="Pipeline"/> objects that are actively using this shader. Attempting to dispose
+		/// a shader that is in use will generate an exception.
+		/// </summary>
+		public uint RefCount => _refCount;
+		private uint _refCount = 0;
 		#endregion // Fields
 
 		#region Ctor
@@ -228,9 +236,16 @@ namespace Vega.Graphics
 			yield return (ShaderStages.Fragment, FragmentModule);
 		}
 
+		internal void IncRef() => Interlocked.Increment(ref _refCount);
+		internal void DecRef() => Interlocked.Decrement(ref _refCount);
+
 		#region ResourceBase
 		protected override void OnDispose(bool disposing)
 		{
+			if (disposing && (_refCount != 0)) {
+				throw new InvalidOperationException("Cannot dispose of shader that is in use");
+			}
+
 			if (Core.Instance is not null) {
 				Core.Instance.Graphics.Resources.QueueDestroy(this);
 			}
