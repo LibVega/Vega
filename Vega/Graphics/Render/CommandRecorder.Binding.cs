@@ -105,7 +105,7 @@ namespace Vega.Graphics
 
 			// Populates write descriptor objects to update descriptor sets with the binding contents
 			public void PopulateDescriptorWrites(VkWriteDescriptorSet* writes, VkDescriptorImageInfo* iinfos, 
-				in BindingSet set, BindingLayout layout)
+				VulkanHandle<VkDescriptorSet> set, BindingLayout layout)
 			{
 				for (int i = 0, rem = (int)layout.SlotCount; (i < BindingLayout.SLOT_COUNT) && (rem > 0); ++i) {
 					// Skip disabled slots
@@ -134,7 +134,7 @@ namespace Vega.Graphics
 
 					// Create the write values
 					*writes = new(
-						dstSet: set.Handle,
+						dstSet: set,
 						dstBinding: (uint)i,
 						dstArrayElement: 0,
 						descriptorCount: 1,
@@ -147,6 +147,17 @@ namespace Vega.Graphics
 					// Loop values
 					writes += 1;
 					rem -= 1;
+				}
+			}
+
+			// Populates the buffer dynamic offsets for buffer binding types
+			public void PopulateDynamicOffsets(uint* offsets, BindingLayout layout)
+			{
+				for (int i = 0, rem = (int)layout.SlotCount; (i < BindingLayout.SLOT_COUNT) && (rem > 0); ++i) {
+					if (!layout.Slots[i].Enabled) {
+						continue;
+					}
+					*(offsets++) = (uint)_bindings[i].BufferOffset;
 				}
 			}
 		}

@@ -238,6 +238,26 @@ namespace Vega.Graphics
 		internal void IncRef() => Interlocked.Increment(ref _refCount);
 		internal void DecRef() => Interlocked.Decrement(ref _refCount);
 
+		internal BindingSet AllocateBindingSet(BindingGroup group)
+		{
+			var res = Core.Instance!.Graphics.Resources;
+			return group switch { 
+				BindingGroup.Buffers => (BufferLayoutHandle is not null)
+					? res.BufferBindingPool.Allocate(BufferLayout.Counts, BufferLayoutHandle)
+					: throw new Exception("LIBRARY BUG - Attempt to allocate buffer set from non-buffer shader"),
+				BindingGroup.Samplers => (SamplerLayoutHandle is not null)
+					? res.SamplerBindingPool.Allocate(SamplerLayout.Counts, SamplerLayoutHandle)
+					: throw new Exception("LIBRARY BUG - Attempt to allocate sampler set from non-sampler shader"),
+				BindingGroup.Textures => (TextureLayoutHandle is not null)
+					? res.TextureBindingPool.Allocate(TextureLayout.Counts, TextureLayoutHandle)
+					: throw new Exception("LIBRARY BUG - Attempt to allocate texture set from non-texture shader"),
+				BindingGroup.InputAttachments => (InputAttachmentLayoutHandle is not null)
+					? res.InputAttachmentBindingPool.Allocate(InputAttachmentLayout.Counts, InputAttachmentLayoutHandle)
+					: throw new Exception("LIBRARY BUG - Attempt to allocate input attachment set from non-buffer shader"),
+				_ => throw new Exception("LIBRARY BUG - Invalid group argument")
+			};
+		}
+
 		#region ResourceBase
 		protected override void OnDispose(bool disposing)
 		{
