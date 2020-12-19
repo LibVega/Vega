@@ -37,7 +37,7 @@ namespace Vega.Graphics
 		}
 
 		// Checks if this set of counts is >= all counts in another set
-		public bool Check(in BindingCounts other) =>
+		public readonly bool Check(in BindingCounts other) =>
 			(Sampler >= other.Sampler) &&
 			(BoundSampler >= other.BoundSampler) &&
 			(Texture >= other.Texture) &&
@@ -74,7 +74,7 @@ namespace Vega.Graphics
 		}
 
 		// Populates an array of vk pool sizes
-		public unsafe void PopulatePoolSizes(VkDescriptorPoolSize* sizes, out int sizeCount)
+		public readonly unsafe void PopulatePoolSizes(VkDescriptorPoolSize* sizes, out int sizeCount)
 		{
 			sizeCount = 0;
 			if (Sampler > 0) {

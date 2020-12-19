@@ -5,11 +5,15 @@
  */
 
 using System;
+using System.Collections.Generic;
 using Vulkan;
 
 namespace Vega.Graphics
 {
 	// Manages a descriptor pool that binding sets can be allocated from
+	// Allocation is done with the following steps:
+	//   * Attempt to allocate from `_currentPool`, move to end of `_usedPools` on failure
+	//   * Check if start of `_usedPools` can be set to `_currentPool`, otherwise allocate new pool for `_currentPool`
 	internal unsafe sealed class BindingPool : IDisposable
 	{
 		// Default counts for sets and resource types
@@ -27,7 +31,11 @@ namespace Vega.Graphics
 		public readonly BindingCounts DefaultCounts;
 
 		// The pools
-		private PoolNode CurrentPool;
+		private PoolNode _currentPool; // The current allocation pool
+		private readonly Queue<PoolNode> _usedPools = new(); // The used allocation pools
+
+		// Allocation lock
+		private readonly FastMutex _allocateMutex = new();
 
 		// Disposed flag
 		public bool IsDisposed { get; private set; } = false;
@@ -48,11 +56,52 @@ namespace Vega.Graphics
 			};
 
 			// Create the initial pool
-			CurrentPool = new(this);
+			_currentPool = new(this);
 		}
 		~BindingPool()
 		{
 			dispose(false);
+		}
+
+		public BindingSet Allocate(in BindingCounts counts, VkDescriptorSetLayout layout)
+		{
+			const uint RESET_AGE = GraphicsDevice.MAX_PARALLEL_FRAMES - 1;
+
+			var frame = AppTime.FrameCount;
+
+			// Lock on allocate
+			// A fast lock should be okay for _currentPool and reset allocations, but will be less than ideal for
+			//   new-pool allocations - but these should happen infrequently for consistent rendering tasks
+			using (var _ = _allocateMutex.AcquireUNSAFE()) {
+				// Try to allocate from the current pool
+				if (_currentPool.Check(counts)) {
+					var set = AllocateSet(Graphics, _currentPool, counts, layout);
+					_currentPool.LastUse = frame;
+					return new(set, frame);
+				}
+
+				// Check if the next used pool is available
+				_usedPools.Enqueue(_currentPool);
+				var age = frame - _usedPools.Peek().LastUse;
+				if (age >= RESET_AGE) {
+					// Dequeue from used and reset
+					_currentPool = _usedPools.Dequeue();
+					_currentPool.SetCount = SET_COUNT;
+					_currentPool.Counts = DefaultCounts;
+					_currentPool.CacheIndex += 1;
+					_currentPool.Handle.ResetDescriptorPool(VkDescriptorPoolResetFlags.NoFlags);
+				}
+				else { // Otherwise create a new pool
+					_currentPool = new(this);
+				}
+
+				// Allocate from the new current pool
+				{
+					var set = AllocateSet(Graphics, _currentPool, counts, layout);
+					_currentPool.LastUse = frame;
+					return new(set, frame);
+				}
+			}
 		}
 
 		#region IDisposable
@@ -65,11 +114,35 @@ namespace Vega.Graphics
 		private void dispose(bool disposing)
 		{
 			if (!IsDisposed) {
-				CurrentPool?.Handle?.DestroyDescriptorPool(null);
+				_currentPool?.Handle?.DestroyDescriptorPool(null);
+				foreach (var pool in _usedPools) {
+					pool?.Handle?.DestroyDescriptorPool(null);
+				}
+				_usedPools.Clear();
 			}
 			IsDisposed = true;
 		}
 		#endregion // IDisposable
+
+		// Perform a set allocation for a given pool
+		private static VulkanHandle<VkDescriptorSet> AllocateSet(GraphicsDevice device, PoolNode pool, 
+			in BindingCounts counts, VkDescriptorSetLayout layout)
+		{
+			// Update pool counts
+			pool.Counts.Remove(counts);
+			pool.SetCount -= 1;
+
+			// Allocate the set
+			var handle = layout.Handle;
+			VkDescriptorSetAllocateInfo dsai = new(
+				descriptorPool: pool.Handle,
+				descriptorSetCount: 1,
+				setLayouts: &handle
+			);
+			VulkanHandle<VkDescriptorSet> setHandle;
+			device.VkDevice.AllocateDescriptorSets(&dsai, &setHandle);
+			return setHandle;
+		}
 
 		// Allocate a new pool with the given set and resource counts
 		private static VkDescriptorPool AllocateNewPool(GraphicsDevice device, uint sets, in BindingCounts counts)
@@ -103,6 +176,8 @@ namespace Vega.Graphics
 			public readonly VkDescriptorPool Handle;
 			// The last use frame index for detecting when a pool can be reused
 			public ulong LastUse;
+			// Incremented on reset, may allow future optimizations such as set caching
+			public uint CacheIndex;
 			#endregion // Fields
 
 			public PoolNode(BindingPool parent)
@@ -112,10 +187,13 @@ namespace Vega.Graphics
 				SetCount = SET_COUNT;
 				Counts = parent.DefaultCounts;
 				LastUse = 0;
+				CacheIndex = 0;
 
 				// Create pool
 				Handle = AllocateNewPool(parent.Graphics, SetCount, Counts);
 			}
+
+			public bool Check(in BindingCounts counts) => (SetCount > 0) && Counts.Check(counts);
 		}
 	}
 }
