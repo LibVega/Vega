@@ -94,6 +94,9 @@ namespace Vega.Graphics
 			if (info->ArraySize == UInt32.MaxValue) {
 				throw new InvalidBindingException((uint)Group, info->Slot, "arrays must have a constant size");
 			}
+			if (info->ArraySize != 0 && info->ArraySize != 1) {
+				throw new InvalidBindingException((uint)Group, info->Slot, "binding arrays are not currently supported");
+			}
 			var dims = info->ImageDims.ToPublicType();
 			if (!dims.HasValue) {
 				throw new InvalidBindingException((uint)Group, info->Slot, "unsupported or invalid binding dims");
