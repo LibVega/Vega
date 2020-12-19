@@ -38,6 +38,9 @@ namespace Vega.Graphics
 		/// Gets the number of slots that are filled in this layout.
 		/// </summary>
 		public uint SlotCount { get; private set; } = 0;
+
+		// The binding type counts
+		internal BindingCounts Counts { get; private set; } = new();
 		#endregion // Fields
 
 		internal BindingLayout(BindingGroup group)
@@ -60,6 +63,7 @@ namespace Vega.Graphics
 				if (!oldSlot.Enabled) {
 					_slots[i] = newSlot;
 					SlotCount += 1; // Increment for new slot
+					Counts.Add(newSlot.Type);
 				}
 				else { // Check merge validity
 					if (newSlot.Type != oldSlot.Type) {
@@ -100,6 +104,7 @@ namespace Vega.Graphics
 				SlotCount += 1; // Increment for new slot
 			}
 			_slots[info->Slot] = new(type!.Value, Math.Max(info->ArraySize, 1), info->BlockSize, dims!.Value, stage);
+			Counts.Add(type.Value);
 		}
 
 		// Create a descriptor set layout from the current slots, returns null if there are no slots
