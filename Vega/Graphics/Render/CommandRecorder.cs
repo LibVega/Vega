@@ -19,7 +19,7 @@ namespace Vega.Graphics
 	/// disposal call will only discard the current rendering process, instead of the entire object.
 	/// </para>
 	/// </summary>
-	public unsafe sealed class CommandRecorder : IDisposable
+	public unsafe sealed partial class CommandRecorder : IDisposable
 	{
 		#region Fields
 		/// <summary>
@@ -43,6 +43,13 @@ namespace Vega.Graphics
 		/// Gets if commands are currently being recorded into the recorder.
 		/// </summary>
 		public bool IsRecording => BoundPipeline is not null;
+
+		#region Binding State
+		// The sets of currently bound resources (input attachments are managed internally and not present here)
+		private readonly BoundResources _bufferResources = new();
+		private readonly BoundResources _samplerResources = new();
+		private readonly BoundResources _textureResources = new();
+		#endregion // Binding State
 
 		// The current command buffer for recording
 		private CommandBuffer? _cmd = null;
@@ -97,7 +104,10 @@ namespace Vega.Graphics
 			BoundPipeline = pipeline;
 			RecordingFrame = AppTime.FrameCount;
 
-			// TODO: Reset cached recording state
+			// Reset cached recording state
+			_bufferResources.Reset();
+			_samplerResources.Reset();
+			_textureResources.Reset();
 		}
 
 		/// <summary>
@@ -174,7 +184,10 @@ namespace Vega.Graphics
 			_cmd!.Cmd.CmdBindPipeline(VkPipelineBindPoint.Graphics, pipeline.Handle);
 			BoundPipeline = pipeline;
 
-			// TODO: Reset cached recording state
+			// Reset cached recording state
+			_bufferResources.Reset();
+			_samplerResources.Reset();
+			_textureResources.Reset();
 		}
 		#endregion // Resources
 

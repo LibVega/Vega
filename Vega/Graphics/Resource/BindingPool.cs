@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -63,6 +64,7 @@ namespace Vega.Graphics
 			dispose(false);
 		}
 
+		[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 		public BindingSet Allocate(in BindingCounts counts, VkDescriptorSetLayout layout)
 		{
 			const uint RESET_AGE = GraphicsDevice.MAX_PARALLEL_FRAMES - 1;
@@ -125,6 +127,7 @@ namespace Vega.Graphics
 		#endregion // IDisposable
 
 		// Perform a set allocation for a given pool
+		[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 		private static VulkanHandle<VkDescriptorSet> AllocateSet(GraphicsDevice device, PoolNode pool, 
 			in BindingCounts counts, VkDescriptorSetLayout layout)
 		{
