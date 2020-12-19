@@ -30,7 +30,13 @@ namespace Vega.Graphics
 		public bool HasTransientMemory => MemoryTransient.HasValue;
 
 		// Pipeline cache
-		internal readonly VkPipelineCache PipelineCache;
+		public readonly VkPipelineCache PipelineCache;
+
+		// The global binding pools for each of the binding groups
+		public readonly BindingPool BufferBindingPool;
+		public readonly BindingPool SamplerBindingPool;
+		public readonly BindingPool TextureBindingPool;
+		public readonly BindingPool InputAttachmentBindingPool;
 
 		// Resource delayed destroy queues
 		private readonly (FastMutex Mutex, List<ResourceBase> List)[] _destroyQueues;
@@ -119,6 +125,12 @@ namespace Vega.Graphics
 			gs.VkDevice.CreatePipelineCache(&pcci, null, &cacheHandle)
 				.Throw("Failed to create core pipeline cache");
 			PipelineCache = new(cacheHandle, gs.VkDevice);
+
+			// Create the binding pools
+			BufferBindingPool = new(gs, BindingGroup.Buffers);
+			SamplerBindingPool = new(gs, BindingGroup.Samplers);
+			TextureBindingPool = new(gs, BindingGroup.Textures);
+			InputAttachmentBindingPool = new(gs, BindingGroup.InputAttachments);
 
 			// Destroy queues
 			_destroyQueues = new (FastMutex, List<ResourceBase>)[GraphicsDevice.MAX_PARALLEL_FRAMES];
@@ -365,6 +377,12 @@ namespace Vega.Graphics
 					}
 					queue.List.Clear();
 				}
+
+				// Destroy the binding pools
+				BufferBindingPool?.Dispose();
+				SamplerBindingPool?.Dispose();
+				TextureBindingPool?.Dispose();
+				InputAttachmentBindingPool?.Dispose();
 
 				// Destroy pipeline cache
 				PipelineCache?.DestroyPipelineCache(null);

@@ -5,6 +5,7 @@
  */
 
 using System;
+using Vulkan;
 
 namespace Vega.Graphics
 {
@@ -12,6 +13,9 @@ namespace Vega.Graphics
 	// This needs to be kept up to date with `enum BindingType`
 	internal struct BindingCounts
 	{
+		// The total number of binding types
+		public static readonly int TYPE_COUNT = Enum.GetValues<BindingType>().Length;
+
 		#region Fields
 		public ushort Sampler;
 		public ushort BoundSampler;
@@ -66,6 +70,24 @@ namespace Vega.Graphics
 				case BindingType.Texture: Texture += 1; break;
 				case BindingType.InputAttachment: InputAttachment += 1; break;
 				default: throw new ArgumentException($"LIBRARY BUG - Invalid binding counts type argument");
+			}
+		}
+
+		// Populates an array of vk pool sizes
+		public unsafe void PopulatePoolSizes(VkDescriptorPoolSize* sizes, out int sizeCount)
+		{
+			sizeCount = 0;
+			if (Sampler > 0) {
+				sizes[sizeCount++] = new(VkDescriptorType.Sampler, Sampler);
+			}
+			if (BoundSampler > 0) {
+				sizes[sizeCount++] = new(VkDescriptorType.CombinedImageSampler, BoundSampler);
+			}
+			if (Texture > 0) {
+				sizes[sizeCount++] = new(VkDescriptorType.SampledImage, Texture);
+			}
+			if (InputAttachment > 0) {
+				sizes[sizeCount++] = new(VkDescriptorType.InputAttachment, InputAttachment);
 			}
 		}
 	}
