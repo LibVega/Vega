@@ -126,6 +126,9 @@ namespace Vega.Graphics
 				_destroyQueues[i].Mutex = new();
 				_destroyQueues[i].List = new(32);
 			}
+
+			// Initialize the shared builtin resources
+			Shader.Builtin.Initialize(gs);
 		}
 		~ResourceManager()
 		{
@@ -351,6 +354,9 @@ namespace Vega.Graphics
 				if (!disposing) {
 					Graphics.VkDevice?.DeviceWaitIdle(); // We may not be coming from GraphicsDevice.Dispose()
 				}
+
+				// Destroy shared builtin resources
+				Shader.Builtin.Cleanup(Graphics);
 
 				// Destroy all delayed resoures
 				foreach (var queue in _destroyQueues) {

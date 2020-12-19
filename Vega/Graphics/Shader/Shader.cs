@@ -6,7 +6,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading;
 using Vulkan;
 
@@ -16,7 +15,7 @@ namespace Vega.Graphics
 	/// Represets a specific set of <see cref="ShaderModule"/>s as a complete shader program. All shaders must have at 
 	/// least the vertex and fragment stages. Both tessellation stages must be present if used.
 	/// </summary>
-	public unsafe sealed class Shader : ResourceBase
+	public unsafe sealed partial class Shader : ResourceBase
 	{
 		#region Fields
 		/// <summary>
@@ -277,13 +276,13 @@ namespace Vega.Graphics
 			if (vert.SlotCount > 0) {
 				layout.Merge(vert, ShaderStages.Vertex);
 			}
-			if (tesc?.SlotCount > 0) {
+			if ((tesc is not null) && (tesc?.SlotCount > 0)) {
 				layout.Merge(tesc, ShaderStages.TessControl);
 			}
-			if (tese?.SlotCount > 0) {
+			if ((tese is not null) && (tese?.SlotCount > 0)) {
 				layout.Merge(tese, ShaderStages.TessEval);
 			}
-			if (geom?.SlotCount > 0) {
+			if ((geom is not null) && (geom?.SlotCount > 0)) {
 				layout.Merge(geom, ShaderStages.Geometry);
 			}
 			if (frag.SlotCount > 0) {
@@ -294,7 +293,7 @@ namespace Vega.Graphics
 		// Checks a module push constant size against the expected
 		private static void CheckPushConstantSize(ShaderModule? mod, ref uint targSize, ref ShaderStages stages)
 		{
-			if (mod?.PushConstantSize != 0) {
+			if ((mod is not null) && (mod?.PushConstantSize != 0)) {
 				if (targSize != 0) {
 					if (mod!.PushConstantSize != targSize) {
 						throw new IncompatibleModuleException(mod.Stage, "incompatible push constant block size");
@@ -303,7 +302,7 @@ namespace Vega.Graphics
 				else {
 					targSize = mod!.PushConstantSize;
 				}
-				stages |= stages;
+				stages |= mod.Stage;
 			}
 		}
 
@@ -311,20 +310,12 @@ namespace Vega.Graphics
 		private static VkPipelineLayout CreatePipelineLayout(Shader shader)
 		{
 			// Collect descriptor layouts
-			var layouts = stackalloc VulkanHandle<VkDescriptorSetLayout>[4];
-			uint lidx = 0;
-			if (shader.BufferLayoutHandle is not null) {
-				layouts[lidx++] = shader.BufferLayoutHandle;
-			}
-			if (shader.SamplerLayoutHandle is not null) {
-				layouts[lidx++] = shader.SamplerLayoutHandle;
-			}
-			if (shader.TextureLayoutHandle is not null) {
-				layouts[lidx++] = shader.TextureLayoutHandle;
-			}
-			if (shader.InputAttachmentLayoutHandle is not null) {
-				layouts[lidx++] = shader.InputAttachmentLayoutHandle;
-			}
+			var layouts = stackalloc VulkanHandle<VkDescriptorSetLayout>[4] { 
+				shader.BufferLayoutHandle?.Handle ?? Builtin.EmptyDescriptorSetLayout,
+				shader.SamplerLayoutHandle?.Handle ?? Builtin.EmptyDescriptorSetLayout,
+				shader.TextureLayoutHandle?.Handle ?? Builtin.EmptyDescriptorSetLayout,
+				shader.InputAttachmentLayoutHandle?.Handle ?? Builtin.EmptyDescriptorSetLayout
+			};
 
 			// Describe push constants
 			VkPushConstantRange pcrange = new(
@@ -336,7 +327,7 @@ namespace Vega.Graphics
 			// Create layout
 			VkPipelineLayoutCreateInfo plci = new(
 				flags: VkPipelineLayoutCreateFlags.NoFlags,
-				setLayoutCount: lidx,
+				setLayoutCount: 4,
 				setLayouts: layouts,
 				pushConstantRangeCount: (pcrange.Size != 0) ? 1 : 0,
 				pushConstantRanges: &pcrange

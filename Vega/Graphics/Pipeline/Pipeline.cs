@@ -136,7 +136,15 @@ namespace Vega.Graphics
 
 			// Constant state objects
 			var dynstates = stackalloc VkDynamicState[2] { VkDynamicState.Viewport, VkDynamicState.Scissor };
-			VkPipelineViewportStateCreateInfo viewportCI = new(); // Dummy value b/c dynamic state
+			VkViewport viewport = new();
+			VkRect2D scissor = new();
+			VkPipelineViewportStateCreateInfo viewportCI = new( // Dummy value b/c dynamic state
+				flags: VkPipelineViewportStateCreateFlags.NoFlags,
+				viewportCount: 1,
+				viewports: &viewport,
+				scissorCount: 1,
+				scissors: &scissor
+			);
 			VkPipelineDynamicStateCreateInfo dynamicCI = new(
 				flags: VkPipelineDynamicStateCreateFlags.NoFlags,
 				dynamicStateCount: 2,
@@ -270,7 +278,15 @@ namespace Vega.Graphics
 
 			// Constant state objects
 			var dynstates = stackalloc VkDynamicState[2] { VkDynamicState.Viewport, VkDynamicState.Scissor };
-			VkPipelineViewportStateCreateInfo viewportCI = new(); // Dummy value b/c dynamic state
+			VkViewport viewport = new();
+			VkRect2D scissor = new();
+			VkPipelineViewportStateCreateInfo viewportCI = new( // Dummy value b/c dynamic state
+				flags: VkPipelineViewportStateCreateFlags.NoFlags,
+				viewportCount: 1,
+				viewports: &viewport,
+				scissorCount: 1,
+				scissors: &scissor
+			);
 			VkPipelineDynamicStateCreateInfo dynamicCI = new(
 				flags: VkPipelineDynamicStateCreateFlags.NoFlags,
 				dynamicStateCount: 2,

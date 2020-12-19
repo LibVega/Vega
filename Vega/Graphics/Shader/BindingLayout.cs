@@ -111,7 +111,7 @@ namespace Vega.Graphics
 
 			// Create the binding info
 			var bindings = stackalloc VkDescriptorSetLayoutBinding[(int)SlotCount];
-			for (int si = 0, bi = 0; si < SLOT_COUNT; ++si) {
+			for (int si = 0, rem = (int)SlotCount, bi = 0; (si < SLOT_COUNT) && (rem != 0); ++si) {
 				if (!_slots[si].Enabled) {
 					continue;
 				}
@@ -124,6 +124,7 @@ namespace Vega.Graphics
 					stageFlags: (VkShaderStageFlags)slot.Stages,
 					immutableSamplers: null
 				);
+				rem -= 1;
 			}
 
 			// Create the set layout
