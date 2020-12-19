@@ -316,6 +316,11 @@ namespace Vega.Graphics
 				shader.TextureLayoutHandle?.Handle ?? Builtin.EmptyDescriptorSetLayout,
 				shader.InputAttachmentLayoutHandle?.Handle ?? Builtin.EmptyDescriptorSetLayout
 			};
+			var laycount =
+				(shader.InputAttachmentLayoutHandle is not null) ? 4 :
+				(shader.TextureLayoutHandle is not null) ? 3 :
+				(shader.SamplerLayoutHandle is not null) ? 2 :
+				(shader.BufferLayoutHandle is not null) ? 1 : 0;
 
 			// Describe push constants
 			VkPushConstantRange pcrange = new(
@@ -327,7 +332,7 @@ namespace Vega.Graphics
 			// Create layout
 			VkPipelineLayoutCreateInfo plci = new(
 				flags: VkPipelineLayoutCreateFlags.NoFlags,
-				setLayoutCount: 4,
+				setLayoutCount: (uint)laycount,
 				setLayouts: layouts,
 				pushConstantRangeCount: (pcrange.Size != 0) ? 1 : 0,
 				pushConstantRanges: &pcrange

@@ -27,19 +27,24 @@ namespace Vega.Graphics
 		/// The subpass that the commands were generated for.
 		/// </summary>
 		public readonly uint Subpass;
+		/// <summary>
+		/// The value of <see cref="AppTime.FrameCount"/> at which this task was recorded.
+		/// </summary>
+		public readonly ulong RecordedFrame;
 
 		// The command buffer
 		internal CommandBuffer? Buffer { get; private set; }
 		/// <summary>
 		/// Gets if the command list is valid (has not yet been submitted).
 		/// </summary>
-		public bool IsValid => Buffer is not null;
+		public bool IsValid => (Buffer is not null) && (RecordedFrame == AppTime.FrameCount);
 		#endregion // Fields
 
 		internal RenderTask(Renderer renderer, uint subpass, CommandBuffer cmd)
 		{
 			Renderer = renderer;
 			Subpass = subpass;
+			RecordedFrame = AppTime.FrameCount;
 			Buffer = cmd;
 
 			// TODO: For non-transient commands (not yet used), tracking might need to start here

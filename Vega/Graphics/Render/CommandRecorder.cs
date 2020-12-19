@@ -23,13 +23,17 @@ namespace Vega.Graphics
 	{
 		#region Fields
 		/// <summary>
+		/// The pipeline currently bound to the renderer.
+		/// </summary>
+		public Pipeline? BoundPipeline { get; private set; }
+		/// <summary>
 		/// The renderer currently bound to this recorder.
 		/// </summary>
-		public Renderer? BoundRenderer { get; private set; }
+		public Renderer? BoundRenderer => BoundPipeline?.Renderer;
 		/// <summary>
 		/// The subpass index currently bound to this recorder.
 		/// </summary>
-		public uint? BoundSubpass { get; private set; }
+		public uint? BoundSubpass => BoundPipeline?.Subpass;
 		/// <summary>
 		/// Gets the value of <see cref="AppTime.FrameCount"/> when the current recording process started.
 		/// </summary>
@@ -38,7 +42,7 @@ namespace Vega.Graphics
 		/// <summary>
 		/// Gets if commands are currently being recorded into the recorder.
 		/// </summary>
-		public bool IsRecording => BoundRenderer is not null;
+		public bool IsRecording => BoundPipeline is not null;
 
 		// The current command buffer for recording
 		private CommandBuffer? _cmd = null;
@@ -58,28 +62,25 @@ namespace Vega.Graphics
 
 		#region Recording State
 		/// <summary>
-		/// Begins recording a new set of commands for submission to the given renderer in the given subpass index.
+		/// Begins recording a new set of commands for submission to the renderer and subpass matching the passed
+		/// pipeline object.
 		/// </summary>
-		/// <param name="renderer">The renderer the commands will be recorded for.</param>
-		/// <param name="subpass">The subpass index in the renderer which the commands will be recorded for.</param>
-		public void Begin(Renderer renderer, uint subpass = 0)
+		/// <param name="pipeline">The pipeline to bind first for the subsequent rendering commands.</param>
+		public void Begin(Pipeline pipeline)
 		{
 			// Validate
 			if (IsRecording) {
 				throw new InvalidOperationException("Cannot begin a command recorder that is already recording");
 			}
-			if (subpass >= renderer.SubpassCount) {
-				throw new ArgumentException(nameof(subpass), "Invalid subpass index for given renderer");
-			}
 
 			// Grab available secondard command buffer
-			_cmd = renderer.Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Secondary);
+			_cmd = Core.Instance!.Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Secondary);
 
 			// Start a new secondary command buffer
 			VkCommandBufferInheritanceInfo cbii = new(
-				renderPass: renderer.RenderPass,
-				subpass: subpass,
-				framebuffer: renderer.RenderTarget.CurrentFramebuffer,
+				renderPass: pipeline.Renderer.RenderPass,
+				subpass: pipeline.Subpass,
+				framebuffer: pipeline.Renderer.RenderTarget.CurrentFramebuffer,
 				occlusionQueryEnable: VkBool32.False,
 				queryFlags: VkQueryControlFlags.NoFlags,
 				pipelineStatistics: VkQueryPipelineStatisticFlags.NoFlags
@@ -89,10 +90,14 @@ namespace Vega.Graphics
 			);
 			_cmd.Cmd.BeginCommandBuffer(&cbbi).Throw("Failed to start recording commands");
 
+			// Bind the pipeline
+			_cmd.Cmd.CmdBindPipeline(VkPipelineBindPoint.Graphics, pipeline.Handle);
+
 			// Set values
-			BoundRenderer = renderer;
-			BoundSubpass = subpass;
+			BoundPipeline = pipeline;
 			RecordingFrame = AppTime.FrameCount;
+
+			// TODO: Reset cached recording state
 		}
 
 		/// <summary>
@@ -116,8 +121,7 @@ namespace Vega.Graphics
 			RenderTask task = new(BoundRenderer!, BoundSubpass!.Value, _cmd);
 
 			// Set values
-			BoundRenderer = null;
-			BoundSubpass = null;
+			BoundPipeline = null;
 			RecordingFrame = null;
 			_cmd = null;
 
@@ -141,12 +145,38 @@ namespace Vega.Graphics
 			}
 
 			// Set values
-			BoundRenderer = null;
-			BoundSubpass = null;
+			BoundPipeline = null;
 			RecordingFrame = null;
 			_cmd = null;
 		}
 		#endregion // Recording State
+
+		#region Resources
+		/// <summary>
+		/// Sets the pipeline object to use for future rendering commands. The new pipeline must match the renderer
+		/// and subpass of the pipeline that <see cref="Begin(Pipeline)"/> was called with.
+		/// </summary>
+		/// <param name="pipeline">The pipeline to bind for future rendering commands.</param>
+		public void BindPipeline(Pipeline pipeline)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot bind a pipeline to an inactive command recorder");
+			}
+			if (BoundPipeline!.RUID == pipeline.RUID) {
+				return; // Same pipeline object, dont re-bind
+			}
+			if (!ReferenceEquals(BoundRenderer!, pipeline.Renderer) || (BoundSubpass != pipeline.Subpass)) {
+				throw new ArgumentException("Cannot bind incompatible pipeline", nameof(pipeline));
+			}
+
+			// Bind the new pipeline
+			_cmd!.Cmd.CmdBindPipeline(VkPipelineBindPoint.Graphics, pipeline.Handle);
+			BoundPipeline = pipeline;
+
+			// TODO: Reset cached recording state
+		}
+		#endregion // Resources
 
 		#region IDisposable
 		public void Dispose()
