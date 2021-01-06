@@ -298,7 +298,7 @@ namespace Vega.Util
 			var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 			var version = typeof(NativeLibraryHandle).Assembly.GetName().Version!;
 			var vstr = $"{version.Major}.{version.Minor}.{version.Revision}";
-			ExtractPath = Path.Combine(local, "VegaLib", "Native", vstr);
+			ExtractPath = Path.Combine(local, "LibVega", "Native", vstr);
 			if (!Directory.Exists(ExtractPath)) {
 				Directory.CreateDirectory(ExtractPath);
 			}

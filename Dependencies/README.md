@@ -30,11 +30,11 @@ These libraries can be overridden by placing other binaries into the same direct
 * Version: `1.20.1` included for Windows/MacOS
 * Type: Manually built from source release
 
-## [ContentLoader](https://github.com/VegaLib/ContentLoader)
+## [ContentLoader](https://github.com/LibVega/ContentLoader)
 
 This is a separately maintained library, part of the Vega project. It relies on third-party code, information about which can be found in that repo.
 
-* License: [MIT](https://github.com/VegaLib/ContentLoader/blob/master/LICENSE)
+* License: [MIT](https://github.com/LibVega/ContentLoader/blob/master/LICENSE)
 * Description: Used to load certain kinds of content
 * Version: `N/A`
 * Type: Manually built from source release
