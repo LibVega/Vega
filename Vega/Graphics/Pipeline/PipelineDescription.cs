@@ -130,18 +130,18 @@ namespace Vega.Graphics
 		/// <summary>
 		/// The shader program to execute for the pipieline.
 		/// </summary>
-		public Shader? Shader {
-			get => _shader;
-			set => _shader = value; // TODO: Validity check
-		}
-		private Shader? _shader;
+		//public Shader? Shader {
+		//	get => _shader;
+		//	set => _shader = value; // TODO: Validity check
+		//}
+		//private Shader? _shader;
 
 		/// <summary>
 		/// Gets if the pipeline is fully described by all fields (no required fields are <c>null</c>).
 		/// </summary>
 		public bool IsComplete =>
 			(_colorBlends is not null) && _depthStencil.HasValue && _vertexInput.HasValue && _rasterizer.HasValue &&
-			(VertexDescriptions is not null) && (_shader is not null);
+			(VertexDescriptions is not null);// && (_shader is not null);
 		#endregion // Fields
 
 		/// <summary>
@@ -154,7 +154,7 @@ namespace Vega.Graphics
 			VertexInput = null;
 			VertexDescriptions = null;
 			Rasterizer = null;
-			Shader = null;
+			//Shader = null;
 		}
 
 		/// <summary>
@@ -171,8 +171,8 @@ namespace Vega.Graphics
 			DepthStencilState? depthStencil = null,
 			VertexInput? vertexInput = null,
 			VertexDescription[]? vertexDescs = null,
-			RasterizerState? rasterizer = null,
-			Shader? shader = null
+			RasterizerState? rasterizer = null
+			//Shader? shader = null
 		)
 		{
 			AllColorBlends = colorBlends;
@@ -180,7 +180,7 @@ namespace Vega.Graphics
 			VertexInput = vertexInput;
 			VertexDescriptions = vertexDescs;
 			Rasterizer = rasterizer;
-			Shader = shader;
+			//Shader = shader;
 		}
 
 		/// <summary>
@@ -197,8 +197,8 @@ namespace Vega.Graphics
 			DepthStencilState? depthStencil = null,
 			VertexInput? vertexInput = null,
 			VertexDescription[]? vertexDescs = null,
-			RasterizerState? rasterizer = null,
-			Shader? shader = null
+			RasterizerState? rasterizer = null
+			//Shader? shader = null
 		)
 		{
 			SharedColorBlend = colorBlend;
@@ -206,7 +206,7 @@ namespace Vega.Graphics
 			VertexInput = vertexInput;
 			VertexDescriptions = vertexDescs;
 			Rasterizer = rasterizer;
-			Shader = shader;
+			//Shader = shader;
 		}
 	}
 }

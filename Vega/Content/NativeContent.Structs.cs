@@ -5,24 +5,12 @@
  */
 
 using System;
-using System.Runtime.InteropServices;
 
 namespace Vega.Content
 {
 	// Structs specific to the native content library
 	internal unsafe static partial class NativeContent
 	{
-		// Maps to BindingInfo struct for SPIRV api (Pack = 1 to match pack(push, 1))
-		[StructLayout(LayoutKind.Sequential, Pack = 1)]
-		public struct BindingInfo
-		{
-			public byte* Name;
-			public BindingSet Set;
-			public uint Slot;
-			public BindingType Type;
-			public uint ArraySize;
-			public uint BlockSize;
-			public ImageDims ImageDims;
-		}
+
 	}
 }

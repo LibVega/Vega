@@ -32,12 +32,6 @@ namespace Vega.Graphics
 		// Pipeline cache
 		public readonly VkPipelineCache PipelineCache;
 
-		// The global binding pools for each of the binding groups
-		public readonly BindingPool BufferBindingPool;
-		public readonly BindingPool SamplerBindingPool;
-		public readonly BindingPool TextureBindingPool;
-		public readonly BindingPool InputAttachmentBindingPool;
-
 		// Resource delayed destroy queues
 		private readonly (FastMutex Mutex, List<ResourceBase> List)[] _destroyQueues;
 		private uint _destroyIndex = 0;
@@ -126,21 +120,12 @@ namespace Vega.Graphics
 				.Throw("Failed to create core pipeline cache");
 			PipelineCache = new(cacheHandle, gs.VkDevice);
 
-			// Create the binding pools
-			BufferBindingPool = new(gs, BindingGroup.Buffers);
-			SamplerBindingPool = new(gs, BindingGroup.Samplers);
-			TextureBindingPool = new(gs, BindingGroup.Textures);
-			InputAttachmentBindingPool = new(gs, BindingGroup.InputAttachments);
-
 			// Destroy queues
 			_destroyQueues = new (FastMutex, List<ResourceBase>)[GraphicsDevice.MAX_PARALLEL_FRAMES];
 			for (int i = 0; i < GraphicsDevice.MAX_PARALLEL_FRAMES; ++i) {
 				_destroyQueues[i].Mutex = new();
 				_destroyQueues[i].List = new(32);
 			}
-
-			// Initialize the shared builtin resources
-			Shader.Builtin.Initialize(gs);
 		}
 		~ResourceManager()
 		{
@@ -367,9 +352,6 @@ namespace Vega.Graphics
 					Graphics.VkDevice?.DeviceWaitIdle(); // We may not be coming from GraphicsDevice.Dispose()
 				}
 
-				// Destroy shared builtin resources
-				Shader.Builtin.Cleanup(Graphics);
-
 				// Destroy all delayed resoures
 				foreach (var queue in _destroyQueues) {
 					foreach (var res in queue.List) {
@@ -377,12 +359,6 @@ namespace Vega.Graphics
 					}
 					queue.List.Clear();
 				}
-
-				// Destroy the binding pools
-				BufferBindingPool?.Dispose();
-				SamplerBindingPool?.Dispose();
-				TextureBindingPool?.Dispose();
-				InputAttachmentBindingPool?.Dispose();
 
 				// Destroy pipeline cache
 				PipelineCache?.DestroyPipelineCache(null);

@@ -44,16 +44,6 @@ namespace Vega.Graphics
 		/// </summary>
 		public bool IsRecording => BoundPipeline is not null;
 
-		#region Binding State
-		// The sets of currently bound resources (input attachments are managed internally and not present here)
-		private readonly BoundResources _bufferResources = new();
-		private readonly BoundResources _samplerResources = new();
-		private readonly BoundResources _textureResources = new();
-		private VulkanHandle<VkDescriptorSet>? _bufferSet;
-		private VulkanHandle<VkDescriptorSet>? _samplerSet;
-		private VulkanHandle<VkDescriptorSet>? _textureSet;
-		#endregion // Binding State
-
 		// The current command buffer for recording
 		private CommandBuffer? _cmd = null;
 		#endregion // Fields
@@ -108,9 +98,9 @@ namespace Vega.Graphics
 			RecordingFrame = AppTime.FrameCount;
 
 			// Reset cached recording state
-			_bufferResources.Reset();
-			_samplerResources.Reset();
-			_textureResources.Reset();
+			//_bufferResources.Reset();
+			//_samplerResources.Reset();
+			//_textureResources.Reset();
 		}
 
 		/// <summary>
@@ -188,72 +178,12 @@ namespace Vega.Graphics
 			BoundPipeline = pipeline;
 
 			// Reset cached recording state
-			_bufferResources.Reset();
-			_samplerResources.Reset();
-			_textureResources.Reset();
 		}
 
 		// Called before a draw command is submitted to allocate, update, and bind descriptor sets
 		private void updateBindings()
 		{
-			// Skip very expensive operations if nothing is dirty
-			if (_bufferResources.Dirty && !_bufferResources.OffsetsDirty && !_samplerResources.Dirty 
-					&& !_textureResources.Dirty) {
-				return;
-			}
-
-			var gd = BoundRenderer!.Graphics;
-			var shader = BoundPipeline!.Shader;
-
-			// Create descriptor writes and allocate new sets
-			var setPtr = stackalloc VulkanHandle<VkDescriptorSet>[3];
-			var setIdx = 0;
-			var firstSet = 0;
-			var writePtr = stackalloc VkWriteDescriptorSet[(int)BindingLayout.SLOT_COUNT * 3];
-			var imagePtr = stackalloc VkDescriptorImageInfo[(int)BindingLayout.SLOT_COUNT * 2];
-			var startPtr = writePtr;
-			if (_textureResources.Dirty) {
-				_textureSet = setPtr[setIdx++] = shader.AllocateBindingSet(BindingGroup.Textures).Handle;
-				_textureResources.PopulateDescriptorWrites(writePtr, imagePtr, _textureSet.Value, shader.TextureLayout);
-				writePtr += shader.TextureLayout.SlotCount;
-				imagePtr += shader.TextureLayout.SlotCount;
-				firstSet = 2;
-			}
-			if (_samplerResources.Dirty) {
-				_samplerSet = setPtr[setIdx++] = shader.AllocateBindingSet(BindingGroup.Samplers).Handle;
-				_samplerResources.PopulateDescriptorWrites(writePtr, imagePtr, _samplerSet.Value, shader.SamplerLayout);
-				writePtr += shader.SamplerLayout.SlotCount;
-				imagePtr += shader.SamplerLayout.SlotCount;
-				firstSet = 1;
-			}
-			if (_bufferResources.Dirty) {
-				_bufferSet = setPtr[setIdx++] = shader.AllocateBindingSet(BindingGroup.Buffers).Handle;
-				_bufferResources.PopulateDescriptorWrites(writePtr, imagePtr, _bufferSet.Value, shader.BufferLayout);
-				writePtr += shader.BufferLayout.SlotCount;
-				firstSet = 0;
-			}
-			else if (_bufferResources.OffsetsDirty) {
-				setPtr[setIdx++] = _bufferSet!.Value;
-				firstSet = 0;
-			}
-
-			// Write the new sets
-			gd.VkDevice.UpdateDescriptorSets((uint)(writePtr - startPtr), startPtr, 0, null);
-
-			// Get the buffer offsets and then bind the new sets
-			var offsets = stackalloc uint[(int)BindingLayout.SLOT_COUNT];
-			if (firstSet == 0) {
-				_bufferResources.PopulateDynamicOffsets(offsets, shader.BufferLayout);
-			}
-			_cmd!.Cmd.CmdBindDescriptorSets(
-				VkPipelineBindPoint.Graphics,
-				shader.PipelineLayoutHandle,
-				(uint)firstSet,
-				(uint)setIdx,
-				setPtr,
-				(firstSet == 0) ? shader.BufferLayout.SlotCount : 0,
-				offsets
-			);
+			
 		}
 		#endregion // Resources
 

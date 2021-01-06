@@ -28,7 +28,7 @@ namespace Vega.Graphics
 		/// <summary>
 		/// The shader program used by this pipeline.
 		/// </summary>
-		public readonly Shader Shader;
+		//public readonly Shader Shader;
 		/// <summary>
 		/// The renderer that this pipeline is utilized within.
 		/// </summary>
@@ -57,8 +57,8 @@ namespace Vega.Graphics
 			Handle = CreatePipeline(description, renderer, subpass, out BuildCache);
 
 			// Assign fields
-			Shader = description.Shader!;
-			Shader.IncRef();
+			//Shader = description.Shader!;
+			//Shader.IncRef();
 			Renderer = renderer;
 			Subpass = subpass;
 
@@ -73,13 +73,13 @@ namespace Vega.Graphics
 			Handle?.DestroyPipeline(null);
 
 			// Create new handle
-			Handle = RebuildPipeline(BuildCache!, Renderer, Subpass, Shader);
+			Handle = RebuildPipeline(BuildCache!, Renderer, Subpass);//, Shader);
 		}
 
 		#region ResourceBase
 		protected override void OnDispose(bool disposing)
 		{
-			Shader?.DecRef();
+			//Shader?.DecRef();
 
 			if (Core.Instance is not null) {
 				Core.Instance.Graphics.Resources.QueueDestroy(this);
@@ -155,17 +155,18 @@ namespace Vega.Graphics
 			CalculateVertexInfo(desc.VertexDescriptions!, out var vertexAttrs, out var vertexBinds);
 
 			// Shader create info
-			var stageCIs = desc.Shader!.EnumerateModules().Select(mod => new VkPipelineShaderStageCreateInfo(
-				flags: VkPipelineShaderStageCreateFlags.NoFlags,
-				stage: (VkShaderStageFlags)mod.Stage,
-				module: mod.Module.Handle,
-				name: mod.Module.NativeEntryPoint.Data,
-				specializationInfo: null // TODO: Public API for specialization
-			)).ToArray();
-			VkPipelineTessellationStateCreateInfo tessCI = new(
-				flags: VkPipelineTessellationStateCreateFlags.NoFlags,
-				patchControlPoints: desc.Shader.PatchSize
-			);
+			var stageCIs = new VkPipelineShaderStageCreateInfo[0] { };
+			//var stageCIs = desc.Shader!.EnumerateModules().Select(mod => new VkPipelineShaderStageCreateInfo(
+			//	flags: VkPipelineShaderStageCreateFlags.NoFlags,
+			//	stage: (VkShaderStageFlags)mod.Stage,
+			//	module: mod.Module.Handle,
+			//	name: mod.Module.NativeEntryPoint.Data,
+			//	specializationInfo: null // TODO: Public API for specialization
+			//)).ToArray();
+			//VkPipelineTessellationStateCreateInfo tessCI = new(
+			//	flags: VkPipelineTessellationStateCreateFlags.NoFlags,
+			//	patchControlPoints: desc.Shader.PatchSize
+			//);
 
 			// Create the pipeline
 			VkPipeline pipeline;
@@ -199,18 +200,18 @@ namespace Vega.Graphics
 				// Create info
 				VkGraphicsPipelineCreateInfo ci = new(
 					flags: VkPipelineCreateFlags.NoFlags, // TODO: see if we can utilize some of the flags
-					stageCount: (uint)stageCIs.Length,
+					stageCount: 0,
 					stages: stagePtr,
 					vertexInputState: &vertexCI,
 					inputAssemblyState: inputAssemblyPtr,
-					tessellationState: &tessCI,
+					tessellationState: null,//&tessCI,
 					viewportState: &viewportCI,
 					rasterizationState: rasterizerPtr,
 					multisampleState: &msaaCI,
 					depthStencilState: depthStencilPtr,
 					colorBlendState: &colorBlendCI,
 					dynamicState: &dynamicCI,
-					layout: desc.Shader.PipelineLayoutHandle,
+					layout: null,// desc.Shader.PipelineLayoutHandle,
 					renderPass: renderer.RenderPass,
 					subpass: subpass,
 					basePipelineHandle: VulkanHandle<VkPipeline>.Null,
@@ -246,7 +247,7 @@ namespace Vega.Graphics
 		}
 
 		// Rebuilds the pipeline from the cached build state
-		private static VkPipeline RebuildPipeline(BuildStates states, Renderer renderer, uint subpass, Shader shader)
+		private static VkPipeline RebuildPipeline(BuildStates states, Renderer renderer, uint subpass)//, Shader shader)
 		{
 			// Color blends
 			var cblends = stackalloc VkPipelineColorBlendAttachmentState[states.ColorBlends.Length];
@@ -294,17 +295,18 @@ namespace Vega.Graphics
 			);
 
 			// Shader create info
-			var stageCIs = shader.EnumerateModules().Select(mod => new VkPipelineShaderStageCreateInfo(
-				flags: VkPipelineShaderStageCreateFlags.NoFlags,
-				stage: (VkShaderStageFlags)mod.Stage,
-				module: mod.Module.Handle,
-				name: mod.Module.NativeEntryPoint.Data,
-				specializationInfo: null // TODO: Public API for specialization
-			)).ToArray();
-			VkPipelineTessellationStateCreateInfo tessCI = new(
-				flags: VkPipelineTessellationStateCreateFlags.NoFlags,
-				patchControlPoints: shader.PatchSize
-			);
+			var stageCIs = new VkPipelineShaderStageCreateInfo[0] { };
+			//var stageCIs = shader.EnumerateModules().Select(mod => new VkPipelineShaderStageCreateInfo(
+			//	flags: VkPipelineShaderStageCreateFlags.NoFlags,
+			//	stage: (VkShaderStageFlags)mod.Stage,
+			//	module: mod.Module.Handle,
+			//	name: mod.Module.NativeEntryPoint.Data,
+			//	specializationInfo: null // TODO: Public API for specialization
+			//)).ToArray();
+			//VkPipelineTessellationStateCreateInfo tessCI = new(
+			//	flags: VkPipelineTessellationStateCreateFlags.NoFlags,
+			//	patchControlPoints: shader.PatchSize
+			//);
 
 			// State cached objects
 			states.DepthStencil.ToVk(out var depthStencilCI);
@@ -327,18 +329,18 @@ namespace Vega.Graphics
 				// Create info
 				VkGraphicsPipelineCreateInfo ci = new(
 					flags: VkPipelineCreateFlags.NoFlags, // TODO: see if we can utilize some of the flags
-					stageCount: (uint)stageCIs.Length,
+					stageCount: 0,//(uint)stageCIs.Length,
 					stages: stagePtr,
 					vertexInputState: &vertexCI,
 					inputAssemblyState: &vertexInputCI,
-					tessellationState: &tessCI,
+					tessellationState: null,//&tessCI,
 					viewportState: &viewportCI,
 					rasterizationState: &rasterCI,
 					multisampleState: &msaaCI,
 					depthStencilState: &depthStencilCI,
 					colorBlendState: &colorBlendCI,
 					dynamicState: &dynamicCI,
-					layout: shader.PipelineLayoutHandle,
+					layout: null,//shader.PipelineLayoutHandle,
 					renderPass: renderer.RenderPass,
 					subpass: subpass,
 					basePipelineHandle: VulkanHandle<VkPipeline>.Null,
