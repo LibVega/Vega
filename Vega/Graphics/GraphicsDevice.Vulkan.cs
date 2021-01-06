@@ -18,6 +18,8 @@ namespace Vega.Graphics
 	{
 		// The version of the library as a Vulkan version
 		private static readonly VkVersion ENGINE_VERSION = new(typeof(GraphicsDevice).Assembly.GetName().Version!);
+		// Library requires Vulkan 1.2
+		private static readonly VkVersion REQUIRED_API = VkVersion.VK_VERSION_1_2;
 
 		// Create the instance, debug utils (if requested), and select the physical device to use
 		private static void InitializeVulkanInstance(
@@ -45,6 +47,12 @@ namespace Vega.Graphics
 				}
 			}
 
+			// Check for required Vulkan 1.2
+			var topVersion = InstanceInfo.GetApiVersion();
+			if (topVersion < REQUIRED_API) {
+				throw new PlatformNotSupportedException("Vega requires Vulkan 1.2 support, please update drivers");
+			}
+
 			// Create application info
 			using var appName = new NativeString(Core.Instance!.AppName);
 			using var engName = new NativeString("Vega");
@@ -53,7 +61,7 @@ namespace Vega.Graphics
 				applicationVersion: new VkVersion(Core.Instance!.AppVersion),
 				engineName: engName.Data,
 				engineVersion: ENGINE_VERSION,
-				apiVersion: InstanceInfo.GetApiVersion() // Select highest supported version by default
+				apiVersion: REQUIRED_API
 			);
 
 			// Create instance
@@ -96,35 +104,44 @@ namespace Vega.Graphics
 				debug = null;
 			}
 
+			// Filter the physical devices
+			var goodDevices = instanceInfo.PhysicalDevices
+				.Select(dev => ValidatePhysicalDevice(dev))
+				.Where(pair => pair.info is not null)
+				.ToArray();
+			if (goodDevices.Length == 0) {
+				throw new PlatformNotSupportedException("No devices on system support required features");
+			}
+
 			// Select physical device, first by events, then first discrete, then any
 			VkPhysicalDevice? pdev = null;
 			if (Core.Events.GetSubscriptionCount<DeviceDiscoveryEvent>() > 0) {
-				foreach (var device in instanceInfo.PhysicalDevices) {
-					var info = new DeviceInfo(device);
-
-					var evt = new DeviceDiscoveryEvent(new(info.Features, info.ExtensionNames), new(info)) {
-						DeviceName = info.DeviceName,
-						IsDiscrete = info.IsDiscrete,
-						MemorySize = new DataSize((long)info.TotalLocalMemory),
+				foreach (var device in goodDevices) {
+					var evt = new DeviceDiscoveryEvent(
+						new(device.info!.Features, device.info.ExtensionNames), new(device.info))
+					{
+						DeviceName = device.info.DeviceName,
+						IsDiscrete = device.info.IsDiscrete,
+						MemorySize = new DataSize((long)device.info.TotalLocalMemory),
 						Use = false
 					};
 					Core.Events.Publish(evt);
 					if (evt.Use) {
-						pdev = device;
-						deviceInfo = info;
+						pdev = device.dev;
+						deviceInfo = device.info;
 					}
 				} 
 			}
 			if (pdev is null) {
-				pdev = instanceInfo.PhysicalDevices.FirstOrDefault(dev => {
-					dev.GetPhysicalDeviceProperties(out var props);
+				pdev = goodDevices.FirstOrDefault(dev => {
+					dev.dev.GetPhysicalDeviceProperties(out var props);
 					return props.DeviceType == VkPhysicalDeviceType.DiscreteGpu;
-				})
-				?? instanceInfo.PhysicalDevices[0];
+				}).info?.PhysicalDevice
+				?? goodDevices[0].dev;
 				deviceInfo = new(pdev);
 			}
 			else {
-				deviceInfo = new(instanceInfo.PhysicalDevices[0]); // NEVER REACHED
+				deviceInfo = goodDevices[0].info!; // NEVER REACHED
 			}
 
 			// Configure the device
@@ -142,16 +159,20 @@ namespace Vega.Graphics
 		{
 			// Populate the features and extensions for the device
 			List<string> extensions = new();
-			if (!features.TryBuild(pdev.Features, pdev.ExtensionNames, out var feats, extensions, out var missing)) {
+			VkPhysicalDeviceFeatures2.New(out var baseFeats);
+			if (!features.TryBuild(pdev.Features, pdev.ExtensionNames, out baseFeats.Features, extensions, out var missing)) {
 				throw new InvalidOperationException($"Cannot create device - required feature '{missing}' is not present");
 			}
-			feats.IndependentBlend = true; // Always enable independent blending (available in >99.5% of systems)
+			baseFeats.Features.IndependentBlend = true;
+			VkPhysicalDeviceVulkan11Features.New(out var feats11);
+			baseFeats.pNext = &feats11;
+			VkPhysicalDeviceVulkan12Features.New(out var feats12);
+			feats11.pNext = &feats12;
+			feats12.ScalarBlockLayout = true;
+			feats12.DescriptorIndexing = true;
 
-			// Check and populate extensions
+			// Populate the extensions
 			using var extList = new NativeStringList(extensions);
-			if (!pdev.ExtensionNames.Contains(VkConstants.KHR_SWAPCHAIN_EXTENSION_NAME)) {
-				throw new PlatformNotSupportedException("Selected device does not support swapchain operations");
-			}
 			extList.Add(VkConstants.KHR_SWAPCHAIN_EXTENSION_NAME);
 
 			// Create the queues
@@ -168,8 +189,9 @@ namespace Vega.Graphics
 				queueCreateInfos: &gQueueInfo,
 				enabledExtensionCount: extList.Count,
 				enabledExtensionNames: extList.Data,
-				enabledFeatures: &feats
+				enabledFeatures: null
 			);
+			dci.pNext = &baseFeats; // Specify features through the pNext pointer
 			VulkanHandle<VkDevice> devHandle;
 			pdev.PhysicalDevice.CreateDevice(&dci, null, &devHandle).Throw("Failed to create Vulkan device");
 			device = new(devHandle, pdev.PhysicalDevice, pdev.PhysicalDevice.Functions.CoreVersion);
@@ -179,6 +201,34 @@ namespace Vega.Graphics
 			device.GetDeviceQueue(gQueueInfo.QueueFamilyIndex, 0, &queueHandle);
 			gQueue = new(queueHandle, device);
 			gQueueIndex = gQueueInfo.QueueFamilyIndex;
+		}
+
+		// Checks the physical device for required features
+		// Note that this is the central location at which required feature checks should be added
+		// Make sure to also enable the required features when creating the device above
+		private static (VkPhysicalDevice dev, DeviceInfo? info) ValidatePhysicalDevice(VkPhysicalDevice dev)
+		{
+			var info = new DeviceInfo(dev);
+
+			// API version check
+			if (info.ApiVersion < REQUIRED_API) {
+				return (dev, null);
+			}
+
+			// Feature check
+			if (!info.Features12.DescriptorIndexing) {
+				return (dev, null);
+			}
+			if (!info.Features12.ScalarBlockLayout) {
+				return (dev, null);
+			}
+
+			// Extension check
+			if (!info.ExtensionNames.Contains(VkConstants.KHR_SWAPCHAIN_EXTENSION_NAME)) {
+				return (dev, null);
+			}
+
+			return (dev, info);
 		}
 
 		// The callback (FROM UNMANAGED CODE) for Vulkan debug messaging
