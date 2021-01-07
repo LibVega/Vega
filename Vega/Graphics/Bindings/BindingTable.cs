@@ -31,13 +31,18 @@ namespace Vega.Graphics
 		private const uint DEFAULT_SIZE_BUFFER = 512;
 		private const uint DEFAULT_SIZE_ROTEXELS = 128;
 		private const uint DEFAULT_SIZE_RWTEXELS = 128;
+		// Default flags
+		private const VkDescriptorBindingFlags BINDING_FLAGS =
+			VkDescriptorBindingFlags.PartiallyBound | VkDescriptorBindingFlags.UpdateUnusedWhilePending;
 
 		#region Fields
 		// The device owning this binding table
 		public readonly GraphicsDevice GraphicsDevice;
 
-		// The binding pool and singular global set
+		// The binding layout, pool, and global set
+		public readonly VkDescriptorSetLayout LayoutHandle;
 		private readonly VkDescriptorPool _pool;
+		public readonly VkDescriptorSet SetHandle;
 
 		// Disposal flag
 		public bool IsDisposed { get; private set; } = false;
@@ -47,7 +52,15 @@ namespace Vega.Graphics
 		{
 			GraphicsDevice = gd;
 
-			// Create the pool sizes
+			// Create the pool sizes and layout description
+			var stageFlags = VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment;
+			var layouts = stackalloc VkDescriptorSetLayoutBinding[5] { 
+				new(0, VkDescriptorType.CombinedImageSampler, DEFAULT_SIZE_SAMPLER, stageFlags, null),
+				new(1, VkDescriptorType.StorageImage, DEFAULT_SIZE_IMAGE, stageFlags, null),
+				new(2, VkDescriptorType.StorageBuffer, DEFAULT_SIZE_BUFFER, stageFlags, null),
+				new(3, VkDescriptorType.UniformTexelBuffer, DEFAULT_SIZE_ROTEXELS, stageFlags, null),
+				new(4, VkDescriptorType.StorageTexelBuffer, DEFAULT_SIZE_RWTEXELS, stageFlags, null)
+			};
 			var pools = stackalloc VkDescriptorPoolSize[5] {
 				new(VkDescriptorType.CombinedImageSampler, DEFAULT_SIZE_SAMPLER),
 				new(VkDescriptorType.StorageImage, DEFAULT_SIZE_IMAGE),
@@ -56,9 +69,28 @@ namespace Vega.Graphics
 				new(VkDescriptorType.StorageTexelBuffer, DEFAULT_SIZE_RWTEXELS)
 			};
 
+			// Create the standard binding table layout
+			VkDescriptorSetLayoutCreateInfo dslci = new(
+				flags: VkDescriptorSetLayoutCreateFlags.UpdateAfterBindPool,
+				bindingCount: 5,
+				bindings: layouts
+			);
+			var bindingFlags = stackalloc VkDescriptorBindingFlags[5] { 
+				BINDING_FLAGS, BINDING_FLAGS, BINDING_FLAGS, BINDING_FLAGS, BINDING_FLAGS
+			};
+			VkDescriptorSetLayoutBindingFlagsCreateInfo dslbci = new(
+				bindingCount: 5,
+				bindingFlags: bindingFlags
+			);
+			dslci.pNext = &dslbci;
+			VulkanHandle<VkDescriptorSetLayout> layoutHandle;
+			gd.VkDevice.CreateDescriptorSetLayout(&dslci, null, &layoutHandle)
+				.Throw("Failed to create layout for global descriptor pool");
+			LayoutHandle = new(layoutHandle, gd.VkDevice);
+
 			// Create the pool
 			VkDescriptorPoolCreateInfo dpci = new(
-				flags: VkDescriptorPoolCreateFlags.NoFlags,
+				flags: VkDescriptorPoolCreateFlags.UpdateAfterBind,
 				maxSets: 1,
 				poolSizeCount: 5,
 				poolSizes: pools
@@ -67,6 +99,16 @@ namespace Vega.Graphics
 			gd.VkDevice.CreateDescriptorPool(&dpci, null, &poolHandle)
 				.Throw("Failed to create global descriptor pool");
 			_pool = new(poolHandle, gd.VkDevice);
+
+			// Create the global set
+			VkDescriptorSetAllocateInfo dsai = new(
+				descriptorPool: poolHandle,
+				descriptorSetCount: 1,
+				setLayouts: &layoutHandle
+			);
+			VulkanHandle<VkDescriptorSet> setHandle;
+			gd.VkDevice.AllocateDescriptorSets(&dsai, &setHandle).Throw("Failed to allocate global descriptor table");
+			SetHandle = new(setHandle, _pool);
 		}
 		~BindingTable()
 		{
@@ -83,7 +125,10 @@ namespace Vega.Graphics
 		private void dispose(bool disposing)
 		{
 			if (!IsDisposed) {
-				_pool.DestroyDescriptorPool(null);
+				if (disposing) {
+					_pool?.DestroyDescriptorPool(null);
+					LayoutHandle?.DestroyDescriptorSetLayout(null); 
+				}
 			}
 			IsDisposed = true;
 		}

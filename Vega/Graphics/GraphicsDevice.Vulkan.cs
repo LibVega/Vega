@@ -170,6 +170,13 @@ namespace Vega.Graphics
 			feats11.pNext = &feats12;
 			feats12.ScalarBlockLayout = true;
 			feats12.DescriptorIndexing = true;
+			feats12.DescriptorBindingPartiallyBound = true;
+			feats12.DescriptorBindingUpdateUnusedWhilePending = true;
+			feats12.DescriptorBindingSampledImageUpdateAfterBind = true;
+			feats12.DescriptorBindingStorageImageUpdateAfterBind = true;
+			feats12.DescriptorBindingStorageBufferUpdateAfterBind = true;
+			feats12.DescriptorBindingUniformTexelBufferUpdateAfterBind = true;
+			feats12.DescriptorBindingStorageTexelBufferUpdateAfterBind = true;
 
 			// Populate the extensions
 			using var extList = new NativeStringList(extensions);
