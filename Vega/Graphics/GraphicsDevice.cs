@@ -47,7 +47,9 @@ namespace Vega.Graphics
 		public readonly GraphicsFeatures Features;
 
 		#region Resources
+		internal readonly BindingTable BindingTable;
 		internal readonly ResourceManager Resources;
+
 		/// <summary>
 		/// Gets if the calling thread is registered with the graphics service, and is able to perform graphics
 		/// operations.
@@ -80,6 +82,9 @@ namespace Vega.Graphics
 			GraphicsQueue = new(this, graphicsQueue, graphicsQueueIndex);
 			LINFO("Created Vulkan device instance");
 			Limits = new(VkDeviceInfo);
+
+			// Create the global binding table for the device
+			BindingTable = new(this);
 
 			// Prepare resources
 			Resources = new(this);
@@ -136,6 +141,8 @@ namespace Vega.Graphics
 
 					Resources.UnregisterThread();
 					Resources.Dispose();
+
+					BindingTable.Dispose();
 
 					GraphicsQueue.Dispose();
 
