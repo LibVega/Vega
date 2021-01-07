@@ -87,6 +87,7 @@ namespace Vega.Graphics
 			BindingTable = new(this);
 
 			// Prepare resources
+			SamplerPool.Initialize(this);
 			Resources = new(this);
 		}
 		~GraphicsDevice()
@@ -141,6 +142,7 @@ namespace Vega.Graphics
 
 					Resources.UnregisterThread();
 					Resources.Dispose();
+					SamplerPool.Terminate();
 
 					BindingTable.Dispose();
 
