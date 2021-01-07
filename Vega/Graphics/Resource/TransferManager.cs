@@ -65,13 +65,16 @@ namespace Vega.Graphics
 
 		// Attempts to resize the host buffer to the next size, up to a certain maximum
 		// Returns the new size of the host buffer (or the same size, if the maximum is reached)
-		public ulong RequestNextHostSize()
+		public ulong RequestNextHostSize(ulong targetSize)
 		{
 			if (Buffer.DataSize >= (ulong)MAX_HOST_SIZE.B) {
 				return Buffer.DataSize;
 			}
 			else {
 				var newSize = Buffer.DataSize * 2;
+				while ((newSize < targetSize) && (newSize < (ulong)MAX_HOST_SIZE.B)) {
+					newSize *= 2;
+				}
 				Buffer.Dispose();
 				Buffer = new(newSize);
 				return newSize;
@@ -154,7 +157,7 @@ namespace Vega.Graphics
 		public void SetBufferData(VkBuffer dstBuffer, ulong dstOff, void* srcData, ulong count, ResourceType? bufferType)
 		{
 			// Select which host buffer to use
-			bool useTmp = (count > Buffer.DataSize) && (count > RequestNextHostSize());
+			bool useTmp = (count > Buffer.DataSize) && (count > RequestNextHostSize(count));
 			var srcBuffer = useTmp ? new HostBuffer(count) : Buffer;
 
 			// Copy and transfer
@@ -253,7 +256,7 @@ namespace Vega.Graphics
 		{
 			// Select which host buffer to use
 			ulong count = region.GetDataSize(fmt);
-			bool useTmp = (count > Buffer.DataSize) && (count > RequestNextHostSize());
+			bool useTmp = (count > Buffer.DataSize) && (count > RequestNextHostSize(count));
 			var srcBuffer = useTmp ? new HostBuffer(count) : Buffer;
 
 			// Copy and transfer
