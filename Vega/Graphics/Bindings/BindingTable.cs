@@ -5,6 +5,7 @@
  */
 
 using System;
+using Vega.Util;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -44,6 +45,13 @@ namespace Vega.Graphics
 		private readonly VkDescriptorPool _pool;
 		public readonly VkDescriptorSet SetHandle;
 
+		// Bitsets for tracking table utilization
+		private readonly Bitset _samplerMask;
+		private readonly Bitset _imageMask;
+		private readonly Bitset _bufferMask;
+		private readonly Bitset _rotexelMask;
+		private readonly Bitset _rwtexelMask;
+
 		// Disposal flag
 		public bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
@@ -51,6 +59,13 @@ namespace Vega.Graphics
 		public BindingTable(GraphicsDevice gd)
 		{
 			GraphicsDevice = gd;
+
+			// Create the table utiliziation sets
+			_samplerMask = new(DEFAULT_SIZE_SAMPLER);
+			_imageMask = new(DEFAULT_SIZE_IMAGE);
+			_bufferMask = new(DEFAULT_SIZE_BUFFER);
+			_rotexelMask = new(DEFAULT_SIZE_ROTEXELS);
+			_rwtexelMask = new(DEFAULT_SIZE_RWTEXELS);
 
 			// Create the pool sizes and layout description
 			var stageFlags = VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment;
