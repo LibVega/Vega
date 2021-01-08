@@ -27,11 +27,11 @@ namespace Vega.Graphics
 	internal unsafe sealed class BindingTable : IDisposable
 	{
 		// Default sizes
-		private const uint DEFAULT_SIZE_SAMPLER = 8192;
-		private const uint DEFAULT_SIZE_IMAGE = 128;
-		private const uint DEFAULT_SIZE_BUFFER = 512;
-		private const uint DEFAULT_SIZE_ROTEXELS = 128;
-		private const uint DEFAULT_SIZE_RWTEXELS = 128;
+		private const ushort DEFAULT_SIZE_SAMPLER = 8192;
+		private const ushort DEFAULT_SIZE_IMAGE = 128;
+		private const ushort DEFAULT_SIZE_BUFFER = 512;
+		private const ushort DEFAULT_SIZE_ROTEXELS = 128;
+		private const ushort DEFAULT_SIZE_RWTEXELS = 128;
 		// Default flags
 		private const VkDescriptorBindingFlags BINDING_FLAGS =
 			VkDescriptorBindingFlags.PartiallyBound | VkDescriptorBindingFlags.UpdateUnusedWhilePending;
@@ -51,6 +51,13 @@ namespace Vega.Graphics
 		private readonly Bitset _bufferMask;
 		private readonly Bitset _rotexelMask;
 		private readonly Bitset _rwtexelMask;
+
+		// Locks for table bitsets
+		private readonly FastMutex _samplerMutex = new();
+		private readonly FastMutex _imageMutex = new();
+		private readonly FastMutex _bufferMutex = new();
+		private readonly FastMutex _rotexelsMutex = new();
+		private readonly FastMutex _rwtexelsMutex = new();
 
 		// Disposal flag
 		public bool IsDisposed { get; private set; } = false;
@@ -128,6 +135,60 @@ namespace Vega.Graphics
 		~BindingTable()
 		{
 			dispose(false);
+		}
+
+		// Adds a new combined image/sampler entry to the table, returning the index of the new table slot
+		public ushort Reserve(TextureBase tex, Sampler sampler)
+		{
+			// Get the next available index
+			ushort index = 0;
+			using (var _ = _samplerMutex.AcquireUNSAFE()) {
+				index = (ushort)(_samplerMask.FirstClear() ?? throw new InvalidOperationException(
+					$"Max number of texture bindings reached ({_samplerMask.Count})"));
+				_samplerMask.SetBit(index);
+			}
+
+			// Get the handles
+			var viewHandle = tex.View.Handle;
+			var sampHandle = SamplerPool.Get(sampler).Handle;
+
+			// Update the table
+			VkDescriptorImageInfo info = new(
+				sampler: sampHandle,
+				imageView: viewHandle,
+				imageLayout: VkImageLayout.ShaderReadOnlyOptimal
+			);
+			VkWriteDescriptorSet write = new(
+				dstSet: SetHandle,
+				dstBinding: 0,
+				dstArrayElement: index,
+				descriptorCount: 1,
+				descriptorType: VkDescriptorType.CombinedImageSampler,
+				imageInfo: &info,
+				bufferInfo: null,
+				texelBufferView: null
+			);
+			GraphicsDevice.VkDevice.UpdateDescriptorSets(1, &write, 0, null);
+
+			// Return new index
+			return index;
+		}
+
+		// Releases the given index from the table of the given binding type
+		public void Release(BindingType type, ushort index)
+		{
+			var (bitset, mutex) = type switch {
+				BindingType.Sampler => (_samplerMask, _samplerMutex),
+				BindingType.Image => (_imageMask, _imageMutex),
+				BindingType.Buffer => (_bufferMask, _bufferMutex),
+				BindingType.ROTexels => (_rotexelMask, _rotexelsMutex),
+				BindingType.RWTexels => (_rwtexelMask, _rwtexelsMutex),
+				_ => throw new Exception("LIBRARY BUG - invalid binding type")
+			};
+
+			using (var _ = mutex.AcquireUNSAFE()) {
+				bitset.ClearBit(index);
+			}
 		}
 
 		#region IDisposable
