@@ -358,7 +358,7 @@ namespace Vega.Graphics
 			out VkVertexInputAttributeDescription[] attrs, out VkVertexInputBindingDescription[] binds)
 		{
 			// Create arrays
-			var attrcnt = descs.Sum(vd => vd.Elements.Count);
+			var attrcnt = (int)descs.Sum(vd => vd.BindingCount);
 			attrs = new VkVertexInputAttributeDescription[attrcnt];
 			binds = new VkVertexInputBindingDescription[descs.Length];
 
@@ -367,12 +367,15 @@ namespace Vega.Graphics
 			for (var bi = 0; bi < descs.Length; ++bi) {
 				var vd = descs[bi];
 				for (var ei = 0; ei < vd.Elements.Count; ++ei) {
-					attrs[attroff++] = new(
-						location: vd.Locations[ei],
-						binding: (uint)bi,
-						format: (VkFormat)vd.Elements[ei].Format,
-						offset: vd.Elements[ei].Offset
-					);
+					var copyCount = vd.Elements[ei].BindingCount; // TODO: Won't work once we add double/long types
+					for (uint ai = 0; ai < copyCount; ++ai) {
+						attrs[attroff++] = new(
+							location: vd.Locations[ei] + ai,
+							binding: (uint)bi,
+							format: vd.Elements[ei].Format.GetVulkanFormat(),
+							offset: vd.Elements[ei].Offset + (ai * vd.Elements[ei].Format.GetSize())
+						);
+					}
 				}
 				binds[bi] = new(
 					binding: (uint)bi,

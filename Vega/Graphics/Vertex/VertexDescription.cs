@@ -39,6 +39,11 @@ namespace Vega.Graphics
 		/// </summary>
 		public readonly VertexRate Rate;
 
+		/// <summary>
+		/// The number of binding slots taken up by this description, taking into account matrices and arrays.
+		/// </summary>
+		public uint BindingCount => (uint)Elements.Sum(e => e.BindingCount);
+
 		// A precalculated hash code for faster comparisons and lookups
 		private readonly int _hashCode;
 		#endregion // Fields

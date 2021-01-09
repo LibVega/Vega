@@ -22,21 +22,32 @@ namespace Vega.Graphics
 		/// The offset of the element data within a vertex buffer, from the beginning.
 		/// </summary>
 		public readonly uint Offset;
+		/// <summary>
+		/// The number of array elements, if the vertex element is an array, one otherwise.
+		/// </summary>
+		public readonly uint ArraySize;
+
+		/// <summary>
+		/// The number of binding slots this element takes up for vertex input.
+		/// </summary>
+		public uint BindingCount => Format.GetBindingCount() * ArraySize;
 		#endregion // Fields
 
 		/// <summary>
 		/// Describes a new vertex element.
 		/// </summary>
-		public VertexElement(VertexFormat format, uint offset)
+		public VertexElement(VertexFormat format, uint offset, uint arraySize = 1)
 		{
 			Format = format;
 			Offset = offset;
+			ArraySize = (arraySize >= 1) ? arraySize : throw new ArgumentOutOfRangeException(nameof(arraySize));
 		}
 
 		#region Overrides
-		public readonly override int GetHashCode() => Format.GetHashCode() ^ Offset.GetHashCode();
+		public readonly override int GetHashCode() => 
+			Format.GetHashCode() ^ Offset.GetHashCode() ^ ArraySize.GetHashCode();
 
-		public readonly override string ToString() => $"[{Format}:{Offset}]";
+		public readonly override string ToString() => $"[{Format}:{Offset}:{ArraySize}]";
 
 		public readonly override bool Equals(object? obj) => (obj is VertexElement e) && (e == this);
 
@@ -47,10 +58,10 @@ namespace Vega.Graphics
 
 		#region Operators
 		public static bool operator == (VertexElement l, VertexElement r) =>
-			(l.Format == r.Format) && (l.Offset == r.Offset);
+			(l.Format == r.Format) && (l.Offset == r.Offset) && (l.ArraySize == r.ArraySize);
 
 		public static bool operator != (VertexElement l, VertexElement r) =>
-			(l.Format != r.Format) || (l.Offset != r.Offset);
+			(l.Format != r.Format) || (l.Offset != r.Offset) || (l.ArraySize != r.ArraySize);
 		#endregion // Operators
 	}
 }
