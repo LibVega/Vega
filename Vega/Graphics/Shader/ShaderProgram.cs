@@ -59,9 +59,15 @@ namespace Vega.Graphics
 		/// </summary>
 		/// <param name="path">The path to the compiled file.</param>
 		/// <returns>The loaded shader program.</returns>
-		public static ShaderProgram? LoadFile(string path)
+		public static ShaderProgram LoadFile(string path)
 		{
-			return null;
+			try {
+				VSL.LoadFile(path, out var info, out var vertMod, out var fragMod);
+				return new(info, vertMod, fragMod);
+			}
+			catch (Exception e) {
+				throw new InvalidShaderException(path, e.Message, e);
+			}
 		}
 	}
 }

@@ -80,13 +80,14 @@ namespace Vega.Graphics
 			var uniformSize = file.ReadUInt32();
 			var uniformStages = file.ReadUInt16();
 			var uniformMemberCount = file.ReadUInt32();
-			var members = new UniformMember[uniformMemberCount];
-			Span<byte> nameBytes = stackalloc byte[255];
+			Span<UniformMember> members = stackalloc UniformMember[(int)uniformMemberCount];
+			var memberNames = new string[uniformMemberCount];
+			Span<byte> nameBytes = stackalloc byte[64];
 			for (uint i = 0; i < uniformMemberCount; ++i) {
-				var memOff = file.ReadUInt32();
-				var nameLen = file.ReadUInt32();
-				file.Read(nameBytes.Slice(0, (int)nameLen));
-				members[i] = new() { Offset = memOff, Name = Encoding.ASCII.GetString(nameBytes) };
+				file.Read(MemoryMarshal.AsBytes(members.Slice((int)i, 1)));
+				var thisName = nameBytes.Slice(0, (int)members[(int)i].NameLength);
+				file.Read(thisName);
+				memberNames[i] = Encoding.ASCII.GetString(thisName);
 			}
 
 			// Read the subpass inputs
@@ -102,10 +103,50 @@ namespace Vega.Graphics
 			file.Read(MemoryMarshal.AsBytes(new Span<uint>(vertBC)));
 			file.Read(MemoryMarshal.AsBytes(new Span<uint>(fragBC)));
 
+			// Last validation
+			if (file.BaseStream.Position != file.BaseStream.Length) {
+				throw new InvalidShaderException(path, "File not fully consumed by parser");
+			}
+
+			// Create shader modules
+			CreateShaderModules(path, Core.Instance!.Graphics.VkDevice,
+				vertBC, fragBC,
+				out vertMod, out fragMod
+			);
+
 			// Fill objects
 			info = new();
-			vertMod = new(default, default);
-			fragMod = new(default, default);
+		}
+
+		// Performs the creation steps for the shader modules
+		private static void CreateShaderModules(string? path, VkDevice device,
+			Span<uint> vertBC, Span<uint> fragBC,
+			out VkShaderModule vertMod, out VkShaderModule fragMod
+		)
+		{
+			VkShaderModuleCreateInfo smci;
+			VulkanHandle<VkShaderModule> modHandle;
+			VkResult res;
+
+			// Vertex
+			fixed (uint* codeptr = vertBC) {
+				smci = new(VkShaderModuleCreateFlags.NoFlags, (ulong)vertBC.Length * 4, codeptr);
+				res = device.CreateShaderModule(&smci, null, &modHandle);
+				if (res != VkResult.Success) {
+					throw new InvalidShaderException(path, $"Failed to create vertex module: {res}");
+				}
+				vertMod = new(modHandle, device);
+			}
+
+			// Fragment
+			fixed (uint* codeptr = fragBC) {
+				smci = new(VkShaderModuleCreateFlags.NoFlags, (ulong)fragBC.Length * 4, codeptr);
+				res = device.CreateShaderModule(&smci, null, &modHandle);
+				if (res != VkResult.Success) {
+					throw new InvalidShaderException(path, $"Failed to create fragment module: {res}");
+				}
+				fragMod = new(modHandle, device);
+			}
 		}
 	}
 }

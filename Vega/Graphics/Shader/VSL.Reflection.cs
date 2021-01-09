@@ -71,11 +71,15 @@ namespace Vega.Graphics
 			[FieldOffset(7)] public byte TexelComponents;
 		}
 
-		// Uniform member (NOT binary compatible)
+		// Uniform member (binary compatible, without the variable length name)
+		[StructLayout(LayoutKind.Explicit)]
 		public struct UniformMember
 		{
-			public uint Offset;
-			public string Name;
+			[FieldOffset(0)] public uint Offset;
+			[FieldOffset(4)] public ShaderBaseType BaseType;
+			[FieldOffset(5)] public fixed byte Dims[2];
+			[FieldOffset(7)] public byte ArraySize;
+			[FieldOffset(8)] public uint NameLength;
 		}
 
 		// Subpass input description (binary compatible)
