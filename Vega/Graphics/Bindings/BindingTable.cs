@@ -27,11 +27,11 @@ namespace Vega.Graphics
 	internal unsafe sealed class BindingTable : IDisposable
 	{
 		// Default sizes
-		private const ushort DEFAULT_SIZE_SAMPLER = 8192;
-		private const ushort DEFAULT_SIZE_IMAGE = 128;
-		private const ushort DEFAULT_SIZE_BUFFER = 512;
-		private const ushort DEFAULT_SIZE_ROTEXELS = 128;
-		private const ushort DEFAULT_SIZE_RWTEXELS = 128;
+		public const ushort DEFAULT_SIZE_SAMPLER = 8192;
+		public const ushort DEFAULT_SIZE_IMAGE = 128;
+		public const ushort DEFAULT_SIZE_BUFFER = 512;
+		public const ushort DEFAULT_SIZE_ROTEXELS = 128;
+		public const ushort DEFAULT_SIZE_RWTEXELS = 128;
 		// Default flags
 		private const VkDescriptorBindingFlags BINDING_FLAGS =
 			VkDescriptorBindingFlags.PartiallyBound | VkDescriptorBindingFlags.UpdateUnusedWhilePending;

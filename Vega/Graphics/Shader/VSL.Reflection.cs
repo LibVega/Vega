@@ -80,7 +80,7 @@ namespace Vega.Graphics
 
 		// Subpass input description (binary compatible)
 		[StructLayout(LayoutKind.Explicit)]
-		public struct InputDescription
+		public struct SubpassInput
 		{
 			[FieldOffset(0)] public ShaderBaseType ComponentType;
 			[FieldOffset(1)] public byte ComponentCount;
