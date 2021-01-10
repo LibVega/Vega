@@ -111,11 +111,13 @@ namespace Vega.Graphics
 			// Process the reflection components
 			ProcessVertexInputs(path, inputs, out var reflInputs);
 			ProcessFragmentOutputs(path, outputs, out var reflOutputs);
+			ProcessBindings(path, bindings, out var reflBindings);
 			ProcessUniformMembers(path, members, memberNames, out var reflUniformMembers);
 			info = new(
 				ShaderStages.Vertex | ShaderStages.Fragment,
 				reflInputs,
 				reflOutputs,
+				reflBindings,
 				uniformSize, (ShaderStages)uniformStages, reflUniformMembers
 			);
 
@@ -153,6 +155,30 @@ namespace Vega.Graphics
 					throw new InvalidShaderException(path, "Invalid fragment output type");
 				}
 				outputs[i] = new(raw.Location, outputType.Value);
+			}
+		}
+
+		// Perform processing of binding variables
+		private static void ProcessBindings(string? path,
+			Span<BindingVariable> rawBindings, out ShaderInfo.Binding[] bindings)
+		{
+			bindings = new ShaderInfo.Binding[rawBindings.Length];
+			for (int i = 0; i < rawBindings.Length; ++i) {
+				ref var raw = ref rawBindings[i];
+				var btype = ParseBindingType(raw);
+				if (!btype.HasValue) {
+					throw new InvalidShaderException(path, $"Invalid binding type at slot {raw.Slot}");
+				}
+				if ((raw.BaseType == ShaderBaseType.ROBuffer) || (raw.BaseType == ShaderBaseType.RWBuffer)) {
+					bindings[i] = new(raw.Slot, (ShaderStages)raw.StageMask, btype.Value, raw.BufferSize);
+				}
+				else {
+					var ttype = ParseBindingTexelFormat(raw);
+					if (!ttype.HasValue) {
+						throw new InvalidShaderException(path, $"Invalid texel format at slot {raw.Slot}");
+					}
+					bindings[i] = new(raw.Slot, (ShaderStages)raw.StageMask, btype.Value, ttype.Value);
+				}
 			}
 		}
 

@@ -8,8 +8,8 @@ using System;
 
 namespace Vega.Graphics
 {
-	// The the binding types for shader resources
-	internal enum BindingType : byte
+	// The the binding types for shader resource tables
+	internal enum BindingTableType : byte
 	{
 		// Combined image/sampler
 		Sampler = 0,

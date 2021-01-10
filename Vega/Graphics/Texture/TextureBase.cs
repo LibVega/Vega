@@ -216,7 +216,7 @@ namespace Vega.Graphics
 			// Free global binding table indices
 			foreach (var idx in TableIndices) {
 				if (idx != UInt16.MaxValue) {
-					gd.BindingTable.Release(BindingType.Sampler, idx);
+					gd.BindingTable.Release(BindingTableType.Sampler, idx);
 				}
 			}
 

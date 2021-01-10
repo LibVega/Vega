@@ -44,7 +44,7 @@ namespace Vega.Graphics
 		}
 
 		// Interface variable type (binary compatible)
-		[StructLayout(LayoutKind.Explicit)]
+		[StructLayout(LayoutKind.Explicit, Size = 8)]
 		public struct InterfaceVariable
 		{
 			[FieldOffset(0)] public byte Location;
@@ -55,7 +55,7 @@ namespace Vega.Graphics
 		}
 
 		// Binding variable type (binary compatible)
-		[StructLayout(LayoutKind.Explicit)]
+		[StructLayout(LayoutKind.Explicit, Size = 8)]
 		public struct BindingVariable
 		{
 			// Shared fields
@@ -72,7 +72,7 @@ namespace Vega.Graphics
 		}
 
 		// Uniform member (binary compatible, without the variable length name)
-		[StructLayout(LayoutKind.Explicit)]
+		[StructLayout(LayoutKind.Explicit, Size = 12)]
 		public struct UniformMember
 		{
 			[FieldOffset(0)] public uint Offset;
@@ -83,7 +83,7 @@ namespace Vega.Graphics
 		}
 
 		// Subpass input description (binary compatible)
-		[StructLayout(LayoutKind.Explicit)]
+		[StructLayout(LayoutKind.Explicit, Size = 4)]
 		public struct SubpassInput
 		{
 			[FieldOffset(0)] public ShaderBaseType ComponentType;
@@ -125,6 +125,51 @@ namespace Vega.Graphics
 				1 => (dim == 1) ? TexelFormat.UNorm : (dim == 2) ? TexelFormat.UNorm2 : TexelFormat.UNorm4,
 				_ => null
 			},
+			_ => null
+		};
+
+		// Parses a BindingType for a binding variable
+		private static BindingType? ParseBindingType(in BindingVariable bvar) => bvar.BaseType switch {
+			ShaderBaseType.Sampler => bvar.Dimensions switch {
+				ImageDims.E1D => BindingType.Sampler1D,
+				ImageDims.E2D => BindingType.Sampler2D,
+				ImageDims.E3D => BindingType.Sampler3D,
+				ImageDims.E1DArray => BindingType.Sampler1DArray,
+				ImageDims.E2DArray => BindingType.Sampler2DArray,
+				ImageDims.Cube => BindingType.SamplerCube,
+				_ => null
+			},
+			ShaderBaseType.Image => bvar.Dimensions switch {
+				ImageDims.E1D => BindingType.Image1D,
+				ImageDims.E2D => BindingType.Image2D,
+				ImageDims.E3D => BindingType.Image3D,
+				ImageDims.E1DArray => BindingType.Image1DArray,
+				ImageDims.E2DArray => BindingType.Image2DArray,
+				_ => null
+			},
+			ShaderBaseType.ROBuffer => BindingType.ROBuffer,
+			ShaderBaseType.RWBuffer => BindingType.RWBuffer,
+			ShaderBaseType.ROTexels => BindingType.ROTexels,
+			ShaderBaseType.RWTexels => BindingType.RWTexels,
+			_ => null
+		};
+
+		// Parses a texel type for a binding variable
+		private static TexelFormat? ParseBindingTexelFormat(in BindingVariable bvar) => bvar.BaseType switch {
+			ShaderBaseType.Sampler => bvar.TexelType switch {
+				ShaderBaseType.Float => TexelFormat.Float4,
+				ShaderBaseType.Signed => TexelFormat.Int4,
+				ShaderBaseType.Unsigned => TexelFormat.UInt4,
+				_ => null
+			},
+			ShaderBaseType.Image => ParseTexelFormat(bvar.TexelType, bvar.TexelSize, bvar.TexelComponents),
+			ShaderBaseType.ROTexels => bvar.TexelType switch {
+				ShaderBaseType.Float => TexelFormat.Float4,
+				ShaderBaseType.Signed => TexelFormat.Int4,
+				ShaderBaseType.Unsigned => TexelFormat.UInt4,
+				_ => null
+			},
+			ShaderBaseType.RWTexels => ParseTexelFormat(bvar.TexelType, bvar.TexelSize, bvar.TexelComponents),
 			_ => null
 		};
 	}

@@ -175,14 +175,14 @@ namespace Vega.Graphics
 		}
 
 		// Releases the given index from the table of the given binding type
-		public void Release(BindingType type, ushort index)
+		public void Release(BindingTableType type, ushort index)
 		{
 			var (bitset, mutex) = type switch {
-				BindingType.Sampler => (_samplerMask, _samplerMutex),
-				BindingType.Image => (_imageMask, _imageMutex),
-				BindingType.Buffer => (_bufferMask, _bufferMutex),
-				BindingType.ROTexels => (_rotexelMask, _rotexelsMutex),
-				BindingType.RWTexels => (_rwtexelMask, _rwtexelsMutex),
+				BindingTableType.Sampler => (_samplerMask, _samplerMutex),
+				BindingTableType.Image => (_imageMask, _imageMutex),
+				BindingTableType.Buffer => (_bufferMask, _bufferMutex),
+				BindingTableType.ROTexels => (_rotexelMask, _rotexelsMutex),
+				BindingTableType.RWTexels => (_rwtexelMask, _rwtexelsMutex),
 				_ => throw new Exception("LIBRARY BUG - invalid binding type")
 			};
 

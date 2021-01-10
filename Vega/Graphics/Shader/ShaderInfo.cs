@@ -33,6 +33,16 @@ namespace Vega.Graphics
 		private readonly FragmentOutput[] _fragmentOutputs;
 
 		/// <summary>
+		/// The bindings in the shader.
+		/// </summary>
+		public IReadOnlyList<Binding> Bindings => _bindings;
+		private readonly Binding[] _bindings;
+		/// <summary>
+		/// A bitmask of bindings present in the shader.
+		/// </summary>
+		public readonly uint BindingMask;
+
+		/// <summary>
 		/// The size of the shader uniform data, in bytes.
 		/// </summary>
 		public readonly uint UniformSize;
@@ -51,6 +61,7 @@ namespace Vega.Graphics
 			ShaderStages stages,
 			VertexInput[] vertexInputs,
 			FragmentOutput[] fragmentOutputs,
+			Binding[] bindings,
 			uint uniformSize, ShaderStages uniformStages, UniformMember[] uniformMembers
 		)
 		{
@@ -59,6 +70,12 @@ namespace Vega.Graphics
 			_vertexInputs = vertexInputs;
 
 			_fragmentOutputs = fragmentOutputs;
+
+			_bindings = bindings;
+			BindingMask = 0;
+			for (int i = 0; i < bindings.Length; ++i) {
+				BindingMask |= (1u << (int)bindings[i].Slot);
+			}
 
 			UniformSize = uniformSize;
 			UniformStages = uniformStages;
