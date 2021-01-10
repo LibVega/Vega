@@ -15,6 +15,9 @@ namespace Vega.Graphics
 	// Implements loading and reflection for compiled VSL shaders
 	internal unsafe static partial class VSL
 	{
+		// Known constant values
+		public const uint MAX_BINDING_COUNT = 32;
+
 		// Parse a compiled VSL shader and return the info and modules
 		public static void LoadFile(string path, out ShaderInfo info, 
 			out VkShaderModule vertMod, out VkShaderModule fragMod)
@@ -113,12 +116,14 @@ namespace Vega.Graphics
 			ProcessFragmentOutputs(path, outputs, out var reflOutputs);
 			ProcessBindings(path, bindings, out var reflBindings);
 			ProcessUniformMembers(path, members, memberNames, out var reflUniformMembers);
+			ProcessSubpassInputs(path, spi, out var reflSpi);
 			info = new(
 				ShaderStages.Vertex | ShaderStages.Fragment,
 				reflInputs,
 				reflOutputs,
 				reflBindings,
-				uniformSize, (ShaderStages)uniformStages, reflUniformMembers
+				uniformSize, (ShaderStages)uniformStages, reflUniformMembers,
+				reflSpi
 			);
 
 			// Create shader modules
@@ -134,7 +139,7 @@ namespace Vega.Graphics
 		{
 			inputs = new ShaderInfo.VertexInput[rawInputs.Length];
 			for (int i = 0; i < rawInputs.Length; ++i) {
-				ref var raw = ref rawInputs[i];
+				ref readonly var raw = ref rawInputs[i];
 				var inputType = ParseVertexFormat(raw.BaseType, raw.Dims[0], raw.Dims[1]);
 				if (!inputType.HasValue) {
 					throw new InvalidShaderException(path, "Invalid vertex input type");
@@ -149,7 +154,7 @@ namespace Vega.Graphics
 		{
 			outputs = new ShaderInfo.FragmentOutput[rawOutputs.Length];
 			for (int i = 0; i < rawOutputs.Length; ++i) {
-				ref var raw = ref rawOutputs[i];
+				ref readonly var raw = ref rawOutputs[i];
 				var outputType = ParseTexelFormat(raw.BaseType, 4, raw.Dims[0]);
 				if (!outputType.HasValue) {
 					throw new InvalidShaderException(path, "Invalid fragment output type");
@@ -164,7 +169,7 @@ namespace Vega.Graphics
 		{
 			bindings = new ShaderInfo.Binding[rawBindings.Length];
 			for (int i = 0; i < rawBindings.Length; ++i) {
-				ref var raw = ref rawBindings[i];
+				ref readonly var raw = ref rawBindings[i];
 				var btype = ParseBindingType(raw);
 				if (!btype.HasValue) {
 					throw new InvalidShaderException(path, $"Invalid binding type at slot {raw.Slot}");
@@ -188,12 +193,32 @@ namespace Vega.Graphics
 		{
 			members = new ShaderInfo.UniformMember[rawMembers.Length];
 			for (int i = 0; i < rawMembers.Length; ++i) {
-				ref var raw = ref rawMembers[i];
+				ref readonly var raw = ref rawMembers[i];
 				var memType = ParseVertexFormat(raw.BaseType, raw.Dims[0], raw.Dims[1]);
 				if (!memType.HasValue) {
 					throw new InvalidShaderException(path, $"Invalid shader type for uniform member '{names[i]}'");
 				}
 				members[i] = new(names[i], raw.Offset, memType.Value, raw.ArraySize);
+			}
+		}
+
+		// Perform processing of subpass inputs
+		private static void ProcessSubpassInputs(string? path,
+			Span<SubpassInput> rawInputs, out ShaderInfo.SubpassInput[] inputs)
+		{
+			inputs = new ShaderInfo.SubpassInput[rawInputs.Length];
+			for (int i = 0; i < rawInputs.Length; ++i) {
+				ref readonly var raw = ref rawInputs[i];
+				var tfmt = raw.ComponentType switch {
+					ShaderBaseType.Float => TexelFormat.Float4,
+					ShaderBaseType.Signed => TexelFormat.Int4,
+					ShaderBaseType.Unsigned => TexelFormat.UInt4,
+					_ => (TexelFormat?)null
+				};
+				if (!tfmt.HasValue) {
+					throw new InvalidShaderException(path, $"Invalid texel format for subpass input {i}");
+				}
+				inputs[i] = new((uint)i, tfmt.Value);
 			}
 		}
 

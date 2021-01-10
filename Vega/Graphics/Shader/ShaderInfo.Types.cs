@@ -121,6 +121,57 @@ namespace Vega.Graphics
 		/// <summary>
 		/// Contains information about a member within a shader uniform struct.
 		/// </summary>
-		public sealed record UniformMember(string Name, uint Offset, VertexFormat Format, uint ArraySize);
+		public sealed record UniformMember
+		{
+			#region Fields
+			/// <summary>
+			/// The name of the uniform member.
+			/// </summary>
+			public string Name { get; init; }
+			/// <summary>
+			/// The offset of the member into the struct data, in bytes.
+			/// </summary>
+			public uint Offset { get; init; }
+			/// <summary>
+			/// The data format of the member.
+			/// </summary>
+			public VertexFormat Format { get; init; }
+			/// <summary>
+			/// The member array size, or 1 if the member is not an array.
+			/// </summary>
+			public uint ArraySize { get; init; }
+			#endregion // Fields
+
+			public UniformMember(string name, uint off, VertexFormat fmt, uint asize)
+			{
+				Name = name;
+				Offset = off;
+				Format = fmt;
+				ArraySize = asize;
+			}
+		}
+
+		/// <summary>
+		/// Contains information about a subpass input within a shader.
+		/// </summary>
+		public struct SubpassInput
+		{
+			#region Fields
+			/// <summary>
+			/// The subpass input index.
+			/// </summary>
+			public uint Index;
+			/// <summary>
+			/// The texel format of the input data.
+			/// </summary>
+			public TexelFormat Format;
+			#endregion // Fields
+
+			public SubpassInput(uint idx, TexelFormat fmt)
+			{
+				Index = idx;
+				Format = fmt;
+			}
+		}
 	}
 }

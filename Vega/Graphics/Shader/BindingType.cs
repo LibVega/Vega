@@ -11,6 +11,7 @@ namespace Vega.Graphics
 	/// <summary>
 	/// Contains the full set of types that resource bindings in VSL shaders can take on.
 	/// </summary>
+	// Note: These values need to stay <= 255, or else the _bindingTypes in ShaderInfo needs to be changed.
 	public enum BindingType
 	{
 		/// <summary>

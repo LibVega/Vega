@@ -41,6 +41,12 @@ namespace Vega.Graphics
 		/// A bitmask of bindings present in the shader.
 		/// </summary>
 		public readonly uint BindingMask;
+		/// <summary>
+		/// The highest used binding slot index in the shader.
+		/// </summary>
+		public readonly uint MaxBindingSlot;
+		// A quick, compact reference to the binding types at different slots
+		internal readonly byte[] BindingTypes = new byte[VSL.MAX_BINDING_COUNT];
 
 		/// <summary>
 		/// The size of the shader uniform data, in bytes.
@@ -55,6 +61,12 @@ namespace Vega.Graphics
 		/// </summary>
 		public IReadOnlyList<UniformMember> UniformMembers => _uniformMembers;
 		private readonly UniformMember[] _uniformMembers;
+
+		/// <summary>
+		/// The subpass inputs in the shader.
+		/// </summary>
+		public IReadOnlyList<SubpassInput> SubpassInputs => _subpassInputs;
+		private readonly SubpassInput[] _subpassInputs;
 		#endregion // Fields
 
 		internal ShaderInfo(
@@ -62,7 +74,8 @@ namespace Vega.Graphics
 			VertexInput[] vertexInputs,
 			FragmentOutput[] fragmentOutputs,
 			Binding[] bindings,
-			uint uniformSize, ShaderStages uniformStages, UniformMember[] uniformMembers
+			uint uniformSize, ShaderStages uniformStages, UniformMember[] uniformMembers,
+			SubpassInput[] spInputs
 		)
 		{
 			Stages = stages;
@@ -73,13 +86,22 @@ namespace Vega.Graphics
 
 			_bindings = bindings;
 			BindingMask = 0;
+			Array.Fill(BindingTypes, (byte)0);
+			MaxBindingSlot = 0;
 			for (int i = 0; i < bindings.Length; ++i) {
-				BindingMask |= (1u << (int)bindings[i].Slot);
+				ref readonly var bind = ref bindings[i];
+				BindingMask |= (1u << (int)bind.Slot);
+				BindingTypes[bind.Slot] = (byte)bind.Type;
+				if (bind.Slot > MaxBindingSlot) {
+					MaxBindingSlot = bind.Slot;
+				}
 			}
 
 			UniformSize = uniformSize;
 			UniformStages = uniformStages;
 			_uniformMembers = uniformMembers;
+
+			_subpassInputs = spInputs;
 		}
 
 		#region Stage Info
@@ -89,5 +111,19 @@ namespace Vega.Graphics
 		/// <param name="stages">The mask of stages to check for.</param>
 		public bool HasStages(ShaderStages stages) => (Stages & stages) == stages;
 		#endregion // Stage Info
+
+		#region Binding Info
+		/// <summary>
+		/// Gets if the shader has a resource binding in the given slot.
+		/// </summary>
+		/// <param name="slot">The slot to check.</param>
+		public bool HasBinding(uint slot) => (BindingMask & (1u << (int)slot)) > 0;
+		/// <summary>
+		/// Gets the binding type in the given slot, or <c>null</c> if the given slot has no binding.
+		/// </summary>
+		/// <param name="slot">The slot to check.</param>
+		public BindingType? GetBindingType(uint slot) =>
+			((BindingMask & (1u << (int)slot)) > 0) ? (BindingType)BindingTypes[slot] : null;
+		#endregion // Binding Info
 	}
 }
