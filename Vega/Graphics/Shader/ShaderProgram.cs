@@ -5,7 +5,9 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -20,6 +22,12 @@ namespace Vega.Graphics
 		/// The reflection information for this shader program.
 		/// </summary>
 		public readonly ShaderInfo Info;
+		
+		/// <summary>
+		/// The number of <see cref="Pipeline"/> instances that are actively using this shader.
+		/// </summary>
+		public uint RefCount => _refCount;
+		private uint _refCount = 0;
 
 		// The shader modules in the program
 		internal readonly VkShaderModule VertexModule;
@@ -34,9 +42,24 @@ namespace Vega.Graphics
 			FragmentModule = fragMod;
 		}
 
+		// Reference counting functions for pipelines
+		internal void IncRef() => Interlocked.Increment(ref _refCount);
+		internal void DecRef() => Interlocked.Decrement(ref _refCount);
+
+		// Enumerates over the available shader modules
+		internal IEnumerable<(VkShaderModule mod, ShaderStages stage)> EnumerateModules()
+		{
+			yield return (VertexModule, ShaderStages.Vertex);
+			yield return (FragmentModule, ShaderStages.Fragment);
+		}
+
 		#region ResourceBase
 		protected override void OnDispose(bool disposing)
 		{
+			if (disposing && (_refCount != 0)) {
+				throw new InvalidOperationException("Cannot dispose a shader that is in use");
+			}
+
 			if (Core.Instance is not null) {
 				Core.Instance!.Graphics.Resources.QueueDestroy(this);
 			}
