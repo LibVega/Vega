@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.IO;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -62,11 +63,33 @@ namespace Vega.Graphics
 		public static ShaderProgram LoadFile(string path)
 		{
 			try {
-				VSL.LoadFile(path, out var info, out var vertMod, out var fragMod);
+				if (!File.Exists(path)) {
+					throw new InvalidShaderException(path, $"Shader file '{path}' does not exist");
+				}
+				using var file = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+				VSL.LoadStream(path, file, out var info, out var vertMod, out var fragMod);
 				return new(info, vertMod, fragMod);
 			}
+			catch (InvalidShaderException) { throw; }
 			catch (Exception e) {
 				throw new InvalidShaderException(path, e.Message, e);
+			}
+		}
+
+		// Loads an embedded resource shader
+		internal static ShaderProgram LoadInternalResource(string resName)
+		{
+			try {
+				var asm = typeof(ShaderProgram).Assembly.GetManifestResourceStream(resName);
+				if (asm is null) {
+					throw new InvalidShaderException(resName, $"Failed to load embedded shader '{resName}'");
+				}
+				VSL.LoadStream(resName, asm, out var info, out var vertMod, out var fragMod);
+				return new(info, vertMod, fragMod);
+			}
+			catch (InvalidShaderException) { throw; }
+			catch (Exception e) {
+				throw new InvalidShaderException(resName, e.Message, e);
 			}
 		}
 	}

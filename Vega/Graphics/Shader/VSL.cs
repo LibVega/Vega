@@ -19,16 +19,12 @@ namespace Vega.Graphics
 		public const uint MAX_BINDING_COUNT = 32;
 
 		// Parse a compiled VSL shader and return the info and modules
-		public static void LoadFile(string path, out ShaderInfo info, 
+		public static void LoadStream(string path, Stream stream,
+			out ShaderInfo info, 
 			out VkShaderModule vertMod, out VkShaderModule fragMod)
 		{
-			// Check existence
-			if (!File.Exists(path)) {
-				throw new InvalidShaderException(path, $"Shader file '{path}' does not exist");
-			}
-
 			// Open the file and check the header
-			using var file = new BinaryReader(File.Open(path, FileMode.Open, FileAccess.Read, FileShare.None));
+			using var file = new BinaryReader(stream);
 			Span<byte> header = stackalloc byte[4];
 			file.Read(header);
 			if ((header[0] != 'V') || (header[1] != 'B') || (header[2] != 'C')) {
