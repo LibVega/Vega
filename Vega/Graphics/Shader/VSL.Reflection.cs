@@ -90,5 +90,42 @@ namespace Vega.Graphics
 			[FieldOffset(1)] public byte ComponentCount;
 			[FieldOffset(2)] public fixed byte Padding[2];
 		}
+
+		// Parses a vertex format from a given base type and dimensions
+		private static VertexFormat? ParseVertexFormat(ShaderBaseType baseType, uint dim0, uint dim1) => baseType switch {
+			ShaderBaseType.Signed => 
+				(dim0 == 1) ? VertexFormat.Int : (dim0 == 2) ? VertexFormat.Int2 : 
+				(dim0 == 3) ? VertexFormat.Int3 : VertexFormat.Int4,
+			ShaderBaseType.Unsigned => 
+				(dim0 == 1) ? VertexFormat.UInt : (dim0 == 2) ? VertexFormat.UInt2 : 
+				(dim0 == 3) ? VertexFormat.UInt3 : VertexFormat.UInt4,
+			ShaderBaseType.Float => dim1 switch {
+				1 => 
+					(dim0 == 1) ? VertexFormat.Float : (dim0 == 2) ? VertexFormat.Float2 :
+					(dim0 == 3) ? VertexFormat.Float3 : VertexFormat.Float4,
+				2 =>
+					(dim0 == 2) ? VertexFormat.Float2x2 : (dim0 == 3) ? VertexFormat.Float2x3 : VertexFormat.Float2x4,
+				3 =>
+					(dim0 == 2) ? VertexFormat.Float3x2 : (dim0 == 3) ? VertexFormat.Float3x3 : VertexFormat.Float3x4,
+				4 =>
+					(dim0 == 2) ? VertexFormat.Float4x2 : (dim0 == 3) ? VertexFormat.Float4x3 : VertexFormat.Float4x4,
+				_ => null
+			},
+			_ => null
+		};
+
+		// Parses a texel format from a given base type and dimensions
+		private static TexelFormat? ParseTexelFormat(ShaderBaseType baseType, uint size, uint dim) => baseType switch {
+			ShaderBaseType.Signed => 
+				(dim == 1) ? TexelFormat.Int : (dim == 2) ? TexelFormat.Int2 : TexelFormat.Int4,
+			ShaderBaseType.Unsigned => 
+				(dim == 1) ? TexelFormat.UInt : (dim == 2) ? TexelFormat.UInt2 : TexelFormat.UInt4,
+			ShaderBaseType.Float => size switch {
+				4 => (dim == 1) ? TexelFormat.Float : (dim == 2) ? TexelFormat.Float2 : TexelFormat.Float4,
+				1 => (dim == 1) ? TexelFormat.UNorm : (dim == 2) ? TexelFormat.UNorm2 : TexelFormat.UNorm4,
+				_ => null
+			},
+			_ => null
+		};
 	}
 }

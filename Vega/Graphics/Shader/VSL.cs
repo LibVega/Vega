@@ -108,14 +108,67 @@ namespace Vega.Graphics
 				throw new InvalidShaderException(path, "File not fully consumed by parser");
 			}
 
+			// Process the reflection components
+			ProcessVertexInputs(path, inputs, out var reflInputs);
+			ProcessFragmentOutputs(path, outputs, out var reflOutputs);
+			ProcessUniformMembers(path, members, memberNames, out var reflUniformMembers);
+			info = new(
+				ShaderStages.Vertex | ShaderStages.Fragment,
+				reflInputs,
+				reflOutputs,
+				uniformSize, (ShaderStages)uniformStages, reflUniformMembers
+			);
+
 			// Create shader modules
 			CreateShaderModules(path, Core.Instance!.Graphics.VkDevice,
 				vertBC, fragBC,
 				out vertMod, out fragMod
 			);
+		}
 
-			// Fill objects
-			info = new();
+		// Perform processing of vertex inputs
+		private static void ProcessVertexInputs(string? path,
+			Span<InterfaceVariable> rawInputs, out ShaderInfo.VertexInput[] inputs)
+		{
+			inputs = new ShaderInfo.VertexInput[rawInputs.Length];
+			for (int i = 0; i < rawInputs.Length; ++i) {
+				ref var raw = ref rawInputs[i];
+				var inputType = ParseVertexFormat(raw.BaseType, raw.Dims[0], raw.Dims[1]);
+				if (!inputType.HasValue) {
+					throw new InvalidShaderException(path, "Invalid vertex input type");
+				}
+				inputs[i] = new(raw.Location, inputType.Value, raw.ArraySize);
+			}
+		}
+
+		// Perform processing of fragment outputs
+		private static void ProcessFragmentOutputs(string? path,
+			Span<InterfaceVariable> rawOutputs, out ShaderInfo.FragmentOutput[] outputs)
+		{
+			outputs = new ShaderInfo.FragmentOutput[rawOutputs.Length];
+			for (int i = 0; i < rawOutputs.Length; ++i) {
+				ref var raw = ref rawOutputs[i];
+				var outputType = ParseTexelFormat(raw.BaseType, 4, raw.Dims[0]);
+				if (!outputType.HasValue) {
+					throw new InvalidShaderException(path, "Invalid fragment output type");
+				}
+				outputs[i] = new(raw.Location, outputType.Value);
+			}
+		}
+
+		// Perform processing of the uniform members into the final reflection types
+		private static void ProcessUniformMembers(string? path,
+			Span<UniformMember> rawMembers, string[] names, out ShaderInfo.UniformMember[] members)
+		{
+			members = new ShaderInfo.UniformMember[rawMembers.Length];
+			for (int i = 0; i < rawMembers.Length; ++i) {
+				ref var raw = ref rawMembers[i];
+				var memType = ParseVertexFormat(raw.BaseType, raw.Dims[0], raw.Dims[1]);
+				if (!memType.HasValue) {
+					throw new InvalidShaderException(path, $"Invalid shader type for uniform member '{names[i]}'");
+				}
+				members[i] = new(names[i], raw.Offset, memType.Value, raw.ArraySize);
+			}
 		}
 
 		// Performs the creation steps for the shader modules
