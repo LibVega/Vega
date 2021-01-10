@@ -45,6 +45,9 @@ namespace Vega.Graphics
 		private readonly VkDescriptorPool _pool;
 		public readonly VkDescriptorSet SetHandle;
 
+		// The shared layout handle for set 1 uniform buffers shared by all shaders (maybe put in better place?)
+		public readonly VkDescriptorSetLayout UniformLayoutHandle;
+
 		// Bitsets for tracking table utilization
 		private readonly Bitset _samplerMask;
 		private readonly Bitset _imageMask;
@@ -131,6 +134,19 @@ namespace Vega.Graphics
 			VulkanHandle<VkDescriptorSet> setHandle;
 			gd.VkDevice.AllocateDescriptorSets(&dsai, &setHandle).Throw("Failed to allocate global descriptor table");
 			SetHandle = new(setHandle, _pool);
+
+			// Create the uniform binding layout
+			VkDescriptorSetLayoutBinding uniformLayout = new(
+				0, VkDescriptorType.UniformBufferDynamic, 1, VkShaderStageFlags.AllGraphics, null
+			);
+			dslci = new(
+				flags: VkDescriptorSetLayoutCreateFlags.NoFlags,
+				bindingCount: 1,
+				bindings: &uniformLayout
+			);
+			gd.VkDevice.CreateDescriptorSetLayout(&dslci, null, &layoutHandle)
+				.Throw("Fauled to create layout for uniform buffer binding");
+			UniformLayoutHandle = new(layoutHandle, gd.VkDevice);
 		}
 		~BindingTable()
 		{
@@ -203,7 +219,8 @@ namespace Vega.Graphics
 			if (!IsDisposed) {
 				if (disposing) {
 					_pool?.DestroyDescriptorPool(null);
-					LayoutHandle?.DestroyDescriptorSetLayout(null); 
+					LayoutHandle?.DestroyDescriptorSetLayout(null);
+					UniformLayoutHandle?.DestroyDescriptorSetLayout(null);
 				}
 			}
 			IsDisposed = true;

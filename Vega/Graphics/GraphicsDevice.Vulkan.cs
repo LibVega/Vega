@@ -164,6 +164,8 @@ namespace Vega.Graphics
 				throw new InvalidOperationException($"Cannot create device - required feature '{missing}' is not present");
 			}
 			baseFeats.Features.IndependentBlend = true;
+			baseFeats.Features.VertexPipelineStoresAndAtomics = true;
+			baseFeats.Features.FragmentStoresAndAtomics = true;
 			VkPhysicalDeviceVulkan11Features.New(out var feats11);
 			baseFeats.pNext = &feats11;
 			VkPhysicalDeviceVulkan12Features.New(out var feats12);
@@ -177,6 +179,8 @@ namespace Vega.Graphics
 			feats12.DescriptorBindingStorageBufferUpdateAfterBind = true;
 			feats12.DescriptorBindingUniformTexelBufferUpdateAfterBind = true;
 			feats12.DescriptorBindingStorageTexelBufferUpdateAfterBind = true;
+			feats12.ShaderStorageTexelBufferArrayDynamicIndexing = true;
+			feats12.ShaderUniformTexelBufferArrayDynamicIndexing = true;
 
 			// Populate the extensions
 			using var extList = new NativeStringList(extensions);
@@ -223,6 +227,12 @@ namespace Vega.Graphics
 			}
 
 			// Feature check
+			if (!info.Features.VertexPipelineStoresAndAtomics) {
+				return (dev, null);
+			}
+			if (!info.Features.FragmentStoresAndAtomics) {
+				return (dev, null);
+			}
 			if (!info.Features12.DescriptorIndexing) {
 				return (dev, null);
 			}

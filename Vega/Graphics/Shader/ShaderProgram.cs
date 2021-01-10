@@ -22,7 +22,7 @@ namespace Vega.Graphics
 		/// The reflection information for this shader program.
 		/// </summary>
 		public readonly ShaderInfo Info;
-		
+
 		/// <summary>
 		/// The number of <see cref="Pipeline"/> instances that are actively using this shader.
 		/// </summary>
@@ -32,6 +32,12 @@ namespace Vega.Graphics
 		// The shader modules in the program
 		internal readonly VkShaderModule VertexModule;
 		internal readonly VkShaderModule FragmentModule;
+
+		// The pipeline layout for this shader
+		internal readonly VkPipelineLayout PipelineLayout;
+
+		// The descriptor set layout for subpass inputs in this shader
+		internal readonly VkDescriptorSetLayout? SubpassInputLayout = null;
 		#endregion // Fields
 
 		internal ShaderProgram(ShaderInfo info, VkShaderModule vertMod, VkShaderModule fragMod)
@@ -40,6 +46,40 @@ namespace Vega.Graphics
 			Info = info;
 			VertexModule = vertMod;
 			FragmentModule = fragMod;
+
+			var gd = Core.Instance!.Graphics;
+
+			// Get the binding layouts
+			var layouts = stackalloc VulkanHandle<VkDescriptorSetLayout>[3];
+			uint layoutCount = 1;
+			layouts[0] = gd.BindingTable.LayoutHandle;
+			if (info.UniformSize > 0) {
+				layouts[layoutCount++] = gd.BindingTable.UniformLayoutHandle;
+			}
+			if (info.SubpassInputs.Count > 0) {
+				SubpassInputLayout = CreateSubpassInputLayout(gd, info);
+				layouts[layoutCount++] = SubpassInputLayout;
+			}
+
+			// Describe push constants for binding indices
+			VkPushConstantRange pcr = new(
+				stageFlags: (VkShaderStageFlags)info.Stages,
+				offset: 0,
+				size: ((info.MaxBindingSlot + 2) / 2) * 4
+			);
+
+			// Create the pipeline layout
+			VkPipelineLayoutCreateInfo plci = new(
+				flags: VkPipelineLayoutCreateFlags.NoFlags,
+				setLayoutCount: layoutCount,
+				setLayouts: layouts,
+				pushConstantRangeCount: (info.BindingMask == 0) ? 0 : 1, // No bindings = no push constant indices
+				pushConstantRanges: &pcr
+			);
+			VulkanHandle<VkPipelineLayout> layoutHandle;
+			gd.VkDevice.CreatePipelineLayout(&plci, null, &layoutHandle)
+				.Throw("Failed to create shader pipeline layout");
+			PipelineLayout = new(layoutHandle, gd.VkDevice);
 		}
 
 		// Reference counting functions for pipelines
@@ -70,11 +110,39 @@ namespace Vega.Graphics
 
 		protected internal override void Destroy()
 		{
+			PipelineLayout.DestroyPipelineLayout(null);
+			SubpassInputLayout?.DestroyDescriptorSetLayout(null);
+
 			VertexModule.DestroyShaderModule(null);
 			FragmentModule.DestroyShaderModule(null);
 		}
 		#endregion // ResourceBase
 
+		// Creates a descriptor set layout matching the subpass inputs for the shader
+		private static VkDescriptorSetLayout CreateSubpassInputLayout(GraphicsDevice gd, ShaderInfo info)
+		{
+			// Setup the layouts
+			var spiCount = info.SubpassInputs.Count;
+			var layouts = stackalloc VkDescriptorSetLayoutBinding[spiCount];
+			for (int i = 0; i < spiCount; ++i) {
+				layouts[i] = new(
+					(uint)i, VkDescriptorType.InputAttachment, 1, VkShaderStageFlags.Fragment, null
+				);
+			}
+
+			// Create the set layout
+			VkDescriptorSetLayoutCreateInfo dslci = new(
+				flags: VkDescriptorSetLayoutCreateFlags.NoFlags,
+				bindingCount: (uint)spiCount,
+				bindings: layouts
+			);
+			VulkanHandle<VkDescriptorSetLayout> handle;
+			gd.VkDevice.CreateDescriptorSetLayout(&dslci, null, &handle)
+				.Throw("Failed to create subpass input layout for shader");
+			return new(handle, gd.VkDevice);
+		}
+
+		#region Loading
 		/// <summary>
 		/// Loads a new shader program from a <em>compiled</em> VSL shader file.
 		/// <para>
@@ -115,5 +183,6 @@ namespace Vega.Graphics
 				throw new InvalidShaderException(resName, e.Message, e);
 			}
 		}
+		#endregion // Loading
 	}
 }

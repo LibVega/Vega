@@ -103,6 +103,8 @@ namespace Vega.Graphics
 		internal static VkPipeline CreatePipeline(PipelineDescription desc, Renderer renderer, uint subpass, 
 			out BuildStates? buildState)
 		{
+			var MAIN_STR = stackalloc byte[5] { (byte)'m', (byte)'a', (byte)'i', (byte)'n', (byte)'\0' };
+
 			// Validate
 			var rlayout = (renderer.MSAA != MSAA.X1) ? renderer.MSAALayout! : renderer.Layout;
 			if (!desc.IsComplete) {
@@ -155,18 +157,14 @@ namespace Vega.Graphics
 			CalculateVertexInfo(desc.VertexDescriptions!, out var vertexAttrs, out var vertexBinds);
 
 			// Shader create info
-			var stageCIs = new VkPipelineShaderStageCreateInfo[0] { };
-			//var stageCIs = desc.Shader!.EnumerateModules().Select(mod => new VkPipelineShaderStageCreateInfo(
-			//	flags: VkPipelineShaderStageCreateFlags.NoFlags,
-			//	stage: (VkShaderStageFlags)mod.Stage,
-			//	module: mod.Module.Handle,
-			//	name: mod.Module.NativeEntryPoint.Data,
-			//	specializationInfo: null // TODO: Public API for specialization
-			//)).ToArray();
-			//VkPipelineTessellationStateCreateInfo tessCI = new(
-			//	flags: VkPipelineTessellationStateCreateFlags.NoFlags,
-			//	patchControlPoints: desc.Shader.PatchSize
-			//);
+			var stageCIs = desc.Shader!.EnumerateModules().Select(mod => new VkPipelineShaderStageCreateInfo(
+				flags: VkPipelineShaderStageCreateFlags.NoFlags,
+				stage: (VkShaderStageFlags)mod.stage,
+				module: mod.mod,
+				name: MAIN_STR,
+				specializationInfo: null // TODO: Public API for specialization
+			)).ToArray();
+			VkPipelineTessellationStateCreateInfo.New(out var tessCI);
 
 			// Create the pipeline
 			VkPipeline pipeline;
@@ -200,18 +198,18 @@ namespace Vega.Graphics
 				// Create info
 				VkGraphicsPipelineCreateInfo ci = new(
 					flags: VkPipelineCreateFlags.NoFlags, // TODO: see if we can utilize some of the flags
-					stageCount: 0,
+					stageCount: (uint)stageCIs.Length,
 					stages: stagePtr,
 					vertexInputState: &vertexCI,
 					inputAssemblyState: inputAssemblyPtr,
-					tessellationState: null,//&tessCI,
+					tessellationState: &tessCI,
 					viewportState: &viewportCI,
 					rasterizationState: rasterizerPtr,
 					multisampleState: &msaaCI,
 					depthStencilState: depthStencilPtr,
 					colorBlendState: &colorBlendCI,
 					dynamicState: &dynamicCI,
-					layout: null,// desc.Shader.PipelineLayoutHandle,
+					layout: desc.Shader.PipelineLayout,
 					renderPass: renderer.RenderPass,
 					subpass: subpass,
 					basePipelineHandle: VulkanHandle<VkPipeline>.Null,
@@ -305,6 +303,7 @@ namespace Vega.Graphics
 				name: MAIN_STR,
 				specializationInfo: null // TODO: Public API for specialization
 			)).ToArray();
+			VkPipelineTessellationStateCreateInfo.New(out var tessCI);
 
 			// State cached objects
 			states.DepthStencil.ToVk(out var depthStencilCI);
@@ -331,14 +330,14 @@ namespace Vega.Graphics
 					stages: stagePtr,
 					vertexInputState: &vertexCI,
 					inputAssemblyState: &vertexInputCI,
-					tessellationState: null,
+					tessellationState: &tessCI,
 					viewportState: &viewportCI,
 					rasterizationState: &rasterCI,
 					multisampleState: &msaaCI,
 					depthStencilState: &depthStencilCI,
 					colorBlendState: &colorBlendCI,
 					dynamicState: &dynamicCI,
-					layout: null,//shader.PipelineLayoutHandle,
+					layout: shader.PipelineLayout,
 					renderPass: renderer.RenderPass,
 					subpass: subpass,
 					basePipelineHandle: VulkanHandle<VkPipeline>.Null,
