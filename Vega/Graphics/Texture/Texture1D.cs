@@ -18,6 +18,9 @@ namespace Vega.Graphics
 		/// The width of the texture (x-axis).
 		/// </summary>
 		public uint Width => Dimensions.Width;
+
+		// The binding type
+		internal override BindingType BindingType => BindingType.Sampler1D;
 		#endregion // Fields
 
 		/// <summary>

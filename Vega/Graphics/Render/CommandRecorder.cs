@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Runtime.CompilerServices;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -35,6 +36,10 @@ namespace Vega.Graphics
 		/// </summary>
 		public uint? BoundSubpass => BoundPipeline?.Subpass;
 		/// <summary>
+		/// The shader program current bound to this recorder from the pipeline.
+		/// </summary>
+		public ShaderProgram? BoundShader => BoundPipeline?.Shader;
+		/// <summary>
 		/// Gets the value of <see cref="AppTime.FrameCount"/> when the current recording process started.
 		/// </summary>
 		public ulong? RecordingFrame { get; private set; }
@@ -46,6 +51,11 @@ namespace Vega.Graphics
 
 		// The current command buffer for recording
 		private CommandBuffer? _cmd = null;
+
+		// The table indices of the bound resources
+		private readonly ushort[] _bindingIndices = new ushort[VSL.MAX_BINDING_COUNT];
+		private bool _bindingsDirty = false;
+		private uint _bindingSize = 0;
 		#endregion // Fields
 
 		/// <summary>
@@ -97,10 +107,34 @@ namespace Vega.Graphics
 			BoundPipeline = pipeline;
 			RecordingFrame = AppTime.FrameCount;
 
-			// Reset cached recording state
-			//_bufferResources.Reset();
-			//_samplerResources.Reset();
-			//_textureResources.Reset();
+			// Prepare for new commands
+			resetRenderState();
+		}
+
+		/// <summary>
+		/// Sets the pipeline object to use for future rendering commands. The new pipeline must match the renderer
+		/// and subpass of the pipeline that <see cref="Begin(Pipeline)"/> was called with.
+		/// </summary>
+		/// <param name="pipeline">The pipeline to bind for future rendering commands.</param>
+		public void BindPipeline(Pipeline pipeline)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot bind a pipeline to an inactive command recorder");
+			}
+			if (BoundPipeline!.RUID == pipeline.RUID) {
+				return; // Same pipeline object, dont re-bind
+			}
+			if (!ReferenceEquals(BoundRenderer!, pipeline.Renderer) || (BoundSubpass != pipeline.Subpass)) {
+				throw new ArgumentException("Cannot bind incompatible pipeline", nameof(pipeline));
+			}
+
+			// Bind the new pipeline
+			_cmd!.Cmd.CmdBindPipeline(VkPipelineBindPoint.Graphics, pipeline.Handle);
+			BoundPipeline = pipeline;
+
+			// Prepare for new commands
+			resetRenderState();
 		}
 
 		/// <summary>
@@ -155,35 +189,119 @@ namespace Vega.Graphics
 		#endregion // Recording State
 
 		#region Resources
+		#region Texture Binding
 		/// <summary>
-		/// Sets the pipeline object to use for future rendering commands. The new pipeline must match the renderer
-		/// and subpass of the pipeline that <see cref="Begin(Pipeline)"/> was called with.
+		/// Binds a texture and associated sampler to the given slot. The shader binding must be 
+		/// <see cref="BindingType.Sampler1D"/>.
 		/// </summary>
-		/// <param name="pipeline">The pipeline to bind for future rendering commands.</param>
-		public void BindPipeline(Pipeline pipeline)
+		/// <param name="slot">The slot to bind the texture/sampler pair to.</param>
+		/// <param name="texture">The texture to bind to the slot.</param>
+		/// <param name="sampler">The sampler to load texture samples with.</param>
+		public void Bind(uint slot, Texture1D texture, Sampler sampler = Sampler.LinearNearestRepeat)
 		{
 			// Validate
 			if (!IsRecording) {
-				throw new InvalidOperationException("Cannot bind a pipeline to an inactive command recorder");
+				throw new InvalidOperationException("Cannot bind resource to non-recording command recorder");
 			}
-			if (BoundPipeline!.RUID == pipeline.RUID) {
-				return; // Same pipeline object, dont re-bind
-			}
-			if (!ReferenceEquals(BoundRenderer!, pipeline.Renderer) || (BoundSubpass != pipeline.Subpass)) {
-				throw new ArgumentException("Cannot bind incompatible pipeline", nameof(pipeline));
+			if (texture.IsDisposed) {
+				throw new ObjectDisposedException(nameof(texture));
 			}
 
-			// Bind the new pipeline
-			_cmd!.Cmd.CmdBindPipeline(VkPipelineBindPoint.Graphics, pipeline.Handle);
-			BoundPipeline = pipeline;
-
-			// Reset cached recording state
+			// Bind
+			if (!bindTextureSampler(slot, texture, sampler)) {
+				throw new InvalidOperationException(
+					$"Failed to bind Texture1D to slot {slot} - unused or invalid slot");
+			}
 		}
 
-		// Called before a draw command is submitted to allocate, update, and bind descriptor sets
+		/// <summary>
+		/// Binds a texture and associated sampler to the given slot. The shader binding must be 
+		/// <see cref="BindingType.Sampler2D"/>.
+		/// </summary>
+		/// <param name="slot">The slot to bind the texture/sampler pair to.</param>
+		/// <param name="texture">The texture to bind to the slot.</param>
+		/// <param name="sampler">The sampler to load texture samples with.</param>
+		public void Bind(uint slot, Texture2D texture, Sampler sampler = Sampler.LinearNearestRepeat)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot bind resource to non-recording command recorder");
+			}
+			if (texture.IsDisposed) {
+				throw new ObjectDisposedException(nameof(texture));
+			}
+
+			// Bind
+			if (!bindTextureSampler(slot, texture, sampler)) {
+				throw new InvalidOperationException(
+					$"Failed to bind Texture2D to slot {slot} - unused or invalid slot");
+			}
+		}
+
+		/// <summary>
+		/// Binds a texture and associated sampler to the given slot. The shader binding must be 
+		/// <see cref="BindingType.Sampler3D"/>.
+		/// </summary>
+		/// <param name="slot">The slot to bind the texture/sampler pair to.</param>
+		/// <param name="texture">The texture to bind to the slot.</param>
+		/// <param name="sampler">The sampler to load texture samples with.</param>
+		public void Bind(uint slot, Texture3D texture, Sampler sampler = Sampler.LinearNearestRepeat)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot bind resource to non-recording command recorder");
+			}
+			if (texture.IsDisposed) {
+				throw new ObjectDisposedException(nameof(texture));
+			}
+
+			// Bind
+			if (!bindTextureSampler(slot, texture, sampler)) {
+				throw new InvalidOperationException(
+					$"Failed to bind Texture3D to slot {slot} - unused or invalid slot");
+			}
+		}
+
+		// Combined image/sampler binding impl
+		[MethodImpl(MethodImplOptions.AggressiveOptimization)]
+		private bool bindTextureSampler(uint slot, TextureBase tex, Sampler samp)
+		{
+			// Validate
+			if (slot >= VSL.MAX_BINDING_COUNT) {
+				return false;
+			}
+			if (BoundShader!.Info.GetBindingType(slot) is not BindingType type) {
+				return false;
+			}
+			if (type != tex.BindingType) {
+				return false;
+			}
+
+			// Write index
+			_bindingIndices[slot] = tex.EnsureSampler(BoundRenderer!.Graphics, samp);
+			_bindingsDirty = true;
+			return true;
+		}
+		#endregion // Texture Binding
+
+		// Resets the cached rendering state
+		private void resetRenderState()
+		{
+			Array.Fill(_bindingIndices, (ushort)0);
+			_bindingsDirty = true;
+			_bindingSize = ((BoundShader!.Info.MaxBindingSlot + 2) / 2) * 4;
+		}
+
+		// Called before a draw command is submitted to update descriptor sets and push new binding indices
 		private void updateBindings()
 		{
-			
+			// Push new binding indices
+			if (_bindingsDirty) {
+				fixed (ushort* bidx = _bindingIndices) {
+					_cmd!.Cmd.CmdPushConstants(BoundShader!.PipelineLayout, 
+						VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment, 0, _bindingSize, bidx);
+				}
+			}
 		}
 		#endregion // Resources
 

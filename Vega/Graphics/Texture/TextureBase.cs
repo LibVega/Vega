@@ -40,6 +40,9 @@ namespace Vega.Graphics
 		/// </summary>
 		public bool Initialized { get; private set; } = false;
 
+		// The resource binding type for this texture type
+		internal abstract BindingType BindingType { get; }
+
 		// The specific image type
 		internal readonly VkImageViewType ImageType;
 
@@ -49,7 +52,8 @@ namespace Vega.Graphics
 		internal readonly VkImageView View;
 
 		// Global binding table indices for different shaders, UINT16_MAX for unassigned slots
-		internal readonly ushort[] TableIndices;
+		private readonly ushort[] _tableIndices;
+		private readonly FastMutex _tableMutex = new();
 		#endregion // Fields
 
 		private protected TextureBase(uint w, uint h, uint d, uint m, uint l, TexelFormat format, TextureUsage use,
@@ -73,8 +77,8 @@ namespace Vega.Graphics
 			Format = format;
 			Usage = use;
 			ImageType = vType;
-			TableIndices = new ushort[SamplerPool.MAX_SAMPLER_COUNT];
-			Array.Fill(TableIndices, UInt16.MaxValue);
+			_tableIndices = new ushort[SamplerPool.MAX_SAMPLER_COUNT];
+			Array.Fill(_tableIndices, UInt16.MaxValue);
 
 			// Create image
 			VkImageCreateInfo ici = new(
@@ -180,6 +184,19 @@ namespace Vega.Graphics
 		}
 		#endregion // SetData
 
+		// Gets the binding table index for the given sampler, and creates a new one if required
+		internal ushort EnsureSampler(GraphicsDevice gd, Sampler sampler)
+		{
+			using (var _ = _tableMutex.AcquireUNSAFE()) {
+				var index = _tableIndices[(int)sampler];
+				if (index == UInt16.MaxValue) {
+					index = gd.BindingTable.Reserve(this, sampler);
+					_tableIndices[(int)sampler] = index;
+				}
+				return index;
+			}
+		}
+
 		private static void ThrowOnBadRegion(TextureBase tex, in TextureRegion reg)
 		{
 			if ((reg.X + reg.Width) > tex.Dimensions.Width) {
@@ -214,7 +231,7 @@ namespace Vega.Graphics
 			}
 
 			// Free global binding table indices
-			foreach (var idx in TableIndices) {
+			foreach (var idx in _tableIndices) {
 				if (idx != UInt16.MaxValue) {
 					gd.BindingTable.Release(BindingTableType.Sampler, idx);
 				}

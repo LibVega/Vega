@@ -24,6 +24,9 @@ namespace Vega.Graphics
 		/// The height of the texture (y-axis).
 		/// </summary>
 		public uint Height => Dimensions.Height;
+
+		// The binding type
+		internal override BindingType BindingType => BindingType.Sampler2D;
 		#endregion // Fields
 
 		/// <summary>

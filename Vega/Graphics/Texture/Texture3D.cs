@@ -26,6 +26,9 @@ namespace Vega.Graphics
 		/// The depth of the texture (z-axis).
 		/// </summary>
 		public uint Depth => Dimensions.Depth;
+
+		// The binding type
+		internal override BindingType BindingType => BindingType.Sampler3D;
 		#endregion // Fields
 
 		/// <summary>
