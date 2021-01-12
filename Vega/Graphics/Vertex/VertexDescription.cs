@@ -159,6 +159,16 @@ namespace Vega.Graphics
 			other._elements.SequenceEqual(_elements) && other._locations.SequenceEqual(_locations);
 		#endregion // Overrides
 
+		/// <summary>
+		/// Enumerates over pairs of vertex elements and their binding locations.
+		/// </summary>
+		public IEnumerable<(uint slot, VertexElement element)> EnumerateElements()
+		{
+			for (int i = 0; i < _elements.Length; ++i) {
+				yield return (_locations[i], _elements[i]);
+			}
+		}
+
 		// Calculates a hash code for a set of elements and locations
 		private static int CalculateHash(VertexRate rate, VertexElement[] elements, uint[] locations)
 		{

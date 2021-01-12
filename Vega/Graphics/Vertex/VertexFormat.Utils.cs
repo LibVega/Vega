@@ -15,32 +15,34 @@ namespace Vega.Graphics
 	/// </summary>
 	public static class VertexFormatUtils
 	{
-		private static readonly Dictionary<VertexFormat, (uint cs, uint c)> FORMAT_DATA = new() {
+		// Format info (cs = component size, c = component count, bt = base type)
+		//    Base types: 0 = float, 1 = int, 2 = uint
+		private static readonly Dictionary<VertexFormat, (uint cs, uint c, uint bt)> FORMAT_DATA = new() {
 			//{ VertexFormat.Byte,    (1, 1) }, { VertexFormat.Byte2,   (1, 2) }, { VertexFormat.Byte4,   (1, 4) },
 			//{ VertexFormat.SByte,   (1, 1) }, { VertexFormat.SByte2,  (1, 2) }, { VertexFormat.SByte4,  (1, 4) },
 			//{ VertexFormat.UShort,  (2, 1) }, { VertexFormat.UShort2, (2, 2) }, { VertexFormat.UShort4, (2, 4) },
 			//{ VertexFormat.Short,   (2, 1) }, { VertexFormat.Short2,  (2, 2) }, { VertexFormat.Short4,  (2, 4) },
-			{ VertexFormat.UInt,    (4, 1) }, { VertexFormat.UInt2,   (4, 2) }, { VertexFormat.UInt3,   (4, 3) }, 
-			{ VertexFormat.UInt4,   (4, 4) },
-			{ VertexFormat.Int,     (4, 1) }, { VertexFormat.Int2,    (4, 2) }, { VertexFormat.Int3,    (4, 3) },
-			{ VertexFormat.Int4,    (4, 4) },
+			{ VertexFormat.UInt,    (4, 1, 2) }, { VertexFormat.UInt2,   (4, 2, 2) }, { VertexFormat.UInt3,   (4, 3, 2) }, 
+			{ VertexFormat.UInt4,   (4, 4, 2) },
+			{ VertexFormat.Int,     (4, 1, 1) }, { VertexFormat.Int2,    (4, 2, 1) }, { VertexFormat.Int3,    (4, 3, 1) },
+			{ VertexFormat.Int4,    (4, 4, 1) },
 			//{ VertexFormat.ULong,   (8, 1) }, { VertexFormat.ULong2,  (8, 2) }, { VertexFormat.ULong3,  (8, 3) },
 			//{ VertexFormat.ULong4,  (8, 4) },
 			//{ VertexFormat.Long,    (8, 1) }, { VertexFormat.Long2,   (8, 2) }, { VertexFormat.Long3,   (8, 3) },
 			//{ VertexFormat.Long4,   (8, 4) },
 
 			//{ VertexFormat.Half,    (2, 1) }, { VertexFormat.Half2,   (2, 2) }, { VertexFormat.Half4,   (2, 4) },
-			{ VertexFormat.Float,   (4, 1) }, { VertexFormat.Float2,  (4, 2) }, { VertexFormat.Float3,  (4, 3) },
-			{ VertexFormat.Float4,  (4, 4) },
+			{ VertexFormat.Float,   (4, 1, 0) }, { VertexFormat.Float2,  (4, 2, 0) }, { VertexFormat.Float3,  (4, 3, 0) },
+			{ VertexFormat.Float4,  (4, 4, 0) },
 			//{ VertexFormat.Double,  (8, 1) }, { VertexFormat.Double2, (8, 2) }, { VertexFormat.Double3, (8, 3) },
 			//{ VertexFormat.Double4, (8, 4) },
 
-			{ VertexFormat.FloatUnorm8,  (1, 1) }, { VertexFormat.Float2Unorm8,  (1, 2) }, { VertexFormat.Float4Unorm8,  (1, 4) },
-			{ VertexFormat.FloatUnorm16, (2, 1) }, { VertexFormat.Float2Unorm16, (2, 2) }, { VertexFormat.Float4Unorm16, (2, 4) },
+			{ VertexFormat.FloatUnorm8,  (1, 1, 0) }, { VertexFormat.Float2Unorm8,  (1, 2, 0) }, { VertexFormat.Float4Unorm8,  (1, 4, 0) },
+			{ VertexFormat.FloatUnorm16, (2, 1, 0) }, { VertexFormat.Float2Unorm16, (2, 2, 0) }, { VertexFormat.Float4Unorm16, (2, 4, 0) },
 
-			{ VertexFormat.Float2x2, (4, 4) }, { VertexFormat.Float2x3,  (4, 6) }, { VertexFormat.Float2x4,  (4, 8) },
-			{ VertexFormat.Float3x2, (4, 6) }, { VertexFormat.Float3x3,  (4, 9) }, { VertexFormat.Float3x4, (4, 12) },
-			{ VertexFormat.Float4x2, (4, 8) }, { VertexFormat.Float4x3, (4, 12) }, { VertexFormat.Float4x4, (4, 16) }
+			{ VertexFormat.Float2x2, (4, 4, 0) }, { VertexFormat.Float2x3,  (4, 6, 0) }, { VertexFormat.Float2x4,  (4, 8, 0) },
+			{ VertexFormat.Float3x2, (4, 6, 0) }, { VertexFormat.Float3x3,  (4, 9, 0) }, { VertexFormat.Float3x4, (4, 12, 0) },
+			{ VertexFormat.Float4x2, (4, 8, 0) }, { VertexFormat.Float4x3, (4, 12, 0) }, { VertexFormat.Float4x4, (4, 16, 0) }
 		};
 
 		/// <summary>
@@ -121,6 +123,24 @@ namespace Vega.Graphics
 			}
 			else return (FORMAT_DATA[format].c, 1);
 		}
+
+		/// <summary>
+		/// Checks if data in the source format can be implicitly loaded (usually into shaders) as the second format.
+		/// </summary>
+		/// <param name="dataFormat">The format that the data is stored as.</param>
+		/// <param name="loadFormat">The format that the data is loaded as.</param>
+		/// <returns></returns>
+		public static bool IsLoadableAs(this VertexFormat dataFormat, VertexFormat loadFormat)
+		{
+			bool dataFloat = (dataFormat.GetBaseType() == 0), loadFloat = (loadFormat.GetBaseType() == 0);
+			if (dataFloat != loadFloat) {
+				return false;
+			}
+			return dataFormat.GetDimensions().row == loadFormat.GetDimensions().row;
+		}
+
+		// Get the base numeric type for the format
+		internal static uint GetBaseType(this VertexFormat format) => FORMAT_DATA[format].bt;
 
 		// Get the underlying Vulkan format
 		internal static VkFormat GetVulkanFormat(this VertexFormat format)

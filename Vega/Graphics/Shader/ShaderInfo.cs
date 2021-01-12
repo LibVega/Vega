@@ -104,6 +104,23 @@ namespace Vega.Graphics
 			_subpassInputs = spInputs;
 		}
 
+		#region Vertex Info
+		/// <summary>
+		/// Gets the vertex input associated with the given slot index, or <c>null</c> if no input uses that slot.
+		/// </summary>
+		/// <param name="slot">The vertex input slot index to check.</param>
+		public VertexInput? GetVertexInput(uint slot)
+		{
+			foreach (var vin in VertexInputs) {
+				var rangeEnd = vin.Location + (vin.Format.GetBindingCount() * vin.ArraySize);
+				if ((slot >= vin.Location) && (slot < rangeEnd)) {
+					return vin;
+				}
+			}
+			return null;
+		}
+		#endregion // Vertex Info
+
 		#region Stage Info
 		/// <summary>
 		/// Gets if the shader has all of the stages in the passed stage mask.

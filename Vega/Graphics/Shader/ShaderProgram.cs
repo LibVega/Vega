@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using Vulkan;
 
@@ -91,6 +92,57 @@ namespace Vega.Graphics
 		{
 			yield return (VertexModule, ShaderStages.Vertex);
 			yield return (FragmentModule, ShaderStages.Fragment);
+		}
+
+		// Validation against pipelines
+		internal string? CheckCompatiblity(PipelineDescription desc, Renderer renderer, uint subpassIndex)
+		{
+			ref readonly var subpass = ref renderer.Layout.Subpasses[subpassIndex];
+
+			// Check fragment outputs
+			if (subpass.ColorCount != Info.FragmentOutputs.Count) {
+				return "color attachment count mismatch";
+			}
+			for (int i = 0; i < subpass.ColorCount; ++i) {
+				ref readonly var att = ref renderer.Layout.Attachments[subpass.ColorOffset + i];
+				if (!Info.FragmentOutputs[i].Format.IsConvertible(att.Format)) {
+					return $"incompatible formats for fragment output {i} (data: {att.Format}) " +
+						$"(shader: {Info.FragmentOutputs[i].Format})";
+				}
+			}
+
+			// Check input attachments
+			if (subpass.InputCount != Info.SubpassInputs.Count) {
+				return "input attachment count mismatch";
+			}
+			for (int i = 0; i < subpass.InputCount; ++i) {
+				ref readonly var att = ref renderer.Layout.Attachments[subpass.InputOffset + i];
+				if (!Info.SubpassInputs[i].Format.IsConvertible(att.Format)) {
+					return $"incompatible formats for subpass input {i} (data: {att.Format}) " +
+						$"(shader: {Info.SubpassInputs[i].Format})";
+				}
+			}
+
+			// Check vertex inputs
+			var allVertex = desc.VertexDescriptions!.SelectMany(desc => desc.EnumerateElements()).ToArray();
+			if (allVertex.Length != Info.VertexInputs.Count) {
+				return "vertex attribute count mismatch";
+			}
+			foreach (var velem in allVertex) {
+				var input = Info.GetVertexInput(velem.slot);
+				if (!input.HasValue) {
+					return $"shader does not consume vertex attribute at index {velem.slot}";
+				}
+				if (!velem.element.Format.IsLoadableAs(input.Value.Format)) {
+					return $"incompatible types for vertex attribute {velem.slot} (data: {velem.element.Format}) " +
+						$"(shader: {input.Value.Format})";
+				}
+				if (input.Value.ArraySize != velem.element.ArraySize) {
+					return $"array size mismatch for vertex attribute {velem.slot}";
+				}
+			}
+
+			return null;
 		}
 
 		#region ResourceBase

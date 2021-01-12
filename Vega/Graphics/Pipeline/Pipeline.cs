@@ -73,7 +73,7 @@ namespace Vega.Graphics
 			Handle?.DestroyPipeline(null);
 
 			// Create new handle
-			Handle = RebuildPipeline(BuildCache!, Renderer, Subpass, Shader);
+			Handle = CreatePipeline(BuildCache!, Renderer, Subpass, Shader);
 		}
 
 		#region ResourceBase
@@ -103,8 +103,6 @@ namespace Vega.Graphics
 		internal static VkPipeline CreatePipeline(PipelineDescription desc, Renderer renderer, uint subpass, 
 			out BuildStates? buildState)
 		{
-			var MAIN_STR = stackalloc byte[5] { (byte)'m', (byte)'a', (byte)'i', (byte)'n', (byte)'\0' };
-
 			// Validate
 			var rlayout = (renderer.MSAA != MSAA.X1) ? renderer.MSAALayout! : renderer.Layout;
 			if (!desc.IsComplete) {
@@ -119,133 +117,35 @@ namespace Vega.Graphics
 				throw new InvalidOperationException(
 					"Cannot perform depth/stencil operations on non-depth/stencil subpass");
 			}
-
+			if (desc.Shader!.CheckCompatiblity(desc, renderer, subpass) is string shaderErr) {
+				throw new InvalidOperationException($"Invalid shader for pipeline - {shaderErr}");
+			}
+				
 			// Describe the color blends
 			var cblends = (desc.AllColorBlends.Length != 1)
-				? desc.ColorBlendsVk
-				: Enumerable.Repeat(desc.ColorBlendsVk![0], (int)cacnt).ToArray();
-
-			// Inferred state objects
-			VkPipelineMultisampleStateCreateInfo msaaCI = new(
-				flags: VkPipelineMultisampleStateCreateFlags.NoFlags,
-				rasterizationSamples: (VkSampleCountFlags)renderer.MSAA,
-				sampleShadingEnable: false, // TODO: Allow sample shading
-				minSampleShading: 0,
-				sampleMask: null,
-				alphaToCoverageEnable: false,
-				alphaToOneEnable: false
-			);
-
-			// Constant state objects
-			var dynstates = stackalloc VkDynamicState[2] { VkDynamicState.Viewport, VkDynamicState.Scissor };
-			VkViewport viewport = new();
-			VkRect2D scissor = new();
-			VkPipelineViewportStateCreateInfo viewportCI = new( // Dummy value b/c dynamic state
-				flags: VkPipelineViewportStateCreateFlags.NoFlags,
-				viewportCount: 1,
-				viewports: &viewport,
-				scissorCount: 1,
-				scissors: &scissor
-			);
-			VkPipelineDynamicStateCreateInfo dynamicCI = new(
-				flags: VkPipelineDynamicStateCreateFlags.NoFlags,
-				dynamicStateCount: 2,
-				dynamicStates: dynstates
-			);
+				? desc.AllColorBlends!
+				: Enumerable.Repeat((ColorBlendState)desc.SharedColorBlend!, (int)cacnt).ToArray();
 
 			// Vertex info
 			CalculateVertexInfo(desc.VertexDescriptions!, out var vertexAttrs, out var vertexBinds);
 
-			// Shader create info
-			var stageCIs = desc.Shader!.EnumerateModules().Select(mod => new VkPipelineShaderStageCreateInfo(
-				flags: VkPipelineShaderStageCreateFlags.NoFlags,
-				stage: (VkShaderStageFlags)mod.stage,
-				module: mod.mod,
-				name: MAIN_STR,
-				specializationInfo: null // TODO: Public API for specialization
-			)).ToArray();
-			VkPipelineTessellationStateCreateInfo.New(out var tessCI);
+			// Create the build states
+			buildState = new(
+				cblends,
+				desc.BlendConstants,
+				(DepthStencilState)desc.DepthStencil!,
+				(VertexInput)desc.VertexInput!,
+				vertexBinds,
+				vertexAttrs,
+				(RasterizerState)desc.Rasterizer!
+			);
 
-			// Create the pipeline
-			VkPipeline pipeline;
-			fixed (VkPipelineColorBlendAttachmentState* colorBlendPtr = cblends)
-			fixed (VkPipelineShaderStageCreateInfo* stagePtr = stageCIs)
-			fixed (VkVertexInputAttributeDescription* attributePtr = vertexAttrs)
-			fixed (VkVertexInputBindingDescription* bindingPtr = vertexBinds)
-			fixed (VkPipelineDepthStencilStateCreateInfo* depthStencilPtr = &desc.DepthStencilVk)
-			fixed (VkPipelineInputAssemblyStateCreateInfo* inputAssemblyPtr = &desc.VertexInputVk)
-			fixed (VkPipelineRasterizationStateCreateInfo* rasterizerPtr = &desc.RasterizerVk) {
-				// Additional create objects
-				VkPipelineColorBlendStateCreateInfo colorBlendCI = new(
-					flags: VkPipelineColorBlendStateCreateFlags.NoFlags,
-					logicOpEnable: false, // TODO: Maybe enable this in the future
-					logicOp: VkLogicOp.Clear,
-					attachmentCount: cacnt,
-					attachments: colorBlendPtr,
-					blendConstants_0: desc.BlendConstants.R,
-					blendConstants_1: desc.BlendConstants.G,
-					blendConstants_2: desc.BlendConstants.B,
-					blendConstants_3: desc.BlendConstants.A
-				);
-				VkPipelineVertexInputStateCreateInfo vertexCI = new(
-					flags: VkPipelineVertexInputStateCreateFlags.NoFlags,
-					vertexBindingDescriptionCount: (uint)vertexBinds.Length,
-					vertexBindingDescriptions: bindingPtr,
-					vertexAttributeDescriptionCount: (uint)vertexAttrs.Length,
-					vertexAttributeDescriptions: attributePtr
-				);
-
-				// Create info
-				VkGraphicsPipelineCreateInfo ci = new(
-					flags: VkPipelineCreateFlags.NoFlags, // TODO: see if we can utilize some of the flags
-					stageCount: (uint)stageCIs.Length,
-					stages: stagePtr,
-					vertexInputState: &vertexCI,
-					inputAssemblyState: inputAssemblyPtr,
-					tessellationState: &tessCI,
-					viewportState: &viewportCI,
-					rasterizationState: rasterizerPtr,
-					multisampleState: &msaaCI,
-					depthStencilState: depthStencilPtr,
-					colorBlendState: &colorBlendCI,
-					dynamicState: &dynamicCI,
-					layout: desc.Shader.PipelineLayout,
-					renderPass: renderer.RenderPass,
-					subpass: subpass,
-					basePipelineHandle: VulkanHandle<VkPipeline>.Null,
-					basePipelineIndex: 0
-				);
-				VulkanHandle<VkPipeline> pipelineHandle;
-				renderer.Graphics.Resources.PipelineCache.CreateGraphicsPipelines(1, &ci, null, &pipelineHandle)
-					.Throw("Failed to create pipeline object");
-				pipeline = new(pipelineHandle, renderer.Graphics.VkDevice);
-			}
-
-			// If there is a chance for a pipeline rebuild, create the build state
-			if (renderer.MSAALayout is not null) {
-				var cblendarr = (desc.AllColorBlends!.Length != 1)
-					? desc.AllColorBlends // No copy needed since the array is not modified in PipelineDescription
-					: Enumerable.Repeat(desc.SharedColorBlend!.Value, cblends!.Length).ToArray();
-				buildState = new(
-					cblendarr!,
-					desc.BlendConstants,
-					desc.DepthStencil!.Value,
-					desc.VertexInput!.Value,
-					vertexBinds,
-					vertexAttrs,
-					desc.Rasterizer!.Value
-				);
-			}
-			else {
-				buildState = null;
-			}
-
-			// Return pipeline object
-			return pipeline;
+			// Create the initial pipeline
+			return CreatePipeline(buildState, renderer, subpass, desc.Shader!);
 		}
 
-		// Rebuilds the pipeline from the cached build state
-		private static VkPipeline RebuildPipeline(BuildStates states, Renderer renderer, uint subpass, 
+		// Create a pipeline from a set of build states and a shader
+		private static VkPipeline CreatePipeline(BuildStates states, Renderer renderer, uint subpass,
 			ShaderProgram shader)
 		{
 			var MAIN_STR = stackalloc byte[5] { (byte)'m', (byte)'a', (byte)'i', (byte)'n', (byte)'\0' };
