@@ -5,7 +5,6 @@
  */
 
 using System;
-using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Vega.Content
@@ -101,63 +100,5 @@ namespace Vega.Content
 			return data;
 		}
 		#endregion // Image API
-
-		#region SPIRV API
-		public static (IntPtr Handle, ReflectError Error) SpirvCreateModule(ReadOnlySpan<uint> code)
-		{
-			fixed (uint* codePtr = code) {
-				void* handle;
-				var err = _SpirvCreateModule(codePtr, (ulong)code.Length * 4, &handle);
-				return (new(handle), err);
-			}
-		}
-
-		public static ReflectError SpirvGetError(IntPtr handle) => _SpirvGetError(handle.ToPointer());
-
-		public static (ReflectError Error, uint Set, uint Slot) SpirvGetBindingError(IntPtr handle)
-		{
-			uint set, slot;
-			var err = _SpirvGetBindingError(handle.ToPointer(), &set, &slot);
-			return (err, set, slot);
-		}
-
-		public static (ReflectError Error, ReflectStage Stage) SpirvGetStage(IntPtr handle)
-		{
-			ReflectStage stage;
-			var err = _SpirvGetStage(handle.ToPointer(), &stage);
-			return (err, stage);
-		}
-
-		public static (ReflectError Error, string EntryPoint) SpirvGetEntryPoint(IntPtr handle)
-		{
-			byte* name;
-			var err = _SpirvGetEntryPoint(handle.ToPointer(), &name);
-			return (err, Marshal.PtrToStringAnsi(new(name)) ?? String.Empty);
-		}
-
-		public static (ReflectError Error, uint Size) SpirvGetPushSize(IntPtr handle)
-		{
-			uint size;
-			var err = _SpirvGetPushSize(handle.ToPointer(), &size);
-			return (err, size);
-		}
-
-		public static (ReflectError Error, uint Mask) SpirvGetSetMask(IntPtr handle, BindingSet set)
-		{
-			uint mask;
-			var err = _SpirvGetSetMask(handle.ToPointer(), set, &mask);
-			return (err, mask);
-		}
-
-		public static ReflectError SpirvGetBindingInfo(IntPtr handle, BindingSet set, uint slot, BindingInfo** info)
-		{
-			BindingInfo* infoptr;
-			var err = _SpirvGetBindingInfo(handle.ToPointer(), set, slot, &infoptr);
-			*info = infoptr;
-			return err;
-		}
-
-		public static void SpirvDestroyModule(IntPtr handle) => _SpirvDestroyModule(handle.ToPointer());
-		#endregion // SPIRV API
 	}
 }

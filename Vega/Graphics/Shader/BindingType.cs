@@ -5,46 +5,76 @@
  */
 
 using System;
-using Vulkan;
 
 namespace Vega.Graphics
 {
 	/// <summary>
-	/// Represents the resource types that can be used as bound resources for shader uniforms.
+	/// Contains the full set of types that resource bindings in VSL shaders can take on.
 	/// </summary>
-	public enum BindingType : uint
+	// Note: These values need to stay <= 255, or else the _bindingTypes in ShaderInfo needs to be changed.
+	public enum BindingType
 	{
 		/// <summary>
-		/// A <see cref="Graphics.Sampler"/> object used to load sampled texels from a raw texture.
-		/// <para>
-		/// Part of <see cref="BindingGroup.Samplers"/>.
-		/// </para>
+		/// Combined <see cref="Texture1D"/> and <see cref="Sampler"/>.
 		/// </summary>
-		Sampler = VkDescriptorType.Sampler,
+		Sampler1D,
 		/// <summary>
-		/// A <see cref="Graphics.Sampler"/> object bound to a specific texture for direct texel loads.
-		/// <para>
-		/// This type is preferred over separate sampler and texture objects, since it may be more performant on
-		/// some implementations.
-		/// </para>
-		/// <para>
-		/// Part of <see cref="BindingGroup.Samplers"/>.
-		/// </para>
+		/// Combined <see cref="Texture2D"/> and <see cref="Sampler"/>.
 		/// </summary>
-		BoundSampler = VkDescriptorType.CombinedImageSampler,
+		Sampler2D,
 		/// <summary>
-		/// A texture object (subclassed from <see cref="TextureBase"/>), not associated with other objects.
-		/// <para>
-		/// Part of <see cref="BindingGroup.Textures"/>.
-		/// </para>
+		/// Combined <see cref="Texture3D"/> and <see cref="Sampler"/>.
 		/// </summary>
-		Texture = VkDescriptorType.SampledImage,
+		Sampler3D,
 		/// <summary>
-		/// An input attachment reference, which are handled internally by the library.
-		/// <para>
-		/// Part of <see cref="BindingGroup.InputAttachments"/>.
-		/// </para>
+		/// Combined Texture1DArray and <see cref="Sampler"/>.
 		/// </summary>
-		InputAttachment = VkDescriptorType.InputAttachment
+		Sampler1DArray,
+		/// <summary>
+		/// Combined Texture2DArray and <see cref="Sampler"/>.
+		/// </summary>
+		Sampler2DArray,
+		/// <summary>
+		/// Combined TextureCube and <see cref="Sampler"/>.
+		/// </summary>
+		SamplerCube,
+
+		/// <summary>
+		/// A StorageImage1D.
+		/// </summary>
+		Image1D,
+		/// <summary>
+		/// A StorageImage2D.
+		/// </summary>
+		Image2D,
+		/// <summary>
+		/// A StorageImage3D.
+		/// </summary>
+		Image3D,
+		/// <summary>
+		/// A StorageImage1DArray.
+		/// </summary>
+		Image1DArray,
+		/// <summary>
+		/// A StorageImage2DArray.
+		/// </summary>
+		Image2DArray,
+
+		/// <summary>
+		/// A StorageBuffer with StorageAccess.ReadOnly.
+		/// </summary>
+		ROBuffer,
+		/// <summary>
+		/// A StorageBuffer with StorageAccess.ReadWrite.
+		/// </summary>
+		RWBuffer,
+		/// <summary>
+		/// A TexelBuffer with StorageAccess.ReadOnly.
+		/// </summary>
+		ROTexels,
+		/// <summary>
+		/// A TexelBuffer with StorageAccess.ReadWrite.
+		/// </summary>
+		RWTexels
 	}
 }

@@ -14,7 +14,8 @@ namespace Vega.Graphics
 	internal unsafe sealed class TransferManager : IDisposable
 	{
 		// 16MB internal host buffer (2k x 2k texture at 4bpp for reference)
-		public static readonly DataSize HOST_SIZE = DataSize.FromMega(16);
+		public static readonly DataSize MAX_HOST_SIZE = DataSize.FromMega(16);
+		public static readonly DataSize INITIAL_HOST_SIZE = DataSize.FromMega(1);
 
 		#region Fields
 		// Graphics device
@@ -22,7 +23,7 @@ namespace Vega.Graphics
 
 		// The default host buffer used for transfers under a certain size, otherwise a temp buffer is allocated and
 		//    used instead of this
-		public readonly HostBuffer Buffer;
+		public HostBuffer Buffer { get; private set; }
 
 		// The command objects used for upload
 		// Don't pull from threaded pools, as transfers may happen rapidly and disconnected from the frame sequence,
@@ -38,7 +39,7 @@ namespace Vega.Graphics
 		public TransferManager(GraphicsDevice graphics)
 		{
 			Graphics = graphics;
-			Buffer = new((ulong)HOST_SIZE.B);
+			Buffer = new((ulong)INITIAL_HOST_SIZE.B);
 
 			// Create command objects
 			VkCommandPoolCreateInfo cpci = new(VkCommandPoolCreateFlags.Transient, Graphics.GraphicsQueue.FamilyIndex);
@@ -60,6 +61,24 @@ namespace Vega.Graphics
 		~TransferManager()
 		{
 			dispose(false);
+		}
+
+		// Attempts to resize the host buffer to the next size, up to a certain maximum
+		// Returns the new size of the host buffer (or the same size, if the maximum is reached)
+		public ulong RequestNextHostSize(ulong targetSize)
+		{
+			if (Buffer.DataSize >= (ulong)MAX_HOST_SIZE.B) {
+				return Buffer.DataSize;
+			}
+			else {
+				var newSize = Buffer.DataSize * 2;
+				while ((newSize < targetSize) && (newSize < (ulong)MAX_HOST_SIZE.B)) {
+					newSize *= 2;
+				}
+				Buffer.Dispose();
+				Buffer = new(newSize);
+				return newSize;
+			}
 		}
 
 		#region Buffers
@@ -138,7 +157,7 @@ namespace Vega.Graphics
 		public void SetBufferData(VkBuffer dstBuffer, ulong dstOff, void* srcData, ulong count, ResourceType? bufferType)
 		{
 			// Select which host buffer to use
-			bool useTmp = count > (ulong)HOST_SIZE.B;
+			bool useTmp = (count > Buffer.DataSize) && (count > RequestNextHostSize(count));
 			var srcBuffer = useTmp ? new HostBuffer(count) : Buffer;
 
 			// Copy and transfer
@@ -237,7 +256,7 @@ namespace Vega.Graphics
 		{
 			// Select which host buffer to use
 			ulong count = region.GetDataSize(fmt);
-			bool useTmp = count > (ulong)HOST_SIZE.B;
+			bool useTmp = (count > Buffer.DataSize) && (count > RequestNextHostSize(count));
 			var srcBuffer = useTmp ? new HostBuffer(count) : Buffer;
 
 			// Copy and transfer

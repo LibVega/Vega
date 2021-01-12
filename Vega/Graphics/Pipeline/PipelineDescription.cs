@@ -130,11 +130,11 @@ namespace Vega.Graphics
 		/// <summary>
 		/// The shader program to execute for the pipieline.
 		/// </summary>
-		public Shader? Shader {
+		public ShaderProgram? Shader {
 			get => _shader;
-			set => _shader = value; // TODO: Validity check
+			set => _shader = value;
 		}
-		private Shader? _shader;
+		private ShaderProgram? _shader;
 
 		/// <summary>
 		/// Gets if the pipeline is fully described by all fields (no required fields are <c>null</c>).
@@ -172,7 +172,7 @@ namespace Vega.Graphics
 			VertexInput? vertexInput = null,
 			VertexDescription[]? vertexDescs = null,
 			RasterizerState? rasterizer = null,
-			Shader? shader = null
+			ShaderProgram? shader = null
 		)
 		{
 			AllColorBlends = colorBlends;
@@ -198,7 +198,7 @@ namespace Vega.Graphics
 			VertexInput? vertexInput = null,
 			VertexDescription[]? vertexDescs = null,
 			RasterizerState? rasterizer = null,
-			Shader? shader = null
+			ShaderProgram? shader = null
 		)
 		{
 			SharedColorBlend = colorBlend;

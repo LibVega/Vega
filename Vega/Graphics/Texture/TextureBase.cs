@@ -47,6 +47,9 @@ namespace Vega.Graphics
 		internal readonly VkImage Handle;
 		internal readonly MemoryAllocation Memory;
 		internal readonly VkImageView View;
+
+		// Global binding table indices for different shaders, UINT16_MAX for unassigned slots
+		internal readonly ushort[] TableIndices;
 		#endregion // Fields
 
 		private protected TextureBase(uint w, uint h, uint d, uint m, uint l, TexelFormat format, TextureUsage use,
@@ -70,6 +73,8 @@ namespace Vega.Graphics
 			Format = format;
 			Usage = use;
 			ImageType = vType;
+			TableIndices = new ushort[SamplerPool.MAX_SAMPLER_COUNT];
+			Array.Fill(TableIndices, UInt16.MaxValue);
 
 			// Create image
 			VkImageCreateInfo ici = new(
@@ -203,6 +208,19 @@ namespace Vega.Graphics
 
 		protected internal override void Destroy()
 		{
+			var gd = Core.Instance?.Graphics;
+			if (gd is null) {
+				return;
+			}
+
+			// Free global binding table indices
+			foreach (var idx in TableIndices) {
+				if (idx != UInt16.MaxValue) {
+					gd.BindingTable.Release(BindingTableType.Sampler, idx);
+				}
+			}
+
+			// Destroy objects
 			View?.DestroyImageView(null);
 			Handle?.DestroyImage(null);
 			Memory?.Free();

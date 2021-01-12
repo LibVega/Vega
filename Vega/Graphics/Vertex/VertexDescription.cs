@@ -39,6 +39,11 @@ namespace Vega.Graphics
 		/// </summary>
 		public readonly VertexRate Rate;
 
+		/// <summary>
+		/// The number of binding slots taken up by this description, taking into account matrices and arrays.
+		/// </summary>
+		public uint BindingCount => (uint)Elements.Sum(e => e.BindingCount);
+
 		// A precalculated hash code for faster comparisons and lookups
 		private readonly int _hashCode;
 		#endregion // Fields
@@ -153,6 +158,16 @@ namespace Vega.Graphics
 			(other.Rate == Rate) &&
 			other._elements.SequenceEqual(_elements) && other._locations.SequenceEqual(_locations);
 		#endregion // Overrides
+
+		/// <summary>
+		/// Enumerates over pairs of vertex elements and their binding locations.
+		/// </summary>
+		public IEnumerable<(uint slot, VertexElement element)> EnumerateElements()
+		{
+			for (int i = 0; i < _elements.Length; ++i) {
+				yield return (_locations[i], _elements[i]);
+			}
+		}
 
 		// Calculates a hash code for a set of elements and locations
 		private static int CalculateHash(VertexRate rate, VertexElement[] elements, uint[] locations)

@@ -10,38 +10,26 @@ using Vulkan;
 namespace Vega.Graphics
 {
 	/// <summary>
-	/// Defines the set of graphics shader stages as a mask.
+	/// A flags-like type of supported shader stages.
 	/// </summary>
 	[Flags]
 	public enum ShaderStages : uint
 	{
 		/// <summary>
-		/// Bitmask of no shader stages.
+		/// Mask representing no shader stages.
 		/// </summary>
 		None = 0,
 		/// <summary>
-		/// The vertex stage.
+		/// A single bit representing the graphics pipeline vertex stage.
 		/// </summary>
 		Vertex = VkShaderStageFlags.Vertex,
 		/// <summary>
-		/// The tessellation control stage.
-		/// </summary>
-		TessControl = VkShaderStageFlags.TessellationControl,
-		/// <summary>
-		/// The tessellation evaluation stage.
-		/// </summary>
-		TessEval = VkShaderStageFlags.TessellationEvaluation,
-		/// <summary>
-		/// The geometry stage.
-		/// </summary>
-		Geometry = VkShaderStageFlags.Geometry,
-		/// <summary>
-		/// The fragment stage.
+		/// A single bit representing the graphics pipeline fragment stage.
 		/// </summary>
 		Fragment = VkShaderStageFlags.Fragment,
 		/// <summary>
-		/// Bitmask of all stages.
+		/// Mask representing all supported shader stages.
 		/// </summary>
-		All = VkShaderStageFlags.AllGraphics
+		AllGraphics = Vertex | Fragment
 	}
 }

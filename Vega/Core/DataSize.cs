@@ -18,19 +18,19 @@ namespace Vega
 		/// <summary>
 		/// Number of bytes in a kilobyte.
 		/// </summary>
-		public const double KB_RATIO = 1_024.0;
+		public const long KB_RATIO = 1_024;
 		/// <summary>
 		/// Number of bytes in a megabyte.
 		/// </summary>
-		public const double MB_RATIO = 1_048_576.0;
+		public const long MB_RATIO = 1_048_576;
 		/// <summary>
 		/// Number of bytes in a gigabyte.
 		/// </summary>
-		public const double GB_RATIO = 1_073_741_842.0;
+		public const long GB_RATIO = 1_073_741_842;
 		/// <summary>
 		/// Number of bytes in a petabyte.
 		/// </summary>
-		public const double PB_RATIO = 1_099_511_627_776.0;
+		public const long PB_RATIO = 1_099_511_627_776;
 		#endregion // Conversion
 
 		/// <summary>
@@ -48,19 +48,19 @@ namespace Vega
 		/// <summary>
 		/// The data size in kilobytes.
 		/// </summary>
-		public readonly double KB => _bytes / KB_RATIO;
+		public readonly double KB => (double)_bytes / KB_RATIO;
 		/// <summary>
 		/// The data size in megabytes.
 		/// </summary>
-		public readonly double MB => _bytes / MB_RATIO;
+		public readonly double MB => (double)_bytes / MB_RATIO;
 		/// <summary>
 		/// The data size in gigabytes.
 		/// </summary>
-		public readonly double GB => _bytes / GB_RATIO;
+		public readonly double GB => (double)_bytes / GB_RATIO;
 		/// <summary>
 		/// The data size in petabytes.
 		/// </summary>
-		public readonly double PB => _bytes / PB_RATIO;
+		public readonly double PB => (double)_bytes / PB_RATIO;
 		#endregion // Fields
 
 		/// <summary>
@@ -76,7 +76,7 @@ namespace Vega
 
 		public readonly override int GetHashCode() => (int)(_bytes & 0xFFFFFF) ^ (int)(_bytes >> 32);
 
-		public override string ToString() => $"{{{_bytes} B}}";
+		public override string ToString() => $"[{_bytes}B]";
 		#endregion // Overrides
 
 		#region Construction
@@ -85,26 +85,38 @@ namespace Vega
 		/// </summary>
 		/// <param name="bytes">The size in bytes.</param>
 		public static DataSize FromBytes(long bytes) => new DataSize(bytes);
+
 		/// <summary>
 		/// Constructs a new size object with the given size in kilobytes.
 		/// </summary>
 		/// <param name="kilobytes">The size in bytes.</param>
 		public static DataSize FromKilo(double kilobytes) => new DataSize((long)(kilobytes * KB_RATIO));
+		/// <inheritdoc cref="FromKilo(double)"/>
+		public static DataSize FromKilo(long kilobytes) => new DataSize(kilobytes * KB_RATIO);
+
 		/// <summary>
 		/// Constructs a new size object with the given size in megabytes.
 		/// </summary>
 		/// <param name="megabytes">The size in bytes.</param>
 		public static DataSize FromMega(double megabytes) => new DataSize((long)(megabytes * MB_RATIO));
+		/// <inheritdoc cref="FromMega(double)"/>
+		public static DataSize FromMega(long megabytes) => new DataSize(megabytes * MB_RATIO);
+
 		/// <summary>
 		/// Constructs a new size object with the given size in gigabytes.
 		/// </summary>
 		/// <param name="gigabytes">The size in bytes.</param>
 		public static DataSize FromGiga(double gigabytes) => new DataSize((long)(gigabytes * GB_RATIO));
+		/// <inheritdoc cref="FromGiga(double)"/>
+		public static DataSize FromGiga(long gigabytes) => new DataSize(gigabytes * GB_RATIO);
+
 		/// <summary>
 		/// Constructs a new size object with the given size in petabytes.
 		/// </summary>
 		/// <param name="petabytes">The size in bytes.</param>
 		public static DataSize FromPeta(double petabytes) => new DataSize((long)(petabytes * PB_RATIO));
+		/// <inheritdoc cref="FromPeta(double)"/>
+		public static DataSize FromPeta(long petabytes) => new DataSize(petabytes * PB_RATIO);
 		#endregion // Construction
 
 		#region Operators
