@@ -17,6 +17,7 @@ namespace Vega.Graphics
 	{
 		// Known constant values
 		public const uint MAX_BINDING_COUNT = 32;
+		public const uint MAX_INPUT_ATTACHMENTS = 4;
 
 		// Parse a compiled VSL shader and return the info and modules
 		public static void LoadStream(string path, Stream stream,

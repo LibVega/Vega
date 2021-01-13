@@ -82,6 +82,14 @@ namespace Vega.Graphics
 		private readonly object _pipelineLock = new();
 		#endregion // Pipelines
 
+		#region Bindings
+		// Descriptors for uniform buffer and subpass inputs
+		private readonly VkDescriptorPool _descriptorPool;
+		internal readonly VkDescriptorSet UniformDescriptor;
+		internal readonly VkDescriptorSetLayout?[] SubpassLayouts;
+		internal readonly VkDescriptorSet?[] SubpassDescriptors;
+		#endregion // Bindings
+
 		/// <summary>
 		/// Disposal flag.
 		/// </summary>
@@ -126,6 +134,12 @@ namespace Vega.Graphics
 			ClearValues = description.Attachments.Select(att =>
 				att.IsColor ? new ClearValue(0f, 0f, 0f, 1f) : new ClearValue(1f, 0)).ToArray();
 			RenderTarget = new RenderTarget(this, window, initialMSAA);
+
+			// Create descriptor objects
+			CreateDescriptorObjects(Graphics, Layout, 
+				out _descriptorPool, out UniformDescriptor, out SubpassLayouts, out SubpassDescriptors);
+			UpdateDescriptorSets(Graphics, UniformDescriptor, default, 
+				SubpassDescriptors, Layout, RenderTarget); // Non-MSAA is okay for both, since subpass inputs are fixed
 		}
 		~Renderer()
 		{
@@ -396,11 +410,136 @@ namespace Vega.Graphics
 					while (_pipelines.Count > 0) {
 						_pipelines[^1].Dispose(); // Removes this pipeline from the list
 					}
+
+					foreach (var layout in SubpassLayouts) {
+						layout?.DestroyDescriptorSetLayout(null);
+					}
+					_descriptorPool.DestroyDescriptorPool(null);
 				}
 				RenderPass.DestroyRenderPass(null);
 			}
 			IsDisposed = true;
 		}
 		#endregion // IDisposable
+
+		#region Bindings
+		// Creates a pool and sets for the uniform and subpass input objects
+		private static void CreateDescriptorObjects(GraphicsDevice gd, RenderLayout layout,
+			out VkDescriptorPool pool, out VkDescriptorSet uniformSet, out VkDescriptorSetLayout?[] subpassLayouts,
+			out VkDescriptorSet?[] subpassSets)
+		{
+			// Create the pool
+			var passWithInputCount = layout.Subpasses.Sum(subpass => (subpass.InputCount > 0) ? 1 : 0);
+			var totalInputCount = layout.Subpasses.Sum(subpass => subpass.InputCount);
+			var sizes = stackalloc VkDescriptorPoolSize[2];
+			sizes[0] = new(VkDescriptorType.UniformBufferDynamic, 1);
+			sizes[1] = new(VkDescriptorType.InputAttachment, (uint)totalInputCount);
+			VkDescriptorPoolCreateInfo dpci = new(
+				flags: VkDescriptorPoolCreateFlags.NoFlags,
+				maxSets: 1 + (uint)passWithInputCount,
+				poolSizeCount: (totalInputCount > 0) ? 2 : 1,
+				poolSizes: sizes
+			);
+			VulkanHandle<VkDescriptorPool> poolHandle;
+			gd.VkDevice.CreateDescriptorPool(&dpci, null, &poolHandle)
+				.Throw("Failed to create renderer descriptor pool");
+			pool = new(poolHandle, gd.VkDevice);
+
+			// Allocate the uniform descriptor
+			var uniformLayout = gd.BindingTable.UniformLayoutHandle.Handle;
+			VkDescriptorSetAllocateInfo udsai = new(
+				descriptorPool: poolHandle,
+				descriptorSetCount: 1,
+				setLayouts: &uniformLayout
+			);
+			VulkanHandle<VkDescriptorSet> uniformSetHandle;
+			gd.VkDevice.AllocateDescriptorSets(&udsai, &uniformSetHandle)
+				.Throw("Failed to allocate descriptor set for renderer uniforms");
+			uniformSet = new(uniformSetHandle, pool);
+
+			// Exit out early for no subpass inputs
+			if (totalInputCount == 0) {
+				subpassLayouts = Array.Empty<VkDescriptorSetLayout>();
+				subpassSets = Array.Empty<VkDescriptorSet>();
+				return;
+			}
+
+			// Create the subpass input layouts and sets
+			subpassLayouts = new VkDescriptorSetLayout?[layout.SubpassCount];
+			subpassSets = new VkDescriptorSet?[layout.SubpassCount];
+			var spbindings = stackalloc VkDescriptorSetLayoutBinding[(int)VSL.MAX_INPUT_ATTACHMENTS];
+			for (uint i = 0; i < VSL.MAX_INPUT_ATTACHMENTS; ++i) {
+				spbindings[i] = new(i, VkDescriptorType.InputAttachment, 1, VkShaderStageFlags.Fragment, null);
+			}
+			for (uint i = 0; i < layout.SubpassCount; ++i) {
+				ref readonly var subpass = ref layout.Subpasses[i];
+				if (subpass.InputCount == 0) {
+					subpassLayouts[i] = null;
+					subpassSets[i] = null;
+					continue;
+				}
+
+				// Create the layout handle for the subpass
+				VkDescriptorSetLayoutCreateInfo dslci = new(
+					flags: VkDescriptorSetLayoutCreateFlags.NoFlags,
+					bindingCount: subpass.InputCount,
+					bindings: spbindings
+				);
+				VulkanHandle<VkDescriptorSetLayout> layoutHandle;
+				gd.VkDevice.CreateDescriptorSetLayout(&dslci, null, &layoutHandle)
+					.Throw("Failed to create descriptor layout for renderer subpass inputs");
+				subpassLayouts[i] = new(layoutHandle, gd.VkDevice);
+
+				// Allocate the descriptor set
+				VulkanHandle<VkDescriptorSet> siSetHandle;
+				VkDescriptorSetAllocateInfo dsai = new(
+					descriptorPool: poolHandle,
+					descriptorSetCount: 1,
+					setLayouts: &layoutHandle
+				);
+				gd.VkDevice.AllocateDescriptorSets(&dsai, &siSetHandle);
+				subpassSets[i] = new(siSetHandle, pool);
+			}
+		}
+
+		// Update the descriptor sets
+		private static void UpdateDescriptorSets(GraphicsDevice gd,
+			VkDescriptorSet uniformSet, VulkanHandle<VkBuffer> uniformBuffer,
+			VkDescriptorSet?[] subpassSets, RenderLayout layout, RenderTarget rtarget)
+		{
+			// Update the uniform set (TODO)
+
+			// Update the subpass input sets
+			var imageInfos = stackalloc VkDescriptorImageInfo[(int)VSL.MAX_INPUT_ATTACHMENTS];
+			var writes = stackalloc VkWriteDescriptorSet[(int)VSL.MAX_INPUT_ATTACHMENTS];
+			for (int si = 0; si < subpassSets.Length; ++si) {
+				if (subpassSets[si] is null) {
+					continue;
+				}
+
+				ref readonly var subpass = ref layout.Subpasses[si];
+				var inputs = layout.Attachments.Where(att => att.Uses[si] == (byte)AttachmentUse.Input).ToArray();
+
+				// Populate the write handles
+				for (int ai = 0; ai < subpass.InputCount; ++ai) {
+					var index = inputs[ai].Index;
+					imageInfos[ai] = new(default, rtarget.Views[index], VkImageLayout.ShaderReadOnlyOptimal);
+					writes[ai] = new(
+						dstSet: subpassSets[si]!,
+						dstBinding: (uint)ai,
+						dstArrayElement: 0,
+						descriptorCount: 1,
+						descriptorType: VkDescriptorType.InputAttachment,
+						imageInfo: imageInfos + ai,
+						bufferInfo: null,
+						texelBufferView: null
+					);
+				}
+
+				// Update the descriptor
+				gd.VkDevice.UpdateDescriptorSets(subpass.InputCount, writes, 0, null);
+			}
+		}
+		#endregion // Bindings
 	}
 }

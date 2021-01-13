@@ -5,7 +5,6 @@
  */
 
 using System;
-using System.Linq;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -30,7 +29,7 @@ namespace Vega.Graphics
 		// The image objects
 		private readonly VkImage[] _images;
 		private readonly MemoryAllocation[] _memorys;
-		private readonly VkImageView[] _views;
+		internal readonly VkImageView[] Views;
 
 		// The framebuffers for the render target
 		private readonly VkFramebuffer[] _framebuffers;
@@ -51,7 +50,7 @@ namespace Vega.Graphics
 			var maxAtt = (renderer?.MSAALayout ?? renderer!.Layout).Attachments.Length;
 			_images = new VkImage[maxAtt];
 			_memorys = new MemoryAllocation[maxAtt];
-			_views = new VkImageView[maxAtt];
+			Views = new VkImageView[maxAtt];
 			_framebuffers = new VkFramebuffer[Swapchain.MAX_IMAGE_COUNT];
 			Rebuild(msaa);
 		}
@@ -70,10 +69,10 @@ namespace Vega.Graphics
 			Array.Clear(_framebuffers, 0, _framebuffers.Length);
 
 			// Destroy old images
-			foreach (var view in _views) {
+			foreach (var view in Views) {
 				view?.DestroyImageView(null);
 			}
-			Array.Clear(_views, 0, _views.Length);
+			Array.Clear(Views, 0, Views.Length);
 			foreach (var image in _images) {
 				image?.DestroyImage(null);
 			}
@@ -89,15 +88,15 @@ namespace Vega.Graphics
 			uint idx = 0;
 			foreach (var att in layout.Attachments) {
 				if (idx != windowIdx) { // Skip attachment for window
-					CreateImage(Renderer.Graphics, att, msaa, Size, out _images[idx], out _memorys[idx], out _views[idx]);
+					CreateImage(Renderer.Graphics, att, msaa, Size, out _images[idx], out _memorys[idx], out Views[idx]);
 				}
 				idx++;
 			}
 
 			// Create a new framebuffer for each swapchain iamge
-			var viewHandles = stackalloc VulkanHandle<VkImageView>[_views.Length];
+			var viewHandles = stackalloc VulkanHandle<VkImageView>[Views.Length];
 			int vidx = 0;
-			foreach (var view in _views) {
+			foreach (var view in Views) {
 				viewHandles[vidx++] = view?.Handle ?? VulkanHandle<VkImageView>.Null;
 			}
 			VkFramebufferCreateInfo fbci = new(
@@ -140,7 +139,7 @@ namespace Vega.Graphics
 		{
 			if (!IsDisposed) {
 				// The renderer using this target should have already waited for device idle
-				foreach (var view in _views) {
+				foreach (var view in Views) {
 					view?.DestroyImageView(null);
 				}
 				foreach (var image in _images) {
