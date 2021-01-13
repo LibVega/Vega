@@ -58,6 +58,9 @@ namespace Vega.Graphics
 				layouts[layoutCount++] = gd.BindingTable.UniformLayoutHandle;
 			}
 			if (info.SubpassInputs.Count > 0) {
+				if (info.UniformSize == 0) {
+					layouts[layoutCount++] = gd.BindingTable.BlankLayoutHandle;
+				}
 				SubpassInputLayout = CreateSubpassInputLayout(gd, info);
 				layouts[layoutCount++] = SubpassInputLayout;
 			}

@@ -109,6 +109,14 @@ namespace Vega.Graphics
 
 			// Prepare for new commands
 			resetRenderState();
+
+			// Bind renderer-specific descriptors
+			// TODO: Uniform buffer descriptor
+			if (pipeline.Renderer.SubpassLayouts[pipeline.Subpass] is not null) { // Subpass inputs
+				var setHandle = pipeline.Renderer.SubpassDescriptors[pipeline.Subpass]!.Handle;
+				_cmd.Cmd.CmdBindDescriptorSets(VkPipelineBindPoint.Graphics,
+					pipeline.Shader.PipelineLayout, 2, 1, &setHandle, 0, null);
+			}
 		}
 
 		/// <summary>

@@ -47,6 +47,8 @@ namespace Vega.Graphics
 
 		// The shared layout handle for set 1 uniform buffers shared by all shaders (maybe put in better place?)
 		public readonly VkDescriptorSetLayout UniformLayoutHandle;
+		// The shared layout handle for no-binding sets (used when shaders have gaps in binding sets)
+		public readonly VkDescriptorSetLayout BlankLayoutHandle;
 
 		// Bitsets for tracking table utilization
 		private readonly Bitset _samplerMask;
@@ -147,6 +149,12 @@ namespace Vega.Graphics
 			gd.VkDevice.CreateDescriptorSetLayout(&dslci, null, &layoutHandle)
 				.Throw("Fauled to create layout for uniform buffer binding");
 			UniformLayoutHandle = new(layoutHandle, gd.VkDevice);
+
+			// Create the blank binding layout
+			dslci = new(VkDescriptorSetLayoutCreateFlags.NoFlags, 0, null);
+			gd.VkDevice.CreateDescriptorSetLayout(&dslci, null, &layoutHandle)
+				.Throw("Failed to create blank descriptor layout");
+			BlankLayoutHandle = new(layoutHandle, gd.VkDevice);
 		}
 		~BindingTable()
 		{
@@ -221,6 +229,7 @@ namespace Vega.Graphics
 					_pool?.DestroyDescriptorPool(null);
 					LayoutHandle?.DestroyDescriptorSetLayout(null);
 					UniformLayoutHandle?.DestroyDescriptorSetLayout(null);
+					BlankLayoutHandle?.DestroyDescriptorSetLayout(null);
 				}
 			}
 			IsDisposed = true;
