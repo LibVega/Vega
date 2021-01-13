@@ -61,6 +61,10 @@ namespace Vega.Graphics
 		/// </summary>
 		public IReadOnlyList<UniformMember> UniformMembers => _uniformMembers;
 		private readonly UniformMember[] _uniformMembers;
+		/// <summary>
+		/// Gets if the shader uses uniform values.
+		/// </summary>
+		public bool HasUniform => UniformSize > 0;
 
 		/// <summary>
 		/// The subpass inputs in the shader.

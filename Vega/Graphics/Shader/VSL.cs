@@ -65,29 +65,37 @@ namespace Vega.Graphics
 			var inputCount = file.ReadUInt32();
 			Span<InterfaceVariable> inputs = stackalloc InterfaceVariable[(int)inputCount];
 			file.Read(MemoryMarshal.AsBytes(inputs));
+			ProcessVertexInputs(path, inputs, out var reflInputs);
 
 			// Read the fragment outputs
 			var outputCount = file.ReadUInt32();
 			Span<InterfaceVariable> outputs = stackalloc InterfaceVariable[(int)outputCount];
 			file.Read(MemoryMarshal.AsBytes(outputs));
+			ProcessFragmentOutputs(path, outputs, out var reflOutputs);
 
 			// Read the bindings
 			var bindingCount = file.ReadUInt32();
 			Span<BindingVariable> bindings = stackalloc BindingVariable[(int)bindingCount];
 			file.Read(MemoryMarshal.AsBytes(bindings));
+			ProcessBindings(path, bindings, out var reflBindings);
 
 			// Read the uniform info
 			var uniformSize = file.ReadUInt32();
-			var uniformStages = file.ReadUInt16();
-			var uniformMemberCount = file.ReadUInt32();
-			Span<UniformMember> members = stackalloc UniformMember[(int)uniformMemberCount];
-			var memberNames = new string[uniformMemberCount];
-			Span<byte> nameBytes = stackalloc byte[64];
-			for (uint i = 0; i < uniformMemberCount; ++i) {
-				file.Read(MemoryMarshal.AsBytes(members.Slice((int)i, 1)));
-				var thisName = nameBytes.Slice(0, (int)members[(int)i].NameLength);
-				file.Read(thisName);
-				memberNames[i] = Encoding.ASCII.GetString(thisName);
+			ShaderInfo.UniformMember[]? reflUniformMembers = null;
+			ShaderStages uniformStages = ShaderStages.None;
+			if (uniformSize > 0) {
+				uniformStages = (ShaderStages)file.ReadUInt16();
+				var uniformMemberCount = file.ReadUInt32();
+				Span<UniformMember> members = stackalloc UniformMember[(int)uniformMemberCount];
+				var memberNames = new string[uniformMemberCount];
+				Span<byte> nameBytes = stackalloc byte[64];
+				for (uint i = 0; i < uniformMemberCount; ++i) {
+					file.Read(MemoryMarshal.AsBytes(members.Slice((int)i, 1)));
+					var thisName = nameBytes.Slice(0, (int)members[(int)i].NameLength);
+					file.Read(thisName);
+					memberNames[i] = Encoding.ASCII.GetString(thisName);
+				}
+				ProcessUniformMembers(path, members, memberNames, out reflUniformMembers);
 			}
 
 			// Read the subpass inputs
@@ -96,6 +104,7 @@ namespace Vega.Graphics
 			if (spiCount > 0) {
 				file.Read(MemoryMarshal.AsBytes(spi));
 			}
+			ProcessSubpassInputs(path, spi, out var reflSpi);
 
 			// Read the bytecodes
 			var vertBC = new uint[bcLengths[0]];
@@ -108,22 +117,15 @@ namespace Vega.Graphics
 				throw new InvalidShaderException(path, "File not fully consumed by parser");
 			}
 
-			// Process the reflection components
-			ProcessVertexInputs(path, inputs, out var reflInputs);
-			ProcessFragmentOutputs(path, outputs, out var reflOutputs);
-			ProcessBindings(path, bindings, out var reflBindings);
-			ProcessUniformMembers(path, members, memberNames, out var reflUniformMembers);
-			ProcessSubpassInputs(path, spi, out var reflSpi);
+			// Create shader modules
 			info = new(
 				ShaderStages.Vertex | ShaderStages.Fragment,
 				reflInputs,
 				reflOutputs,
 				reflBindings,
-				uniformSize, (ShaderStages)uniformStages, reflUniformMembers,
+				uniformSize, uniformStages, reflUniformMembers ?? Array.Empty<ShaderInfo.UniformMember>(),
 				reflSpi
 			);
-
-			// Create shader modules
 			CreateShaderModules(path, Core.Instance!.Graphics.VkDevice,
 				vertBC, fragBC,
 				out vertMod, out fragMod

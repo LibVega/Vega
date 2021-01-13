@@ -103,10 +103,13 @@ namespace Vega.Graphics
 			if (subpass.ColorCount != Info.FragmentOutputs.Count) {
 				return "color attachment count mismatch";
 			}
+			var outputs = renderer.Layout.Attachments
+				.Where(att => att.Uses[subpassIndex] == (byte)AttachmentUse.Output)
+				.ToArray();
 			for (int i = 0; i < subpass.ColorCount; ++i) {
-				ref readonly var att = ref renderer.Layout.Attachments[subpass.ColorOffset + i];
-				if (!Info.FragmentOutputs[i].Format.IsConvertible(att.Format)) {
-					return $"incompatible formats for fragment output {i} (data: {att.Format}) " +
+				ref readonly var output = ref outputs[i];
+				if (!Info.FragmentOutputs[i].Format.IsConvertible(output.Format)) {
+					return $"incompatible formats for fragment output {i} (data: {output.Format}) " +
 						$"(shader: {Info.FragmentOutputs[i].Format})";
 				}
 			}
@@ -115,10 +118,13 @@ namespace Vega.Graphics
 			if (subpass.InputCount != Info.SubpassInputs.Count) {
 				return "input attachment count mismatch";
 			}
+			var spinputs = renderer.Layout.Attachments
+				.Where(att => att.Uses[subpassIndex] == (byte)AttachmentUse.Input)
+				.ToArray();
 			for (int i = 0; i < subpass.InputCount; ++i) {
-				ref readonly var att = ref renderer.Layout.Attachments[subpass.InputOffset + i];
-				if (!Info.SubpassInputs[i].Format.IsConvertible(att.Format)) {
-					return $"incompatible formats for subpass input {i} (data: {att.Format}) " +
+				ref readonly var spi = ref spinputs[i];
+				if (!Info.SubpassInputs[i].Format.IsConvertible(spi.Format)) {
+					return $"incompatible formats for subpass input {i} (data: {spi.Format}) " +
 						$"(shader: {Info.SubpassInputs[i].Format})";
 				}
 			}
