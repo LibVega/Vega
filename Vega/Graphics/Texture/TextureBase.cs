@@ -131,7 +131,7 @@ namespace Vega.Graphics
 			}
 
 			Core.Instance!.Graphics.Resources.TransferManager.SetImageData(
-				Handle, Format, region, data, Initialized ? RUID.Type : null
+				Handle, Format, region, data, RUID.Type, !Initialized || (region == FullRegion)
 			);
 			Initialized = true;
 		}
@@ -153,7 +153,7 @@ namespace Vega.Graphics
 
 			fixed (byte* dataptr = data) {
 				Core.Instance!.Graphics.Resources.TransferManager.SetImageData(
-					Handle, Format, region, dataptr, Initialized ? RUID.Type : null
+					Handle, Format, region, dataptr, RUID.Type, !Initialized || (region == FullRegion)
 				);
 			}
 			Initialized = true;
@@ -178,7 +178,7 @@ namespace Vega.Graphics
 			}
 
 			Core.Instance!.Graphics.Resources.TransferManager.SetImageData(
-				Handle, Format, region, data, dataOffset, Initialized ? RUID.Type : null
+				Handle, Format, region, data, dataOffset, RUID.Type, !Initialized || (region == FullRegion)
 			);
 			Initialized = true;
 		}

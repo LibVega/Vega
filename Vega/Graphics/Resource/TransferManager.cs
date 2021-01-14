@@ -178,15 +178,16 @@ namespace Vega.Graphics
 		// Sets the texture data by copying from a prepared host buffer
 		// Pass null as imageType to signal a first-time copy that does not need pipeline barriers
 		public void SetImageData(VkImage dstImage, TexelFormat fmt, in TextureRegion region, HostBuffer srcBuffer, 
-			ulong srcOff, ResourceType? imageType)
+			ulong srcOff, ResourceType imageType, bool discard)
 		{
 			VkPipelineStageFlags srcStage = 0, dstStage = 0;
 			VkAccessFlags srcAccess = 0, dstAccess = 0;
-			if (imageType.HasValue) {
-				GetBarrierStages(imageType!.Value, out srcStage, out dstStage);
-				GetAccessFlags(imageType!.Value, out srcAccess, out dstAccess);
-			}
+			GetBarrierStages(imageType, out srcStage, out dstStage);
+			GetAccessFlags(imageType, out srcAccess, out dstAccess);
 			GetLayouts(imageType, out var srcLayout, out var dstLayout);
+			if (discard) {
+				srcLayout = VkImageLayout.Undefined;
+			}
 
 			// Start command and barrier
 			VkCommandBufferBeginInfo cbbi = new(VkCommandBufferUsageFlags.OneTimeSubmit);
@@ -252,7 +253,7 @@ namespace Vega.Graphics
 
 		// Sets image data from raw data
 		public void SetImageData(VkImage dstImage, TexelFormat fmt, in TextureRegion region, void* srcData, 
-			ResourceType? imageType)
+			ResourceType imageType, bool discard)
 		{
 			// Select which host buffer to use
 			ulong count = region.GetDataSize(fmt);
@@ -264,11 +265,11 @@ namespace Vega.Graphics
 			if (useTmp) {
 				// Need Dispose safety to not leak the tmp buffer
 				using (srcBuffer) {
-					SetImageData(dstImage, fmt, region, srcBuffer, 0, imageType);
+					SetImageData(dstImage, fmt, region, srcBuffer, 0, imageType, discard);
 				}
 			}
 			else {
-				SetImageData(dstImage, fmt, region, srcBuffer, 0, imageType);
+				SetImageData(dstImage, fmt, region, srcBuffer, 0, imageType, discard);
 			}
 		}
 		#endregion // Images
