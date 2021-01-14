@@ -116,15 +116,19 @@ namespace Vega
 		/// </summary>
 		/// <param name="value">The value to round up.</param>
 		/// <param name="round">The rounding value.</param>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static uint RoundUp(uint value, uint round) => 
 			((value % round) == 0) ? value : value + round - (value % round);
 		/// <inheritdoc cref="RoundUp(uint, uint)"/>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static ulong RoundUp(ulong value, ulong round) =>
 			((value % round) == 0) ? value : value + round - (value % round);
 		/// <inheritdoc cref="RoundUp(uint, uint)"/>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int RoundUp(int value, uint round) =>
 			(int)((value < 0) ? -RoundDown((uint)Math.Abs(value), round) : RoundUp((uint)value, round));
 		/// <inheritdoc cref="RoundUp(uint, uint)"/>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static long RoundUp(long value, ulong round) =>
 			(value < 0) ? -(long)RoundDown((ulong)Math.Abs(value), round) : (long)RoundUp((ulong)value, round);
 
@@ -133,13 +137,17 @@ namespace Vega
 		/// </summary>
 		/// <param name="value">The value to round down.</param>
 		/// <param name="round">The rounding value.</param>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static uint RoundDown(uint value, uint round) => value - (value % round);
 		/// <inheritdoc cref="RoundDown(uint, uint)"/>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static ulong RoundDown(ulong value, ulong round) => value - (value % round);
 		/// <inheritdoc cref="RoundDown(uint, uint)"/>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int RoundDown(int value, uint round) =>
 			(value < 0) ? -(int)RoundUp((uint)Math.Abs(value), round) : (int)RoundDown((uint)value, round);
 		/// <inheritdoc cref="RoundDown(uint, uint)"/>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static long RoundDown(long value, ulong round) =>
 			(value < 0) ? -(long)RoundUp((ulong)Math.Abs(value), round) : (long)RoundDown((ulong)value, round);
 
@@ -148,9 +156,11 @@ namespace Vega
 		/// </summary>
 		/// <param name="value">The value to round away from zero.</param>
 		/// <param name="round">The rounding value.</param>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int RoundLarger(int value, uint round) =>
 			(value < 0) ? -(int)RoundUp((uint)Math.Abs(value), round) : (int)RoundUp((uint)value, round);
 		/// <inheritdoc cref="RoundLarger(int, uint)"/>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static long RoundLarger(long value, ulong round) =>
 			(value < 0) ? -(long)RoundUp((ulong)Math.Abs(value), round) : (long)RoundUp((ulong)value, round);
 
@@ -159,9 +169,11 @@ namespace Vega
 		/// </summary>
 		/// <param name="value">The value to round towards zero.</param>
 		/// <param name="round">The rounding value.</param>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static int RoundSmaller(int value, uint round) =>
 			(value < 0) ? -(int)RoundDown((uint)Math.Abs(value), round) : (int)RoundDown((uint)value, round);
 		/// <inheritdoc cref="RoundSmaller(int, uint)"/>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static long RoundSmaller(long value, ulong round) =>
 			(value < 0) ? -(long)RoundDown((ulong)Math.Abs(value), round) : (long)RoundDown((ulong)value, round);
 		#endregion // Rounding

@@ -5,6 +5,8 @@
  */
 
 using System;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -29,8 +31,13 @@ namespace Vega.Graphics
 		public readonly ulong FrameAlignment;
 
 		// Buffer object
-		internal readonly VkBuffer Handle;
+		public readonly VkBuffer Handle;
 		private readonly MemoryAllocation Memory;
+		public readonly byte* DataPtr;
+
+		// Push allocation values
+		private ulong _baseOffset = 0;
+		private ulong _pushOffset = 0;
 
 		// Disposal flag
 		public bool IsDisposed { get; private set; } = false;
@@ -66,11 +73,51 @@ namespace Vega.Graphics
 				throw new Exception("Failed to allocate uniform push buffer memory");
 			Handle.BindBufferMemory(Memory.Handle, Memory.Offset)
 				.Throw("Failed to bind uniform push buffer memory");
+
+			// Map memory
+			DataPtr = (byte*)Memory.Map();
 		}
 		~UniformPushBuffer()
 		{
 			dispose(false);
 		}
+
+		#region Allocation/Data
+		// Moves the base offset to the next frame, and resets the push offset
+		public void NextFrame()
+		{
+			_baseOffset += FrameAlignment;
+			if (_baseOffset >= TotalSize) {
+				_baseOffset = 0;
+			}
+			_pushOffset = 0;
+		}
+
+		// Attempts to allocate a chunk of the given size
+		[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+		public bool TryAllocate(ulong size, out ulong offset)
+		{
+			size = MathHelper.RoundUp(size, Alignment);
+			var newOffset = Interlocked.Add(ref _pushOffset, size);
+			if (newOffset >= FrameSize) {
+				offset = 0;
+				return false; // Allocated past the end of the buffer
+			}
+			offset = _baseOffset + newOffset - size;
+			return true;
+		}
+
+		// Allocates a new data block and writes the data
+		[MethodImpl(MethodImplOptions.AggressiveOptimization)]
+		public bool TryPushData(ulong size, void* data)
+		{
+			if (!TryAllocate(size, out var offset)) {
+				return false;
+			}
+			Unsafe.CopyBlock(DataPtr + offset, data, (uint)size);
+			return true;
+		}
+		#endregion // Allocation/Data
 
 		#region IDisposable
 		public void Dispose()
@@ -83,6 +130,7 @@ namespace Vega.Graphics
 		{
 			if (!IsDisposed) {
 				if (disposing) {
+					Memory?.Unmap();
 					Handle?.DestroyBuffer(null);
 					Memory?.Free();
 				}

@@ -20,6 +20,9 @@ namespace Vega.Graphics
 	/// </summary>
 	public unsafe sealed class Renderer : IDisposable
 	{
+		// Default per-frame size for uniform buffers
+		internal const ulong DEFAULT_UNIFORM_SIZE = 512 * 1_024; // 512 kB (~2000 uniform updates per frame)
+
 		#region Fields
 		// The graphics device 
 		internal readonly GraphicsDevice Graphics;
@@ -56,6 +59,9 @@ namespace Vega.Graphics
 		internal VkRenderPass RenderPass;
 		// The render target
 		internal readonly RenderTarget RenderTarget;
+
+		// The shared uniform buffer for all recordings
+		private readonly UniformPushBuffer _uniformBuffer;
 
 		#region Recording
 		/// <summary>
@@ -140,6 +146,9 @@ namespace Vega.Graphics
 				out _descriptorPool, out UniformDescriptor, out SubpassLayouts, out SubpassDescriptors);
 			UpdateDescriptorSets(Graphics, UniformDescriptor, default, 
 				SubpassDescriptors, Layout, RenderTarget); // Non-MSAA is okay for both, since subpass inputs are fixed
+
+			// Create the uniform buffer
+			_uniformBuffer = new(DEFAULT_UNIFORM_SIZE);
 		}
 		~Renderer()
 		{
@@ -415,6 +424,8 @@ namespace Vega.Graphics
 						layout?.DestroyDescriptorSetLayout(null);
 					}
 					_descriptorPool.DestroyDescriptorPool(null);
+
+					_uniformBuffer.Dispose();
 				}
 				RenderPass.DestroyRenderPass(null);
 			}
