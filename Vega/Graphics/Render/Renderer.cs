@@ -22,7 +22,7 @@ namespace Vega.Graphics
 	public unsafe sealed class Renderer : IDisposable
 	{
 		// Default per-frame size for uniform buffers
-		internal const ulong DEFAULT_UNIFORM_SIZE = 512 * 1_024; // 512 kB (~2000 uniform updates per frame)
+		internal const ulong DEFAULT_UNIFORM_SIZE = 512 * 1_024; // 512 kB (~2000 min uniform updates per frame)
 
 		#region Fields
 		// The graphics device 
@@ -142,14 +142,14 @@ namespace Vega.Graphics
 				att.IsColor ? new ClearValue(0f, 0f, 0f, 1f) : new ClearValue(1f, 0)).ToArray();
 			RenderTarget = new RenderTarget(this, window, initialMSAA);
 
+			// Create the uniform buffer
+			_uniformBuffer = new(DEFAULT_UNIFORM_SIZE);
+
 			// Create descriptor objects
 			CreateDescriptorObjects(Graphics, Layout, 
 				out _descriptorPool, out UniformDescriptor, out SubpassLayouts, out SubpassDescriptors);
-			UpdateDescriptorSets(Graphics, UniformDescriptor, default, 
+			UpdateDescriptorSets(Graphics, UniformDescriptor, _uniformBuffer.Handle, 
 				SubpassDescriptors, Layout, RenderTarget); // Non-MSAA is okay for both, since subpass inputs are fixed
-
-			// Create the uniform buffer
-			_uniformBuffer = new(DEFAULT_UNIFORM_SIZE);
 		}
 		~Renderer()
 		{
@@ -170,6 +170,9 @@ namespace Vega.Graphics
 			}
 
 			// Check for validity
+			if (IsRecording) {
+				throw new InvalidOperationException("Cannot change renderer size while it is recording");
+			}
 			if (Window is not null) {
 				throw new InvalidOperationException("Cannot set the size of a window renderer - it is tied to the window size");
 			}
@@ -193,6 +196,9 @@ namespace Vega.Graphics
 			}
 
 			// Validate
+			if (IsRecording) {
+				throw new InvalidOperationException("Cannot change renderer MSAA while it is recording");
+			}
 			if ((msaa != MSAA.X1) && (MSAALayout is null)) {
 				throw new InvalidOperationException("Cannot enable MSAA operations on a non-MSAA renderer");
 			}
@@ -214,6 +220,11 @@ namespace Vega.Graphics
 			foreach (var pipeline in _pipelines) {
 				pipeline.Rebuild();
 			}
+
+			// Update the descriptors with the new rendertarget
+			UpdateDescriptorSets(Graphics,
+				UniformDescriptor, _uniformBuffer.Handle,
+				SubpassDescriptors, Layout, RenderTarget);
 		}
 		#endregion // Size/MSAA
 
@@ -255,6 +266,7 @@ namespace Vega.Graphics
 
 			// Set values
 			CurrentSubpass = 0;
+			_uniformBuffer.NextFrame();
 		}
 
 		/// <summary>
@@ -374,7 +386,13 @@ namespace Vega.Graphics
 		// The swapchain will have already waited for device idle at this point
 		internal void OnSwapchainResize()
 		{
+			// Rebuild the render target
 			RenderTarget.Rebuild(MSAA);
+
+			// Update the descriptors with the new rendertarget
+			UpdateDescriptorSets(Graphics,
+				UniformDescriptor, _uniformBuffer.Handle,
+				SubpassDescriptors, Layout, RenderTarget);
 		}
 
 		#region Pipelines
@@ -406,7 +424,8 @@ namespace Vega.Graphics
 		#region Uniform Data
 		// Pushes uniform data into the renderer push buffer
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		internal bool PushUniformData(void* data, ulong size) => _uniformBuffer.TryPushData(size, data);
+		internal bool PushUniformData(void* data, ulong size, out ulong offset) => 
+			_uniformBuffer.TryPushData(size, data, out offset);
 		#endregion // Uniform Data
 
 		#region IDisposable
@@ -522,10 +541,26 @@ namespace Vega.Graphics
 
 		// Update the descriptor sets
 		private static void UpdateDescriptorSets(GraphicsDevice gd,
-			VkDescriptorSet uniformSet, VulkanHandle<VkBuffer> uniformBuffer,
+			VkDescriptorSet uniformSet, VkBuffer uniformBuffer,
 			VkDescriptorSet?[] subpassSets, RenderLayout layout, RenderTarget rtarget)
 		{
-			// Update the uniform set (TODO)
+			// Update the uniform set
+			VkDescriptorBufferInfo bufferInfo = new(
+				buffer: uniformBuffer,
+				offset: 0,
+				range: UniformPushBuffer.PADDING
+			);
+			VkWriteDescriptorSet bufferWrite = new(
+				dstSet: uniformSet,
+				dstBinding: 0,
+				dstArrayElement: 0,
+				descriptorCount: 1,
+				descriptorType: VkDescriptorType.UniformBufferDynamic,
+				imageInfo: null,
+				bufferInfo: &bufferInfo,
+				texelBufferView: null
+			);
+			gd.VkDevice.UpdateDescriptorSets(1, &bufferWrite, 0, null);
 
 			// Update the subpass input sets
 			var imageInfos = stackalloc VkDescriptorImageInfo[(int)VSL.MAX_INPUT_ATTACHMENTS];

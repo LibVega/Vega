@@ -57,6 +57,10 @@ namespace Vega.Graphics
 		private readonly ushort[] _bindingIndices = new ushort[VSL.MAX_BINDING_COUNT];
 		private bool _bindingsDirty = false;
 		private uint _bindingSize = 0;
+
+		// Uniform data fields
+		private ulong _uniformOffset = 0;
+		private bool _uniformDirty = false;
 		#endregion // Fields
 
 		/// <summary>
@@ -112,7 +116,12 @@ namespace Vega.Graphics
 			resetRenderState();
 
 			// Bind renderer-specific descriptors
-			// TODO: Uniform buffer descriptor
+			if (pipeline.Shader.Info.UniformSize > 0) { // Uniform buffer
+				var unifHandle = pipeline.Renderer.UniformDescriptor.Handle;
+				var zero = 0u;
+				_cmd.Cmd.CmdBindDescriptorSets(VkPipelineBindPoint.Graphics,
+					pipeline.Shader.PipelineLayout, 1, 1, &unifHandle, 1, &zero);
+			}
 			if (pipeline.Renderer.SubpassLayouts[pipeline.Subpass] is not null) { // Subpass inputs
 				var setHandle = pipeline.Renderer.SubpassDescriptors[pipeline.Subpass]!.Handle;
 				_cmd.Cmd.CmdBindDescriptorSets(VkPipelineBindPoint.Graphics,
@@ -216,9 +225,10 @@ namespace Vega.Graphics
 			}
 
 			// Push data
-			if (!BoundRenderer!.PushUniformData(data, BoundShader!.Info.UniformSize)) {
+			if (!BoundRenderer!.PushUniformData(data, BoundShader!.Info.UniformSize, out _uniformOffset)) {
 				throw new InvalidOperationException("Per-frame limit for uniform buffer updates is exceeded");
 			}
+			_uniformDirty = true;
 		}
 
 		/// <summary>
@@ -242,10 +252,11 @@ namespace Vega.Graphics
 
 			// Push data
 			fixed (byte* dataptr = data) {
-				if (!BoundRenderer!.PushUniformData(dataptr, BoundShader!.Info.UniformSize)) {
+				if (!BoundRenderer!.PushUniformData(dataptr, BoundShader!.Info.UniformSize, out _uniformOffset)) {
 					throw new InvalidOperationException("Per-frame limit for uniform buffer updates is exceeded");
 				}
 			}
+			_uniformDirty = true;
 		}
 
 		/// <summary>
@@ -271,10 +282,11 @@ namespace Vega.Graphics
 
 			// Push data
 			fixed (T* dataptr = &data) {
-				if (!BoundRenderer!.PushUniformData(dataptr, BoundShader!.Info.UniformSize)) {
+				if (!BoundRenderer!.PushUniformData(dataptr, BoundShader!.Info.UniformSize, out _uniformOffset)) {
 					throw new InvalidOperationException("Per-frame limit for uniform buffer updates is exceeded");
 				}
 			}
+			_uniformDirty = true;
 		}
 		#endregion // Data
 
@@ -385,12 +397,23 @@ namespace Vega.Graphics
 		// Called before a draw command is submitted to update descriptor sets and push new binding indices
 		private void updateBindings()
 		{
+			// Update uniforms
+			if (_uniformDirty) {
+				var setHandle = BoundRenderer!.UniformDescriptor.Handle;
+				var offset = (uint)_uniformOffset;
+				// Dynamic offset update is *much* cheaper than a buffer rebinding update
+				_cmd!.Cmd.CmdBindDescriptorSets(VkPipelineBindPoint.Graphics,
+					BoundShader!.PipelineLayout, 1, 1, &setHandle, 1, &offset);
+				_uniformDirty = false;
+			}
+
 			// Push new binding indices
 			if (_bindingsDirty) {
 				fixed (ushort* bidx = _bindingIndices) {
 					_cmd!.Cmd.CmdPushConstants(BoundShader!.PipelineLayout, 
 						VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment, 0, _bindingSize, bidx);
 				}
+				_bindingsDirty = false;
 			}
 		}
 		#endregion // Resources

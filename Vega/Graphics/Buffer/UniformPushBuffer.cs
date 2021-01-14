@@ -18,8 +18,8 @@ namespace Vega.Graphics
 	// We may eventually switch to a bulk-upload of host memory at render submission time for non-dynamic buffers
 	internal unsafe sealed class UniformPushBuffer : IDisposable
 	{
-		private const ulong PADDING = 1024; // Padding at the end of the buffer, since some layouts could potentially
-											// bind past the normal end, which causes an error and blocks rendering
+		public const ulong PADDING = 1024; // Padding at the end of the buffer, since some layouts could potentially
+										   // bind past the normal end, which causes an error and blocks rendering
 
 		#region Fields
 		// Size info
@@ -109,9 +109,9 @@ namespace Vega.Graphics
 
 		// Allocates a new data block and writes the data
 		[MethodImpl(MethodImplOptions.AggressiveOptimization)]
-		public bool TryPushData(ulong size, void* data)
+		public bool TryPushData(ulong size, void* data, out ulong offset)
 		{
-			if (!TryAllocate(size, out var offset)) {
+			if (!TryAllocate(size, out offset)) {
 				return false;
 			}
 			Unsafe.CopyBlock(DataPtr + offset, data, (uint)size);
