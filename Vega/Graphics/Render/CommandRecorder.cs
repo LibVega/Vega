@@ -6,6 +6,7 @@
 
 using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -195,6 +196,87 @@ namespace Vega.Graphics
 			_cmd = null;
 		}
 		#endregion // Recording State
+
+		#region Data
+		/// <summary>
+		/// Sets new uniform data to be used in the next draw call in this command recorder. 
+		/// <para>
+		/// The data must completely specify the full uniform data - partial uniform data updates are not supported.
+		/// </para>
+		/// </summary>
+		/// <param name="data">A pointer to the data to set as the shader uniform.</param>
+		public void SetUniformData(void* data)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot set uniform data on non-recording command recorder");
+			}
+			if (BoundShader!.Info.UniformSize == 0) {
+				throw new InvalidOperationException("Cannot set uniform data on shader that does not take uniforms");
+			}
+
+			// Push data
+			if (!BoundRenderer!.PushUniformData(data, BoundShader!.Info.UniformSize)) {
+				throw new InvalidOperationException("Per-frame limit for uniform buffer updates is exceeded");
+			}
+		}
+
+		/// <summary>
+		/// Sets new uniform data to be used in the next draw call in this command recorder. 
+		/// <para>
+		/// The data must completely specify the full uniform data - partial uniform data updates are not supported.
+		/// </para>
+		/// <param name="data">The region of data to update the uniform data with.</param>
+		public void SetUniformData(in ReadOnlySpan<byte> data)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot set uniform data on non-recording command recorder");
+			}
+			if (BoundShader!.Info.UniformSize == 0) {
+				throw new InvalidOperationException("Cannot set uniform data on shader that does not take uniforms");
+			}
+			if (data.Length < BoundShader!.Info.UniformSize) {
+				throw new ArgumentException("Not enough data in span for SetUniformData()", nameof(data));
+			}
+
+			// Push data
+			fixed (byte* dataptr = data) {
+				if (!BoundRenderer!.PushUniformData(dataptr, BoundShader!.Info.UniformSize)) {
+					throw new InvalidOperationException("Per-frame limit for uniform buffer updates is exceeded");
+				}
+			}
+		}
+
+		/// <summary>
+		/// Sets new uniform data to be used in the next draw call in this command recorder. 
+		/// <para>
+		/// The data must completely specify the full uniform data - partial uniform data updates are not supported.
+		/// </para>
+		/// <typeparam name="T">The type of the object used to update the uniform data.</typeparam>
+		/// <param name="data">The object to update the uniform data value with.</param>
+		public void SetUniformData<T>(in T data)
+			where T : unmanaged
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot set uniform data on non-recording command recorder");
+			}
+			if (BoundShader!.Info.UniformSize == 0) {
+				throw new InvalidOperationException("Cannot set uniform data on shader that does not take uniforms");
+			}
+			if ((uint)Marshal.SizeOf<T>() < BoundShader!.Info.UniformSize) {
+				throw new ArgumentException("Not enough data in generic object for SetUniformData()", nameof(data));
+			}
+
+			// Push data
+			fixed (T* dataptr = &data) {
+				if (!BoundRenderer!.PushUniformData(dataptr, BoundShader!.Info.UniformSize)) {
+					throw new InvalidOperationException("Per-frame limit for uniform buffer updates is exceeded");
+				}
+			}
+		}
+		#endregion // Data
 
 		#region Resources
 		#region Texture Binding

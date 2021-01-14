@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -401,6 +402,12 @@ namespace Vega.Graphics
 			}
 		}
 		#endregion // Pipelines
+
+		#region Uniform Data
+		// Pushes uniform data into the renderer push buffer
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		internal bool PushUniformData(void* data, ulong size) => _uniformBuffer.TryPushData(size, data);
+		#endregion // Uniform Data
 
 		#region IDisposable
 		public void Dispose()
