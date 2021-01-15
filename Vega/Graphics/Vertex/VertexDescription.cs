@@ -169,6 +169,9 @@ namespace Vega.Graphics
 			}
 		}
 
+		// Duplicates the description (deep copy)
+		internal VertexDescription Duplicate() => new(_elements, _locations, Stride, Rate);
+
 		// Calculates a hash code for a set of elements and locations
 		private static int CalculateHash(VertexRate rate, VertexElement[] elements, uint[] locations)
 		{

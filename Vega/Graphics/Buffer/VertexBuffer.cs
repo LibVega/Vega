@@ -19,37 +19,43 @@ namespace Vega.Graphics
 		/// </summary>
 		public readonly uint VertexCount;
 		/// <summary>
+		/// The layout of the data in the vertex buffer.
+		/// </summary>
+		public readonly VertexDescription VertexDescription;
+		/// <summary>
 		/// The buffer data stride (distance between adjacent vertex data).
 		/// </summary>
-		public readonly uint Stride;
+		public uint Stride => VertexDescription.Stride;
 		#endregion // Fields
 
 		/// <summary>
 		/// Create a new vertex buffer with optional pointer to initial data.
 		/// </summary>
 		/// <param name="vertexCount">The number of vertices in the buffer.</param>
-		/// <param name="stride">The stride of the vertex data.</param>
+		/// <param name="description">The layout of the vertices in the buffer.</param>
 		/// <param name="data">The optional initial vertex data.</param>
 		/// <param name="usage">The buffer usage policy.</param>
-		public VertexBuffer(uint vertexCount, uint stride, void* data = null, BufferUsage usage = BufferUsage.Static)
-			: base(vertexCount * stride, ResourceType.VertexBuffer, usage, data)
+		public VertexBuffer(uint vertexCount, VertexDescription description, void* data = null, 
+				BufferUsage usage = BufferUsage.Static)
+			: base(vertexCount * description.Stride, ResourceType.VertexBuffer, usage, data)
 		{
 			VertexCount = vertexCount;
-			Stride = stride;
+			VertexDescription = description.Duplicate();
 		}
 
 		/// <summary>
 		/// Create a new vertex buffer with the data in the host buffer.
 		/// </summary>
 		/// <param name="vertexCount">The number of vertices in the buffer.</param>
-		/// <param name="stride">The stride of the vertex data.</param>
+		/// <param name="description">The layout of the vertices in the buffer.</param>
 		/// <param name="data">The optional initial vertex data.</param>
 		/// <param name="usage">The buffer usage policy.</param>
-		public VertexBuffer(uint vertexCount, uint stride, HostBuffer data, BufferUsage usage = BufferUsage.Static)
-			: base(vertexCount * stride, ResourceType.VertexBuffer, usage, data)
+		public VertexBuffer(uint vertexCount, VertexDescription description, HostBuffer data,
+				BufferUsage usage = BufferUsage.Static)
+			: base(vertexCount * description.Stride, ResourceType.VertexBuffer, usage, data)
 		{
 			VertexCount = vertexCount;
-			Stride = stride;
+			VertexDescription = description.Duplicate();
 		}
 	}
 }
