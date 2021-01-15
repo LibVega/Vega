@@ -6,7 +6,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Runtime.Intrinsics.X86;
+using System.Numerics;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -40,8 +40,8 @@ namespace Vega.Graphics
 		// Per-thread management values
 		[ThreadStatic]
 		private static uint? _ThreadIndex = null; // Index of current thread into global resource lists
-		private static uint _IndexMask = UInt32.MaxValue; // Mask of available thread ids (bit=1 is available)
-		private static uint _ThreadCount = 0;
+		private static uint _IndexMask = 0; // Mask of available thread ids (bit=1 is used)
+		private static uint _ThreadCount => (uint)BitOperations.PopCount(_IndexMask);
 		private static readonly object _ThreadObjectLock = new();
 		public bool IsThreadRegistered => _ThreadIndex.HasValue;
 		public bool IsMainThread => _ThreadIndex.HasValue && (_ThreadIndex.Value == 0);
@@ -280,8 +280,6 @@ namespace Vega.Graphics
 		#region Threading
 		public void RegisterThread()
 		{
-			const uint THREAD_INDEX_OFFSET = (sizeof(ulong) - sizeof(uint)) * 8; // Needed b/c Lzcnt promotes to ulong
-
 			if (_ThreadIndex.HasValue) {
 				throw new InvalidOperationException("Cannot double register a thread for graphics operations");
 			}
@@ -289,12 +287,11 @@ namespace Vega.Graphics
 			// Prepare thread
 			lock (_ThreadObjectLock) {
 				// Get the next thread index
-				if (_IndexMask == 0) {
+				if (_IndexMask == UInt32.MaxValue) {
 					throw new InvalidOperationException("No available slots for a new graphics thread");
 				}
-				_ThreadIndex = (uint)Lzcnt.X64.LeadingZeroCount(_IndexMask) - THREAD_INDEX_OFFSET;
-				_IndexMask &= ~(1u << (int)_ThreadIndex.Value); // Clear the bit (mark as used)
-				_ThreadCount += 1;
+				_ThreadIndex = (uint)BitOperations.TrailingZeroCount(~_IndexMask);
+				_IndexMask |= (1u << (int)_ThreadIndex.Value); // Set the bit (mark as used)
 
 				// Create thread resources
 				_commandPools[_ThreadIndex.Value] = new(Graphics);
@@ -317,9 +314,8 @@ namespace Vega.Graphics
 				_commandPools[_ThreadIndex.Value] = null;
 
 				// Clear thread index
-				_IndexMask |= (1u << (int)_ThreadIndex.Value); // Set the bit (mark as unused)
+				_IndexMask &= ~(1u << (int)_ThreadIndex.Value); // Clear the bit (mark as unused)
 				_ThreadIndex = null;
-				_ThreadCount -= 1;
 			}
 
 			// This should happen relatively infrequently, and after this call there will be a good amount to release

@@ -5,9 +5,9 @@
  */
 
 using System;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Runtime.Intrinsics.X86;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -65,7 +65,7 @@ namespace Vega.Graphics
 
 		// Bound vertex/index buffer information
 		private uint _vertexBufferMask = 0;
-		private uint _vertexBufferCount => (uint)Popcnt.X64.PopCount(_vertexBufferMask);
+		private uint _vertexBufferCount => (uint)BitOperations.PopCount(_vertexBufferMask);
 		private bool _boundIndexBuffer = false;
 		#endregion // Fields
 
@@ -122,6 +122,11 @@ namespace Vega.Graphics
 			resetRenderState();
 
 			// Bind renderer-specific descriptors
+			if (pipeline.Shader.Info.BindingMask != 0) { // Global binding table
+				var tableHandle = pipeline.Renderer.Graphics.BindingTable.SetHandle.Handle;
+				_cmd.Cmd.CmdBindDescriptorSets(VkPipelineBindPoint.Graphics,
+					pipeline.Shader.PipelineLayout, 0, 1, &tableHandle, 0, null);
+			}
 			if (pipeline.Shader.Info.UniformSize > 0) { // Uniform buffer
 				var unifHandle = pipeline.Renderer.UniformDescriptor.Handle;
 				var zero = 0u;

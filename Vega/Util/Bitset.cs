@@ -5,7 +5,7 @@
  */
 
 using System;
-using System.Runtime.Intrinsics.X86;
+using System.Numerics;
 
 namespace Vega.Util
 {
@@ -134,7 +134,7 @@ namespace Vega.Util
 		{
 			uint total = 0;
 			for (int i = 0; i < _data.Length; ++i) {
-				total += (uint)Popcnt.X64.PopCount(_data[i]);
+				total += (uint)BitOperations.PopCount(_data[i]);
 			}
 			return total;
 		}
@@ -158,7 +158,7 @@ namespace Vega.Util
 			for (int i = 0; i < _data.Length; ++i) {
 				ulong data = _data[i];
 				if (data != 0) { // Skip empty
-					var cnt = Lzcnt.X64.LeadingZeroCount(data);
+					var cnt = BitOperations.TrailingZeroCount(data);
 					return (uint)(((uint)i * 64) + cnt);
 				}
 			}
@@ -178,7 +178,7 @@ namespace Vega.Util
 			for (int i = 0; i < _data.Length; ++i) {
 				ulong data = ~_data[i];
 				if (data != 0) { // Skip empty
-					var cnt = Lzcnt.X64.LeadingZeroCount(data);
+					var cnt = BitOperations.TrailingZeroCount(data);
 					return (uint)(((uint)i * 64) + cnt);
 				}
 			}
