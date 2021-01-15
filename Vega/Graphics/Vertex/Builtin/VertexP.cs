@@ -14,7 +14,7 @@ namespace Vega.Graphics
 	/// Vertex type representing a position.
 	/// </summary>
 	[StructLayout(LayoutKind.Explicit, Size = 12)]
-	public struct VertexPosition : IEquatable<VertexPosition>
+	public struct VertexP : IEquatable<VertexP>
 	{
 		/// <summary>
 		/// The elements that make up this vertex type.
@@ -37,7 +37,7 @@ namespace Vega.Graphics
 		/// <summary>
 		/// Construct a new vertex from a position.
 		/// </summary>
-		public VertexPosition(in Vec3 pos)
+		public VertexP(in Vec3 pos)
 		{
 			Position = pos;
 		}
@@ -47,15 +47,15 @@ namespace Vega.Graphics
 
 		public readonly override string ToString() => $"[P:{Position}]";
 
-		public readonly override bool Equals(object? obj) => (obj is VertexPosition vert) && (vert == this);
+		public readonly override bool Equals(object? obj) => (obj is VertexP vert) && (vert == this);
 
-		readonly bool IEquatable<VertexPosition>.Equals(VertexPosition other) => other == this;
+		readonly bool IEquatable<VertexP>.Equals(VertexP other) => other == this;
 		#endregion // Overrides
 
 		#region Operators
-		public static bool operator == (in VertexPosition l, in VertexPosition r) =>
+		public static bool operator == (in VertexP l, in VertexP r) =>
 			(l.Position == r.Position);
-		public static bool operator != (in VertexPosition l, in VertexPosition r) =>
+		public static bool operator != (in VertexP l, in VertexP r) =>
 			(l.Position != r.Position);
 		#endregion // Operators
 	}

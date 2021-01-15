@@ -14,7 +14,7 @@ namespace Vega.Graphics
 	/// Vertex type representing a position, normal, and color.
 	/// </summary>
 	[StructLayout(LayoutKind.Explicit, Size = 28)]
-	public struct VertexPositionNormalColor : IEquatable<VertexPositionNormalColor>
+	public struct VertexPNC : IEquatable<VertexPNC>
 	{
 		/// <summary>
 		/// The elements that make up this vertex type.
@@ -47,7 +47,7 @@ namespace Vega.Graphics
 		/// <summary>
 		/// Construct a new vertex from a position, normal, and color.
 		/// </summary>
-		public VertexPositionNormalColor(in Vec3 pos, in Vec3 normal, in Color color)
+		public VertexPNC(in Vec3 pos, in Vec3 normal, in Color color)
 		{
 			Position = pos;
 			Normal = normal;
@@ -61,16 +61,16 @@ namespace Vega.Graphics
 		public readonly override string ToString() => $"[P:{Position},N:{Normal},C:{Color}]";
 
 		public readonly override bool Equals(object? obj) =>
-			(obj is VertexPositionNormalColor vert) && (vert == this);
+			(obj is VertexPNC vert) && (vert == this);
 
-		readonly bool IEquatable<VertexPositionNormalColor>.Equals(VertexPositionNormalColor other) =>
+		readonly bool IEquatable<VertexPNC>.Equals(VertexPNC other) =>
 			other == this;
 		#endregion // Overrides
 
 		#region Operators
-		public static bool operator == (in VertexPositionNormalColor l, in VertexPositionNormalColor r) =>
+		public static bool operator == (in VertexPNC l, in VertexPNC r) =>
 			(l.Position == r.Position) && (l.Normal == r.Normal) && (l.Color == r.Color);
-		public static bool operator != (in VertexPositionNormalColor l, in VertexPositionNormalColor r) =>
+		public static bool operator != (in VertexPNC l, in VertexPNC r) =>
 			(l.Position != r.Position) || (l.Normal != r.Normal) || (l.Color != r.Color);
 		#endregion // Operators
 	}

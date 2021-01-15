@@ -14,7 +14,7 @@ namespace Vega.Graphics
 	/// Vertex type representing a position and texture coordinate.
 	/// </summary>
 	[StructLayout(LayoutKind.Explicit, Size = 20)]
-	public struct VertexPositionTexture : IEquatable<VertexPositionTexture>
+	public struct VertexPT : IEquatable<VertexPT>
 	{
 		/// <summary>
 		/// The elements that make up this vertex type.
@@ -42,7 +42,7 @@ namespace Vega.Graphics
 		/// <summary>
 		/// Construct a new vertex from a position and texture coordinate.
 		/// </summary>
-		public VertexPositionTexture(in Vec3 pos, in Vec2 uv)
+		public VertexPT(in Vec3 pos, in Vec2 uv)
 		{
 			Position = pos;
 			TexCoord = uv;
@@ -53,15 +53,15 @@ namespace Vega.Graphics
 
 		public readonly override string ToString() => $"[P:{Position},T:{TexCoord}]";
 
-		public readonly override bool Equals(object? obj) => (obj is VertexPositionTexture vert) && (vert == this);
+		public readonly override bool Equals(object? obj) => (obj is VertexPT vert) && (vert == this);
 
-		readonly bool IEquatable<VertexPositionTexture>.Equals(VertexPositionTexture other) => other == this;
+		readonly bool IEquatable<VertexPT>.Equals(VertexPT other) => other == this;
 		#endregion // Overrides
 
 		#region Operators
-		public static bool operator == (in VertexPositionTexture l, in VertexPositionTexture r) =>
+		public static bool operator == (in VertexPT l, in VertexPT r) =>
 			(l.Position == r.Position) && (l.TexCoord == r.TexCoord);
-		public static bool operator != (in VertexPositionTexture l, in VertexPositionTexture r) =>
+		public static bool operator != (in VertexPT l, in VertexPT r) =>
 			(l.Position != r.Position) || (l.TexCoord != r.TexCoord);
 		#endregion // Operators
 	}
