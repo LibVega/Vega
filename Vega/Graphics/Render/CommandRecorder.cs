@@ -128,11 +128,18 @@ namespace Vega.Graphics
 				_cmd.Cmd.CmdBindDescriptorSets(VkPipelineBindPoint.Graphics,
 					pipeline.Shader.PipelineLayout, 1, 1, &unifHandle, 1, &zero);
 			}
-			if (pipeline.Renderer.SubpassLayouts[pipeline.Subpass] is not null) { // Subpass inputs
+			if ((pipeline.Renderer.SubpassLayouts.Length > 0) && 
+					(pipeline.Renderer.SubpassLayouts[pipeline.Subpass] is not null)) { // Subpass inputs
 				var setHandle = pipeline.Renderer.SubpassDescriptors[pipeline.Subpass]!.Handle;
 				_cmd.Cmd.CmdBindDescriptorSets(VkPipelineBindPoint.Graphics,
 					pipeline.Shader.PipelineLayout, 2, 1, &setHandle, 0, null);
 			}
+
+			// Setup correct viewport/scissor states
+			VkViewport viewport = new(0, 0, pipeline.Renderer.Size.Width, pipeline.Renderer.Size.Height, 0, 1);
+			VkRect2D scissor = new(new(0, 0), pipeline.Renderer.Size.AsVkExtent());
+			_cmd.Cmd.CmdSetViewport(0, 1, &viewport);
+			_cmd.Cmd.CmdSetScissor(0, 1, &scissor);
 		}
 
 		/// <summary>
@@ -211,6 +218,105 @@ namespace Vega.Graphics
 			_cmd = null;
 		}
 		#endregion // Recording State
+
+		#region Draw
+		/// <summary>
+		/// Draw a number of vertices using the bound vertex buffer(s).
+		/// </summary>
+		/// <param name="vertexCount">The number of vertices to draw.</param>
+		/// <param name="firstVertex">The index of the first vertex to draw.</param>
+		public void Draw(uint vertexCount, uint firstVertex = 0)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot draw in a non-recording command recorder");
+			}
+			if (_vertexBufferCount != BoundPipeline!.VertexBindingCount) {
+				throw new InvalidOperationException("Vertex buffers not fully bound in command recorder");
+			}
+
+			updateBindings();
+
+			// Record
+			_cmd!.Cmd.CmdDraw(vertexCount, 1, firstVertex, 0);
+		}
+
+		/// <summary>
+		/// Draw multiple instances of a number of vertices using the bound vertex buffer(s).
+		/// </summary>
+		/// <param name="vertexCount">The number of vertices to draw.</param>
+		/// <param name="instanceCount">The number of instances to draw.</param>
+		/// <param name="firstVertex">The index of the first vertex to draw.</param>
+		/// <param name="firstInstance">The index of the first instance to draw.</param>
+		public void DrawInstanced(uint vertexCount, uint instanceCount, uint firstVertex = 0, uint firstInstance = 0)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot draw in a non-recording command recorder");
+			}
+			if (_vertexBufferCount != BoundPipeline!.VertexBindingCount) {
+				throw new InvalidOperationException("Vertex buffers not fully bound in command recorder");
+			}
+
+			updateBindings();
+
+			// Record
+			_cmd!.Cmd.CmdDraw(vertexCount, instanceCount, firstVertex, firstInstance);
+		}
+
+		/// <summary>
+		/// Draw indexed vertices using the bound vertex buffer(s) and index buffer.
+		/// </summary>
+		/// <param name="indexCount">The number of indexed vertices to draw.</param>
+		/// <param name="firstIndex">The index of the first index to draw with.</param>
+		/// <param name="vertexOffset">A global offset applied to all index values before vertex lookup.</param>
+		public void DrawIndexed(uint indexCount, uint firstIndex = 0, int vertexOffset = 0)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot draw in a non-recording command recorder");
+			}
+			if (_vertexBufferCount != BoundPipeline!.VertexBindingCount) {
+				throw new InvalidOperationException("Vertex buffers not fully bound in command recorder");
+			}
+			if (!_boundIndexBuffer) {
+				throw new InvalidCastException("Cannot perform indexed drawing without a bound index buffer");
+			}
+
+			updateBindings();
+
+			// Record
+			_cmd!.Cmd.CmdDrawIndexed(indexCount, 1, firstIndex, vertexOffset, 0);
+		}
+
+		/// <summary>
+		/// Draw multiple instances of indexed vertices using the bound vertex buffer(s) and index buffer.
+		/// </summary>
+		/// <param name="indexCount">The number of indexed vertices to draw.</param>
+		/// <param name="instanceCount">The number of instances to draw.</param>
+		/// <param name="firstIndex">The index of the first index to draw with.</param>
+		/// <param name="firstInstance">The index of the first instance to draw with.</param>
+		/// <param name="vertexOffset">A global offset applied to all index values before vertex lookup.</param>
+		public void DrawInstancedIndexed(uint indexCount, uint instanceCount, uint firstIndex = 0, 
+			uint firstInstance = 0, int vertexOffset = 0)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot draw in a non-recording command recorder");
+			}
+			if (_vertexBufferCount != BoundPipeline!.VertexBindingCount) {
+				throw new InvalidOperationException("Vertex buffers not fully bound in command recorder");
+			}
+			if (!_boundIndexBuffer) {
+				throw new InvalidCastException("Cannot perform indexed drawing without a bound index buffer");
+			}
+
+			updateBindings();
+
+			// Record
+			_cmd!.Cmd.CmdDrawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+		}
+		#endregion // Draw
 
 		#region Vertex/Index
 		/// <summary>
@@ -327,7 +433,7 @@ namespace Vega.Graphics
 			// Bind index buffer
 			var handle = buffer.Handle.Handle;
 			var idxt = (buffer.IndexType == IndexType.Short) ? VkIndexType.Uint16 : VkIndexType.Uint32;
-			_cmd!.Cmd.CmdBindIndexBuffer(&handle, 0, idxt);
+			_cmd!.Cmd.CmdBindIndexBuffer(handle, 0, idxt);
 			_boundIndexBuffer = true;
 		}
 		#endregion // Vertex/Index
@@ -516,7 +622,7 @@ namespace Vega.Graphics
 		private void resetRenderState()
 		{
 			Array.Fill(_bindingIndices, (ushort)0);
-			_bindingsDirty = true;
+			_bindingsDirty = false;
 			_bindingSize = ((BoundShader!.Info.MaxBindingSlot + 2) / 2) * 4;
 
 			_vertexBufferMask = 0;

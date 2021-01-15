@@ -7,6 +7,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Vulkan;
 
 namespace Vega
 {
@@ -155,5 +156,8 @@ namespace Vega
 		public static implicit operator Extent2D (in (uint w, uint h) tup) =>
 			new Extent2D(tup.w, tup.h);
 		#endregion // Tuples
+
+		// Convert into a vulkan extent object
+		internal readonly VkExtent2D AsVkExtent() => new(Width, Height);
 	}
 }
