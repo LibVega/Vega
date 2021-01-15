@@ -44,6 +44,11 @@ namespace Vega.Graphics
 		/// </summary>
 		public uint BindingCount => (uint)Elements.Sum(e => e.BindingCount);
 
+		/// <summary>
+		/// A bitmask of the attribute locations that are filled by this description.
+		/// </summary>
+		public readonly uint LocationMask;
+
 		// A precalculated hash code for faster comparisons and lookups
 		private readonly int _hashCode;
 		#endregion // Fields
@@ -69,6 +74,7 @@ namespace Vega.Graphics
 			Stride = stride.HasValue ? stride.Value : _elements.Max(e => e.Offset + e.Format.GetSize());
 			Rate = rate;
 			_hashCode = CalculateHash(rate, _elements, _locations);
+			LocationMask = CalculateLocationMask(_elements, _locations);
 		}
 
 		/// <summary>
@@ -86,6 +92,7 @@ namespace Vega.Graphics
 			Stride = _elements.Max(e => e.Offset + e.Format.GetSize());
 			Rate = rate;
 			_hashCode = CalculateHash(rate, _elements, _locations);
+			LocationMask = CalculateLocationMask(_elements, _locations);
 		}
 
 		/// <summary>
@@ -105,6 +112,7 @@ namespace Vega.Graphics
 			Stride = stride.HasValue ? stride.Value : _elements.Max(e => e.Offset + e.Format.GetSize());
 			Rate = rate;
 			_hashCode = CalculateHash(rate, _elements, _locations);
+			LocationMask = CalculateLocationMask(_elements, _locations);
 		}
 
 		/// <summary>
@@ -122,6 +130,7 @@ namespace Vega.Graphics
 			Stride = _elements.Max(e => e.Offset + e.Format.GetSize());
 			Rate = rate;
 			_hashCode = CalculateHash(rate, _elements, _locations);
+			LocationMask = CalculateLocationMask(_elements, _locations);
 		}
 
 		/// <summary>
@@ -144,6 +153,7 @@ namespace Vega.Graphics
 			Stride = off;
 			Rate = rate;
 			_hashCode = CalculateHash(rate, _elements, _locations);
+			LocationMask = CalculateLocationMask(_elements, _locations);
 		}
 
 		#region Overrides
@@ -181,6 +191,20 @@ namespace Vega.Graphics
 				code.Add(elements[i].GetHashCode() ^ locations[i].GetHashCode());
 			}
 			return code.ToHashCode();
+		}
+
+		// Calculates a location mask for the given elements and location
+		private static uint CalculateLocationMask(VertexElement[] elements, uint[] locations)
+		{
+			uint mask = 0;
+			for (int i = 0; i < elements.Length; ++i) {
+				var loc = locations[i];
+				var locnum = elements[i].BindingCount;
+				for (uint l = loc; l < (loc + locnum); ++l) {
+					mask |= (1u << (int)l);
+				}
+			}
+			return mask;
 		}
 	}
 }

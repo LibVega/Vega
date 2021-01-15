@@ -7,6 +7,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics.X86;
 using Vulkan;
 
 namespace Vega.Graphics
@@ -61,6 +62,11 @@ namespace Vega.Graphics
 		// Uniform data fields
 		private ulong _uniformOffset = 0;
 		private bool _uniformDirty = false;
+
+		// Bound vertex/index buffer information
+		private uint _vertexBufferMask = 0;
+		private uint _vertexBufferCount => (uint)Popcnt.X64.PopCount(_vertexBufferMask);
+		private bool _boundIndexBuffer = false;
 		#endregion // Fields
 
 		/// <summary>
@@ -205,6 +211,126 @@ namespace Vega.Graphics
 			_cmd = null;
 		}
 		#endregion // Recording State
+
+		#region Vertex/Index
+		/// <summary>
+		/// Binds the vertex buffer as the source of vertex data for following draw commands.
+		/// </summary>
+		/// <param name="buffer">The vertex buffer to bind.</param>
+		public void BindVertexBuffer(VertexBuffer buffer)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot bind a vertex buffer in a non-recording command recorder");
+			}
+			if (buffer.IsDisposed) {
+				throw new ObjectDisposedException(nameof(buffer));
+			}
+			if (BoundPipeline!.VertexBindingCount != 1) {
+				throw new InvalidOperationException(
+					"Cannot bind a single vertex buffer to pipeline expecting more than one");
+			}
+			uint mask = buffer.VertexDescription.LocationMask;
+			if ((BoundShader!.Info.VertexLocationMask & mask) != mask) {
+				throw new ArgumentException("Invalid vertex buffer bind - attribute location mismatch", nameof(buffer));
+			}
+
+			// Bind vertex buffer
+			var handle = buffer.Handle.Handle;
+			ulong ZERO = 0;
+			_cmd!.Cmd.CmdBindVertexBuffers(0, 1, &handle, &ZERO);
+			_vertexBufferMask = 0x1;
+		}
+
+		/// <summary>
+		/// Binds the vertex buffer to the binding given by index.
+		/// </summary>
+		/// <param name="index">The binding index to bind the vertex buffer to.</param>
+		/// <param name="buffer">The vertex buffer to bind.</param>
+		public void BindVertexBuffer(uint index, VertexBuffer buffer)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot bind a vertex buffer in a non-recording command recorder");
+			}
+			if (buffer.IsDisposed) {
+				throw new ObjectDisposedException(nameof(buffer));
+			}
+			if (index >= BoundPipeline!.VertexBindingCount) {
+				throw new InvalidOperationException($"Vertex buffer index {index} is invalid for the bound pipeline");
+			}
+			uint mask = buffer.VertexDescription.LocationMask;
+			if ((BoundShader!.Info.VertexLocationMask & mask) != mask) {
+				throw new ArgumentException("Invalid vertex buffer bind - attribute location mismatch", nameof(buffer));
+			}
+
+			// Bind vertex buffer
+			var handle = buffer.Handle.Handle;
+			ulong ZERO = 0;
+			_cmd!.Cmd.CmdBindVertexBuffers(index, 1, &handle, &ZERO);
+			_vertexBufferMask |= (1u << (int)index);
+		}
+
+		/// <summary>
+		/// Binds multiple vertex buffers to the pipeline, starting at binding index 0.
+		/// </summary>
+		/// <param name="buffers">The buffers to bind.</param>
+		public void BindVertexBuffers(params VertexBuffer[] buffers)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot bind a vertex buffer in a non-recording command recorder");
+			}
+			if (buffers.Length != BoundPipeline!.VertexBindingCount) {
+				throw new InvalidOperationException("Vertex buffer count mismatch for pipeline bind");
+			}
+			if (buffers.Length == 0) {
+				return;
+			}
+
+			// Per-buffer validate
+			foreach (var buffer in buffers) {
+				if (buffer.IsDisposed) {
+					throw new ObjectDisposedException(nameof(buffer));
+				}
+				uint mask = buffer.VertexDescription.LocationMask;
+				if ((BoundShader!.Info.VertexLocationMask & mask) != mask) {
+					throw new ArgumentException("Invalid vertex buffer bind - attribute location mismatch", nameof(buffers));
+				}
+			}
+
+			// Bind the buffers
+			var handles = stackalloc VulkanHandle<VkBuffer>[buffers.Length];
+			var offsets = stackalloc ulong[buffers.Length];
+			for (int i = 0; i < buffers.Length; ++i) {
+				handles[i] = buffers[i].Handle.Handle;
+				offsets[i] = 0;
+				_vertexBufferMask |= (1u << i);
+			}
+			_cmd!.Cmd.CmdBindVertexBuffers(0, (uint)buffers.Length, handles, offsets);
+		}
+
+		/// <summary>
+		/// Binds the index buffer as the source of index data for following indexed draw commands.
+		/// </summary>
+		/// <param name="buffer">The index buffer to bind.</param>
+		public void BindIndexBuffer(IndexBuffer buffer)
+		{
+			// Validate
+			if (!IsRecording) {
+				throw new InvalidOperationException("Cannot bind a vertex buffer in a non-recording command recorder");
+			}
+			if (buffer.IsDisposed) {
+				throw new ObjectDisposedException(nameof(buffer));
+			}
+
+			// Bind index buffer
+			var handle = buffer.Handle.Handle;
+			var idxt = (buffer.IndexType == IndexType.Short) ? VkIndexType.Uint16 : VkIndexType.Uint32;
+			_cmd!.Cmd.CmdBindIndexBuffer(&handle, 0, idxt);
+			_boundIndexBuffer = true;
+		}
+		#endregion // Vertex/Index
 
 		#region Data
 		/// <summary>
@@ -392,6 +518,9 @@ namespace Vega.Graphics
 			Array.Fill(_bindingIndices, (ushort)0);
 			_bindingsDirty = true;
 			_bindingSize = ((BoundShader!.Info.MaxBindingSlot + 2) / 2) * 4;
+
+			_vertexBufferMask = 0;
+			_boundIndexBuffer = false;
 		}
 
 		// Called before a draw command is submitted to update descriptor sets and push new binding indices

@@ -38,10 +38,15 @@ namespace Vega.Graphics
 		/// </summary>
 		public readonly uint Subpass;
 
+		/// <summary>
+		/// The expected number of vertex bindings for this pipeline.
+		/// </summary>
+		public readonly uint VertexBindingCount;
+
 		// The pipeline handle
 		internal VkPipeline Handle { get; private set; }
 		// The cached build state for pipeline rebuilds
-		internal readonly BuildStates? BuildCache;
+		internal readonly BuildStates? BuildCache = null;
 		#endregion // Fields
 
 		/// <summary>
@@ -54,13 +59,19 @@ namespace Vega.Graphics
 			: base(ResourceType.Pipeline)
 		{
 			// Create the pipeline handle
-			Handle = CreatePipeline(description, renderer, subpass, out BuildCache);
+			Handle = CreatePipeline(description, renderer, subpass, out var cache);
+			if (renderer.MSAALayout is not null) {
+				BuildCache = cache; // Only save cache if we might rebuild from MSAA change
+			}
 
 			// Assign fields
 			Shader = description.Shader!;
 			Shader.IncRef();
 			Renderer = renderer;
 			Subpass = subpass;
+
+			// Assign values
+			VertexBindingCount = (uint)cache.VertexBindings.Length;
 
 			// Register to the renderer
 			renderer.AddPipeline(this);
@@ -101,7 +112,7 @@ namespace Vega.Graphics
 
 		#region Creation
 		internal static VkPipeline CreatePipeline(PipelineDescription desc, Renderer renderer, uint subpass, 
-			out BuildStates? buildState)
+			out BuildStates buildState)
 		{
 			// Validate
 			var rlayout = (renderer.MSAA != MSAA.X1) ? renderer.MSAALayout! : renderer.Layout;

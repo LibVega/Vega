@@ -25,6 +25,10 @@ namespace Vega.Graphics
 		/// </summary>
 		public IReadOnlyList<VertexInput> VertexInputs => _vertexInputs;
 		private readonly VertexInput[] _vertexInputs;
+		/// <summary>
+		/// A bitmask of all attribute locations used by this shader.
+		/// </summary>
+		public readonly uint VertexLocationMask;
 
 		/// <summary>
 		/// A list of the fragment outputs in the shader.
@@ -85,6 +89,14 @@ namespace Vega.Graphics
 			Stages = stages;
 
 			_vertexInputs = vertexInputs;
+			VertexLocationMask = 0;
+			foreach (var input in vertexInputs) {
+				var loc = input.Location;
+				var locnum = input.Format.GetBindingCount() * input.ArraySize;
+				for (uint l = loc; l < (loc + locnum); ++l) {
+					VertexLocationMask |= (1u << (int)l);
+				}
+			}
 
 			_fragmentOutputs = fragmentOutputs;
 
