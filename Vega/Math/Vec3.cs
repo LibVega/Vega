@@ -194,7 +194,7 @@ namespace Vega
 		public static void Cross(in Vec3 l, in Vec3 r, out Vec3 o)
 		{
 			o.X = (l.Y * r.Z) - (l.Z * r.Y);
-			o.Y = (l.X * r.Z) - (l.Z * r.X);
+			o.Y = (l.Z * r.X) - (l.X * r.Z);
 			o.Z = (l.X * r.Y) - (l.Y * r.X);
 		}
 

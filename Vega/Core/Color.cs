@@ -82,6 +82,11 @@ namespace Vega
 			readonly get => A / 255f;
 			set => A = (byte)(value * 255);
 		}
+
+		/// <summary>
+		/// Gets the inverse of the color.
+		/// </summary>
+		public readonly Color Inverse => new((byte)(255 - R), (byte)(255 - G), (byte)(255 - B), A);
 		#endregion // Fields
 
 		/// <summary>

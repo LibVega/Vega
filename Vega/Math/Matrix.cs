@@ -1034,24 +1034,24 @@ namespace Vega
 		/// <param name="o">The output matrix.</param>
 		public static void CreateLookAt(in Vec3 pos, in Vec3 targ, in Vec3 up, out Matrix o)
 		{
-			Vec3 forward = (pos - targ).Normalized;
-			Vec3.Cross(forward, up, out Vec3 right);
-			Vec3.Cross(forward, right, out Vec3 trueup);
+			Vec3 forward = (targ - pos).Normalized;
+			Vec3.Cross(forward, up.Normalized, out Vec3 right);
+			Vec3.Cross(right, forward, out Vec3 trueup);
 
-			float d1 = -Vec3.Dot(right, pos);
-			float d2 = -Vec3.Dot(trueup, pos);
-			float d3 = -Vec3.Dot(forward, pos);
+			float d1 = Vec3.Dot(right, pos);
+			float d2 = Vec3.Dot(trueup, pos);
+			float d3 = Vec3.Dot(forward, pos);
 
-			o.M00 = right.X; o.M01 = trueup.X; o.M02 = forward.X; o.M03 = 0;
-			o.M10 = right.Y; o.M11 = trueup.Y; o.M12 = forward.Y; o.M13 = 0;
-			o.M20 = right.Z; o.M21 = trueup.Z; o.M22 = forward.Z; o.M23 = 0;
-			o.M30 =      d1; o.M31 =       d2; o.M32 =        d3; o.M33 = 1;
+			o.M00 = right.X; o.M01 = trueup.X; o.M02 = -forward.X; o.M03 = 0;
+			o.M10 = right.Y; o.M11 = trueup.Y; o.M12 = -forward.Y; o.M13 = 0;
+			o.M20 = right.Z; o.M21 = trueup.Z; o.M22 = -forward.Z; o.M23 = 0;
+			o.M30 =     -d1; o.M31 =       -d2; o.M32 =         d3; o.M33 = 1;
 		}
 
 		/// <summary>
 		/// Creates a matrix that represents a perspective projection (more distant objects are smaller).
 		/// </summary>
-		/// <param name="fov">The field of view of the projection.</param>
+		/// <param name="fov">The field of view of the projection in radians.</param>
 		/// <param name="aspect">The aspect ratio of the projections.</param>
 		/// <param name="near">The distance to the near clipping plane.</param>
 		/// <param name="far">The distance to the far clipping plane.</param>
@@ -1065,15 +1065,16 @@ namespace Vega
 		/// <summary>
 		/// Creates a matrix that represents a perspective projection (more distant objects are smaller).
 		/// </summary>
-		/// <param name="fov">The field of view of the projection.</param>
+		/// <param name="fov">The field of view of the projection in radians.</param>
 		/// <param name="aspect">The aspect ratio of the projections.</param>
 		/// <param name="near">The distance to the near clipping plane.</param>
 		/// <param name="far">The distance to the far clipping plane.</param>
 		/// <param name="o">The output matrix.</param>
 		public static void CreatePerspective(float fov, float aspect, float near, float far, out Matrix o)
 		{
-			float f = 1f / MathF.Atan(fov / 2);
+			float f = 1f / MathF.Tan(fov / 2);
 
+			// Flip M11 to map to Vulkan -y coordinates
 			o.M00 = f / aspect; o.M01 =  0; o.M02 =                           0; o.M03 =  0;
 			o.M10 =          0; o.M11 = -f; o.M12 =                           0; o.M13 =  0;
 			o.M20 =          0; o.M21 =  0; o.M22 =          far / (near - far); o.M23 = -1;
@@ -1106,10 +1107,11 @@ namespace Vega
 		{
 			float depth = near - far;
 
-			o.M00 = 2 / width; o.M01 =          0; o.M02 =            0; o.M03 = 0;
-			o.M10 =         0; o.M11 = 2 / height; o.M12 =            0; o.M13 = 0;
-			o.M20 =         0; o.M21 =          0; o.M22 =    1 / depth; o.M23 = 0;
-			o.M30 =        -1; o.M31 =         -1; o.M32 = near / depth; o.M33 = 1;
+			// Flip M11 to map to Vulkan -y coordinates
+			o.M00 = 2 / width; o.M01 =           0; o.M02 =            0; o.M03 = 0;
+			o.M10 =         0; o.M11 = -2 / height; o.M12 =            0; o.M13 = 0;
+			o.M20 =         0; o.M21 =           0; o.M22 =    1 / depth; o.M23 = 0;
+			o.M30 =         0; o.M31 =           0; o.M32 = near / depth; o.M33 = 1;
 		}
 
 		/// <summary>
@@ -1144,8 +1146,9 @@ namespace Vega
 		{
 			float width = right - left, height = bottom - top, depth = near - far;
 
+			// Flip M11 to map to Vulkan -y coordinates
 			o.M00 =               2 / width; o.M01 =                        0; o.M02 =            0; o.M03 = 0;
-			o.M10 =                       0; o.M11 =               2 / height; o.M12 =            0; o.M13 = 0;
+			o.M10 =                       0; o.M11 =              -2 / height; o.M12 =            0; o.M13 = 0;
 			o.M20 =                       0; o.M21 =                        0; o.M22 =    1 / depth; o.M23 = 0;
 			o.M30 = -(right + left) / width; o.M31 = -(bottom + top) / height; o.M32 = near / depth; o.M33 = 1;
 		}

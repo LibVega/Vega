@@ -32,6 +32,14 @@ namespace Vega
 		/// Default value for <c>double</c> epsilon comparisons.
 		/// </summary>
 		public const double DOUBLE_EPSILON = Double.Epsilon * 10;
+		/// <summary>
+		/// Constant for converting degrees to radians.
+		/// </summary>
+		public const float DEG2RAD = (float)(Math.PI / 180);
+		/// <summary>
+		/// Constant for converting radians to degrees.
+		/// </summary>
+		public const float RAD2DEG = (float)(180 / Math.PI);
 
 		#region Floating Point
 		/// <summary>
