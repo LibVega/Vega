@@ -7,21 +7,22 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Vega.Graphics;
 
-namespace Vega.Graphics
+namespace Vega.Render
 {
 	/// <summary>
-	/// Vertex type representing a position and texture coordinate.
+	/// Vertex type representing a position and color.
 	/// </summary>
-	[StructLayout(LayoutKind.Explicit, Size = 20)]
-	public struct VertexPT : IEquatable<VertexPT>
+	[StructLayout(LayoutKind.Explicit, Size = 16)]
+	public struct VertexPC : IEquatable<VertexPC>
 	{
 		/// <summary>
 		/// The elements that make up this vertex type.
 		/// </summary>
 		public static readonly IReadOnlyList<VertexElement> Elements = new VertexElement[] {
 			new(VertexFormat.Float3, 0, 1),
-			new(VertexFormat.Float2, 12, 1)
+			new(VertexFormat.Float4Unorm8, 12, 1)
 		};
 		/// <summary>
 		/// The default vertex description for this vertex type.
@@ -34,35 +35,35 @@ namespace Vega.Graphics
 		/// </summary>
 		[FieldOffset(0)] public Vec3 Position;
 		/// <summary>
-		/// The vertex texture coordinate.
+		/// The vertex color.
 		/// </summary>
-		[FieldOffset(12)] public Vec2 TexCoord;
+		[FieldOffset(12)] public Color Color;
 		#endregion // Fields
 
 		/// <summary>
-		/// Construct a new vertex from a position and texture coordinate.
+		/// Construct a new vertex from a position and color.
 		/// </summary>
-		public VertexPT(in Vec3 pos, in Vec2 uv)
+		public VertexPC(in Vec3 pos, in Color color)
 		{
 			Position = pos;
-			TexCoord = uv;
+			Color = color;
 		}
 
 		#region Overrides
-		public readonly override int GetHashCode() => Position.GetHashCode() ^ TexCoord.GetHashCode();
+		public readonly override int GetHashCode() => Position.GetHashCode() ^ Color.GetHashCode();
 
-		public readonly override string ToString() => $"[P:{Position},T:{TexCoord}]";
+		public readonly override string ToString() => $"[P:{Position},C:{Color}]";
 
-		public readonly override bool Equals(object? obj) => (obj is VertexPT vert) && (vert == this);
+		public readonly override bool Equals(object? obj) => (obj is VertexPC vert) && (vert == this);
 
-		readonly bool IEquatable<VertexPT>.Equals(VertexPT other) => other == this;
+		readonly bool IEquatable<VertexPC>.Equals(VertexPC other) => other == this;
 		#endregion // Overrides
 
 		#region Operators
-		public static bool operator == (in VertexPT l, in VertexPT r) =>
-			(l.Position == r.Position) && (l.TexCoord == r.TexCoord);
-		public static bool operator != (in VertexPT l, in VertexPT r) =>
-			(l.Position != r.Position) || (l.TexCoord != r.TexCoord);
+		public static bool operator == (in VertexPC l, in VertexPC r) =>
+			(l.Position == r.Position) && (l.Color == r.Color);
+		public static bool operator != (in VertexPC l, in VertexPC r) =>
+			(l.Position != r.Position) || (l.Color != r.Color);
 		#endregion // Operators
 	}
 }

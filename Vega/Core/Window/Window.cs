@@ -7,6 +7,7 @@
 using System;
 using Vega.Graphics;
 using Vega.Input;
+using Vega.Render;
 
 namespace Vega
 {

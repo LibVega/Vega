@@ -7,8 +7,9 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Vega.Graphics;
 
-namespace Vega.Graphics
+namespace Vega.Render
 {
 	/// <summary>
 	/// Vertex type representing a position, color, and texture coordinate.

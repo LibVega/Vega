@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using Vega.Render; // Breaks the no Graphics->Render reference rule, but its okay in this case (just compat checks)
 using Vulkan;
 
 namespace Vega.Graphics
