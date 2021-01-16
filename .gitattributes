@@ -1,5 +1,2 @@
 
 # Linguist Ignore Paths
-Dependencies/content/src/dr_flac.h linguist-vendored
-Dependencies/content/src/dr_wav.h linguist-vendored
-Dependencies/content/src/stb_vorbis.h linguist-vendored
