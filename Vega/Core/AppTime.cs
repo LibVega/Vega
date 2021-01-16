@@ -28,17 +28,33 @@ namespace Vega
 		/// </summary>
 		public static TimeSpan Delta { get; private set; } = TimeSpan.Zero;
 		/// <summary>
+		/// The value of <see cref="Delta"/> as raw seconds.
+		/// </summary>
+		public static float DeltaSeconds => (float)Delta.TotalSeconds;
+		/// <summary>
 		/// The unscaled version of <see cref="Delta"/>, that is unaffected by <see cref="Scale"/>.
 		/// </summary>
 		public static TimeSpan RealDelta { get; private set; } = TimeSpan.Zero;
+		/// <summary>
+		/// The value of <see cref="RealDelta"/> as raw seconds.
+		/// </summary>
+		public static float RealDeltaSeconds => (float)RealDelta.TotalSeconds;
 		/// <summary>
 		/// The total amount of elapsed wall time since the application started.
 		/// </summary>
 		public static TimeSpan Elapsed { get; private set; } = TimeSpan.Zero;
 		/// <summary>
+		/// The value of <see cref="Elapsed"/> as raw seconds.
+		/// </summary>
+		public static float ElapsedSeconds => (float)Elapsed.TotalSeconds;
+		/// <summary>
 		/// The total amount of elapsed wall time in the last frame.
 		/// </summary>
 		public static TimeSpan LastElapsed { get; private set; } = TimeSpan.Zero;
+		/// <summary>
+		/// The value of <see cref="LastElapsed"/> as raw seconds.
+		/// </summary>
+		public static float LastElapsedSeconds => (float)LastElapsed.TotalSeconds;
 
 		/// <summary>
 		/// The total number of frames run by the application.
