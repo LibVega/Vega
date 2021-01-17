@@ -5,6 +5,7 @@
  */
 
 using System;
+using Vega.Content;
 using Vega.Graphics;
 using Vega.Input;
 using Vega.Render;
@@ -92,6 +93,12 @@ namespace Vega
 		/// </summary>
 		public CommandRecorder Commands => _commands!;
 		private CommandRecorder? _commands = null;
+
+		/// <summary>
+		/// The content manager for global application content.
+		/// </summary>
+		public ContentManager Content => _content!;
+		private ContentManager? _content = null!;
 		#endregion // Core Objects
 
 		/// <summary>
@@ -209,6 +216,7 @@ namespace Vega
 
 				// Load content
 				Phase = ApplicationPhase.LoadContent;
+				_content = new();
 				LoadContent();
 
 				// One GC cleanup before main loop
@@ -380,6 +388,7 @@ namespace Vega
 				OnDispose(disposing);
 
 				if (disposing) {
+					_content?.Dispose();
 					_commands?.Dispose();
 					_renderer?.Dispose();
 					_mainWindow?.Dispose();
