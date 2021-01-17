@@ -37,6 +37,17 @@ namespace Vega
 		/// </summary>
 		public readonly Version AppVersion;
 
+		/// <summary>
+		/// If <c>true</c>, then unhandled application exceptions will be caught and stored in
+		/// <see cref="ExceptionInfo"/>. Otherwise, they will propgate to the top level of the application.
+		/// </summary>
+		public bool CaptureUnhandledExceptions = true;
+		/// <summary>
+		/// Information about an unhandled runtime exception, populated if <see cref="CaptureUnhandledExceptions"/>
+		/// is <c>true</c>.
+		/// </summary>
+		public RuntimeExceptionInfo? ExceptionInfo { get; private set; } = null;
+
 		#region Core Objects
 		/// <summary>
 		/// The core library object. This will not be constructed until <see cref="Run"/> has been called.
@@ -74,26 +85,24 @@ namespace Vega
 		/// </para>
 		/// </summary>
 		public Renderer Renderer => _renderer!;
-		//{
-		//	get => _renderer!;
-		//	protected set {
-		//		if (_renderer is not null) {
-
-		//		}
-		//		if ((value.Window is null) || !ReferenceEquals(value.Window, _mainWindow)) {
-		//			throw new InvalidOperationException(
-		//				"Cannot set ApplicationBase.Renderer to a Renderer instance that does not use MainWindow");
-		//		}
-		//		_renderer = value;
-		//	}
-		//}
 		private Renderer? _renderer = null;
+
+		/// <summary>
+		/// A command recorder instance for use by the application.
+		/// </summary>
+		public CommandRecorder Commands => _commands!;
+		private CommandRecorder? _commands = null;
 		#endregion // Core Objects
 
 		/// <summary>
 		/// Gets a flag indicating if the application should exit. This can be triggered either through
 		/// </summary>
 		public bool ShouldExit => Core.ShouldExit;
+
+		/// <summary>
+		/// The current phase of the application.
+		/// </summary>
+		public ApplicationPhase Phase { get; private set; } = ApplicationPhase.BeforeRun;
 
 		/// <summary>
 		/// Flag telling if this application instance has been disposed.
@@ -128,6 +137,41 @@ namespace Vega
 			dispose(false);
 		}
 
+		#region Object Management
+		/// <summary>
+		/// Sets the renderer to be used for the application, instead of the default. This can only be called in
+		/// <see cref="Initialize"/>.
+		/// </summary>
+		/// <param name="desc">
+		/// The description of the renderer to use. Must be compatible with <see cref="MainWindow"/>.
+		/// </param>
+		/// <param name="msaa">The initial MSAA of the renderer, if MSAA is supported.</param>
+		protected void UseRendererDescription(RendererDescription desc, MSAA msaa = MSAA.X1)
+		{
+			// Check for existing
+			if (_renderer is not null) {
+				throw new InvalidOperationException("Cannot set application renderer after it has been created");
+			}
+			if (Phase != ApplicationPhase.Initialize) {
+				throw new InvalidOperationException("Application renderer cannot be set outside of Initialize()");
+			}
+
+			// Check compatibility
+			if (desc.Attachments[0].Format != MainWindow.SurfaceFormat) {
+				throw new ArgumentException("Application renderer attachment 0 must match window format", nameof(desc));
+			}
+			if (!desc.Attachments[0].Preserve) {
+				throw new ArgumentException("Application renderer must preserve window attachment", nameof(desc));
+			}
+			if (!desc.ResolveSubpass.HasValue && (msaa != MSAA.X1)) {
+				throw new ArgumentException("Cannot use non-one msaa on renderer that does not support it", nameof(msaa));
+			} 
+
+			// Create renderer
+			_renderer = new(MainWindow, desc, msaa);
+		}
+		#endregion // Object Management
+
 		#region Execution Control
 		/// <summary>
 		/// Performs final initialization and resource loading, then launches the main application loop.
@@ -135,31 +179,62 @@ namespace Vega
 		/// Note that this function blocks until the application is exited.
 		/// </para>
 		/// </summary>
-		public void Run()
+		/// <returns>
+		/// If the application completed successfully, <c>false</c> implies an unhandled exception occured, which will
+		/// be stored in <see cref="ExceptionInfo"/>.
+		/// </returns>
+		public bool Run()
 		{
-			// Create the core object
-			_core = new(AppName, AppVersion);
+			Phase = ApplicationPhase.Initialize;
 
-			// Open the window
-			_mainWindow = _core!.CreateWindow(AppName, DEFAULT_WINDOW_SIZE.Width, DEFAULT_WINDOW_SIZE.Height);
+			try {
+				// Create the core object
+				_core = new(AppName, AppVersion);
 
-			// Do initialization
-			Initialize();
+				// Open the window
+				_mainWindow = _core!.CreateWindow(AppName, DEFAULT_WINDOW_SIZE.Width, DEFAULT_WINDOW_SIZE.Height);
 
-			// Create default renderer if custom is not selected
-			if (_renderer is null) {
-				// Default description - single-pass forward renderer with depth/stencil that supports MSAA
-				RendererDescription desc = new(new(MainWindow.SurfaceFormat, true, AttachmentUse.Output));
-				desc.AddAttachment(new(TexelFormat.Depth24Stencil8, false, AttachmentUse.Output));
-				desc.SetResolveSubpass(0);
-				_renderer = new(MainWindow, desc, MSAA.X1);
+				// Do initialization
+				Initialize();
+
+				// Create default renderer if custom is not selected
+				if (_renderer is null) {
+					// Default description - single-pass forward renderer with depth/stencil that supports MSAA
+					RendererDescription desc = new(new(MainWindow.SurfaceFormat, true, AttachmentUse.Output));
+					desc.AddAttachment(new(TexelFormat.Depth24Stencil8, false, AttachmentUse.Output));
+					desc.SetResolveSubpass(0);
+					_renderer = new(MainWindow, desc, MSAA.X1);
+				}
+				_commands = new();
+
+				// Load content
+				Phase = ApplicationPhase.LoadContent;
+				LoadContent();
+
+				// One GC cleanup before main loop
+				GC.Collect();
+
+				// Run main loop
+				Phase = ApplicationPhase.BeforeStart;
+				BeforeStart();
+				Phase = ApplicationPhase.InterFrame;
+				mainLoop();
+
+				// Perform shutdown
+				Phase = ApplicationPhase.Terminate;
+				Terminate();
+			}
+			catch (Exception ex) {
+				if (CaptureUnhandledExceptions) {
+					ExceptionInfo = new(Phase, ex);
+					return false;
+				}
+				else {
+					throw;
+				}
 			}
 
-			// One GC cleanup before main loop
-			GC.Collect();
-
-			BeforeStart();
-			mainLoop();
+			return true;
 		}
 
 		/// <summary>
@@ -175,6 +250,9 @@ namespace Vega
 		/// <summary>
 		/// Called to perform post-constructor initialization. When this is called, most of the core objects will have
 		/// been created.
+		/// <para>
+		/// If a custom renderer is required, <see cref="UseRendererDescription"/> should be called in this function.
+		/// </para>
 		/// <para>
 		/// Do not load content in this function, instead use <see cref="LoadContent"/>.
 		/// </para>
@@ -196,11 +274,7 @@ namespace Vega
 		/// Called after the main loop exits and the application starts shutdown. This is where content should be
 		/// unloaded and custom shutdown logic implemented.
 		/// </summary>
-		/// <param name="disposing">
-		/// <c>true</c> if <see cref="Dispose"/> was called, indicating a normal shutdown. <c>false</c> implies the
-		/// garbage collector cleaned up the object which may indicate an anormal shutdown.
-		/// </param>
-		protected virtual void Terminate(bool disposing) { }
+		protected virtual void Terminate() { }
 		#endregion // Setup/Takedown
 
 		#region Core Loop
@@ -211,15 +285,19 @@ namespace Vega
 			while (!ShouldExit) {
 				Core.NextFrame();
 
+				Phase = ApplicationPhase.Update;
 				PreUpdate();
 				Update();
 				PostUpdate();
 
+				Phase = ApplicationPhase.Render;
 				PreRender();
 				_renderer!.Begin();
 				Render();
 				PostRender();
 				_renderer.End();
+
+				Phase = ApplicationPhase.InterFrame;
 			}
 		}
 
@@ -246,6 +324,10 @@ namespace Vega
 
 		/// <summary>
 		/// Called once per frame to perform render command preparation, recording, and submission.
+		/// <para>
+		/// <see cref="Renderer"/> will already be started in this function. This function <b>must not</b> end the
+		/// renderer.
+		/// </para>
 		/// </summary>
 		protected abstract void Render();
 
@@ -283,12 +365,22 @@ namespace Vega
 			GC.SuppressFinalize(this);
 		}
 
+		/// <summary>
+		/// Perform custom object disposal logic. Called either during <see cref="Dispose"/> or during the application
+		/// finalizer.
+		/// </summary>
+		/// <param name="disposing">
+		/// <c>true</c> if the function was called from <see cref="Dispose"/>, <c>false</c> if from the finalizer.
+		/// </param>
+		protected virtual void OnDispose(bool disposing) { }
+
 		private void dispose(bool disposing)
 		{
 			if (!IsDisposed) {
-				Terminate(disposing);
+				OnDispose(disposing);
 
 				if (disposing) {
+					_commands?.Dispose();
 					_renderer?.Dispose();
 					_mainWindow?.Dispose();
 					_core?.Dispose();
