@@ -74,13 +74,17 @@ namespace Vega
 		/// <param name="version">The application version.</param>
 		public Core(string name, Version version)
 		{
+			// Validate name
 			if (String.IsNullOrWhiteSpace(name)) {
 				throw new ArgumentException("Application name cannot be empty", nameof(name));
 			}
 			if (Instance != null) {
 				throw new InvalidOperationException("Cannot create more than one Core instance");
 			}
+
+			// Static initialization - note that the thread that constructs Core should be the main thread
 			Instance = this;
+			Threading.UpdateMainThread();
 
 			AppName = name;
 			AppVersion = version;

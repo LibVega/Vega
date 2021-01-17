@@ -131,6 +131,9 @@ namespace Vega
 			}
 			Instance = this;
 
+			// Static initialization - this beats Core to registering the main thread
+			Threading.UpdateMainThread();
+
 			// Setup values
 			AppName = appName;
 			AppVersion = appVersion;
