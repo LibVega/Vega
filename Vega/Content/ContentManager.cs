@@ -42,7 +42,7 @@ namespace Vega.Content
 		private readonly object _itemLock = new();
 
 		// Content loader instances
-		private readonly Dictionary<Type, ContentLoader> _loaders = new();
+		private readonly Dictionary<Type, IContentLoader> _loaders = new();
 		private readonly object _loaderLock = new();
 
 		/// <summary>
@@ -94,10 +94,11 @@ namespace Vega.Content
 
 			// Find the content loader for the type
 			var loadType = typeof(T);
-			ContentLoader loaderObject;
+			ContentLoaderBase<T> loaderObject;
 			lock (_loaderLock) {
 				if (_loaders.TryGetValue(loadType, out var loader)) {
-					loaderObject = loader;
+					loaderObject = (loader as ContentLoaderBase<T>)
+						?? throw new ContentLoadException(path, $"Invalid content loader type in cache");
 				}
 				else {
 					// TODO - load a new loader type if one is found
@@ -126,10 +127,39 @@ namespace Vega.Content
 		}
 
 		// Performs the loading for a content item
-		private T loadItem<T>(string path, ContentLoader loader)
+		private T loadItem<T>(string path, ContentLoaderBase<T> loader)
 			where T : class
 		{
-			return null!;
+			// Ensure the file exists
+			try {
+				var fullPath = Path.IsPathRooted(path)
+					? path
+					: Path.GetFullPath(Path.Combine(RootPath, path));
+				if (!File.Exists(fullPath)) {
+					throw new ContentLoadException(path, "File does not exist or could not be opened");
+				}
+			}
+			catch (ContentLoadException) {
+				throw;
+			}
+			catch (Exception ex) {
+				throw new ContentLoadException(path, "Invalid file path", ex);
+			}
+
+			// Try to load the file
+			try {
+				var item = loader.Load(path);
+				if (item is null) {
+					throw new ContentLoadException(path, "The content loader for the item returned null");
+				}
+				return item;
+			}
+			catch (ContentLoadException) {
+				throw;
+			}
+			catch (Exception ex) {
+				throw new ContentLoadException(path, "Content loader for item threw an exception", ex);
+			}
 		}
 		#endregion // Loading
 
