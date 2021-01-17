@@ -100,10 +100,8 @@ namespace Vega.Content
 					loaderObject = (loader as ContentLoaderBase<T>)
 						?? throw new ContentLoadException(path, $"Invalid content loader type in cache");
 				}
-				else {
-					// TODO - load a new loader type if one is found
-					throw new ContentLoadException(path,
-						$"No content loader type was found for loading {typeof(T)}.");
+				else if (!ContentLoaderRegistry.TryCreateLoaderType<T>(out loaderObject, out var createError)) {
+					throw new ContentLoadException(path, $"Failed to get content loader - {createError}");
 				}
 			}
 
