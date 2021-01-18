@@ -126,19 +126,19 @@ namespace Vega.Render
 			if (pipeline.Shader.Layout.BindingMask != 0) { // Global binding table
 				var tableHandle = pipeline.Renderer.Graphics.BindingTable.SetHandle.Handle;
 				_cmd.Cmd.CmdBindDescriptorSets(VkPipelineBindPoint.Graphics,
-					pipeline.Shader.PipelineLayout, 0, 1, &tableHandle, 0, null);
+					pipeline.Shader.Layout.PipelineLayout, 0, 1, &tableHandle, 0, null);
 			}
 			if (pipeline.Shader.Layout.UniformSize > 0) { // Uniform buffer
 				var unifHandle = pipeline.Renderer.UniformDescriptor.Handle;
 				var zero = 0u;
 				_cmd.Cmd.CmdBindDescriptorSets(VkPipelineBindPoint.Graphics,
-					pipeline.Shader.PipelineLayout, 1, 1, &unifHandle, 1, &zero);
+					pipeline.Shader.Layout.PipelineLayout, 1, 1, &unifHandle, 1, &zero);
 			}
 			if ((pipeline.Renderer.SubpassLayouts.Length > 0) && 
 					(pipeline.Renderer.SubpassLayouts[pipeline.Subpass] is not null)) { // Subpass inputs
 				var setHandle = pipeline.Renderer.SubpassDescriptors[pipeline.Subpass]!.Handle;
 				_cmd.Cmd.CmdBindDescriptorSets(VkPipelineBindPoint.Graphics,
-					pipeline.Shader.PipelineLayout, 2, 1, &setHandle, 0, null);
+					pipeline.Shader.Layout.PipelineLayout, 2, 1, &setHandle, 0, null);
 			}
 
 			// Setup correct viewport/scissor states
@@ -647,14 +647,14 @@ namespace Vega.Render
 				var offset = (uint)_uniformOffset;
 				// Dynamic offset update is *much* cheaper than a buffer rebinding update
 				_cmd!.Cmd.CmdBindDescriptorSets(VkPipelineBindPoint.Graphics,
-					BoundShader!.PipelineLayout, 1, 1, &setHandle, 1, &offset);
+					BoundShader!.Layout.PipelineLayout, 1, 1, &setHandle, 1, &offset);
 				_uniformDirty = false;
 			}
 
 			// Push new binding indices
 			if (_bindingsDirty) {
 				fixed (ushort* bidx = _bindingIndices) {
-					_cmd!.Cmd.CmdPushConstants(BoundShader!.PipelineLayout, 
+					_cmd!.Cmd.CmdPushConstants(BoundShader!.Layout.PipelineLayout, 
 						VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment, 0, _bindingSize, bidx);
 				}
 				_bindingsDirty = false;

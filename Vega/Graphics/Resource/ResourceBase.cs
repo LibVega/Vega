@@ -73,7 +73,7 @@ namespace Vega.Graphics
 		/// Mark the resource for disposal. Because of the parallel nature of graphics operations, some resources will
 		/// not be disposed until they are no longer in use (within a few frames in most cases).
 		/// </summary>
-		public void Dispose()
+		public virtual void Dispose()
 		{
 			if (!IsDisposed) {
 				OnDispose(true);

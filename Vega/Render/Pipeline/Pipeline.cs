@@ -249,7 +249,7 @@ namespace Vega.Render
 					depthStencilState: &depthStencilCI,
 					colorBlendState: &colorBlendCI,
 					dynamicState: &dynamicCI,
-					layout: shader.PipelineLayout,
+					layout: shader.Layout.PipelineLayout,
 					renderPass: renderer.RenderPass,
 					subpass: subpass,
 					basePipelineHandle: VulkanHandle<VkPipeline>.Null,

@@ -6,13 +6,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using Vulkan;
 
 namespace Vega.Graphics
 {
 	/// <summary>
 	/// Describes the layout of a shader program, including the public shader interface and other reflection info.
 	/// </summary>
-	public sealed partial class ShaderLayout
+	public sealed unsafe partial class ShaderLayout : ResourceBase
 	{
 		#region Fields
 		/// <summary>
@@ -75,6 +77,14 @@ namespace Vega.Graphics
 		/// </summary>
 		public IReadOnlyList<SubpassInput> SubpassInputs => _subpassInputs;
 		private readonly SubpassInput[] _subpassInputs;
+
+		// Layout objects for the shader program
+		internal readonly VkPipelineLayout PipelineLayout;
+		internal readonly VkDescriptorSetLayout? SubpassInputLayout = null;
+
+		// Reference counting
+		internal uint RefCount => _refCount;
+		private uint _refCount = 0;
 		#endregion // Fields
 
 		internal ShaderLayout(
@@ -83,11 +93,13 @@ namespace Vega.Graphics
 			FragmentOutput[] fragmentOutputs,
 			Binding[] bindings,
 			uint uniformSize, ShaderStages uniformStages, UniformMember[] uniformMembers,
-			SubpassInput[] spInputs
-		)
+			SubpassInput[] spInputs)
+				: base(ResourceType.ShaderLayout)
 		{
+			// Top-level info
 			Stages = stages;
 
+			// Vertex info
 			_vertexInputs = vertexInputs;
 			VertexLocationMask = 0;
 			foreach (var input in vertexInputs) {
@@ -97,9 +109,11 @@ namespace Vega.Graphics
 					VertexLocationMask |= (1u << (int)l);
 				}
 			}
-
+			
+			// Fragment info
 			_fragmentOutputs = fragmentOutputs;
 
+			// Binding info
 			_bindings = bindings;
 			BindingMask = 0;
 			Array.Fill(BindingTypes, (byte)0);
@@ -113,11 +127,27 @@ namespace Vega.Graphics
 				}
 			}
 
+			// Uniform info
 			UniformSize = uniformSize;
 			UniformStages = uniformStages;
 			_uniformMembers = uniformMembers;
 
+			// Subpass input info
 			_subpassInputs = spInputs;
+
+			// Create the layouts
+			PipelineLayout = CreatePipelineLayout(Graphics, this, out SubpassInputLayout);
+		}
+
+		// Increment the number of objects referring to this layout
+		internal void IncRefCount() => Interlocked.Increment(ref _refCount);
+		// Decrement the number of objects referring to this layout, destroying at ref == 0
+		internal void DecRefCount()
+		{
+			var newVal = Interlocked.Decrement(ref _refCount);
+			if ((newVal == 0) && (Core.Instance is not null)) {
+				Graphics.Resources.QueueDestroy(this);
+			}
 		}
 
 		#region Vertex Info
@@ -158,5 +188,89 @@ namespace Vega.Graphics
 		public BindingType? GetBindingType(uint slot) =>
 			((BindingMask & (1u << (int)slot)) > 0) ? (BindingType)BindingTypes[slot] : null;
 		#endregion // Binding Info
+
+		#region ResourceBase
+		/// <summary>
+		/// Do <em><b>NOT</b></em> call Dispose() on ShaderLayout directly.
+		/// </summary>
+		public override void Dispose() =>
+			throw new InvalidOperationException("Cannot call Dispose() on ShaderLayout directly");
+
+		// No-op for this resource
+		protected override void OnDispose(bool disposing) { }
+
+		protected internal override void Destroy()
+		{
+			PipelineLayout?.DestroyPipelineLayout(null);
+			SubpassInputLayout?.DestroyDescriptorSetLayout(null);
+		}
+		#endregion // ResourceBase
+
+		#region Layouts
+		// Creates a pipeline layout object from the given info
+		private static VkPipelineLayout CreatePipelineLayout(GraphicsDevice gd, ShaderLayout info,
+			out VkDescriptorSetLayout? subpassLayout)
+		{
+			// Get layout info, and create subpass layout if needed
+			var layouts = stackalloc VulkanHandle<VkDescriptorSetLayout>[3];
+			uint layoutCount = 1;
+			layouts[0] = info.Graphics.BindingTable.LayoutHandle;
+			if (info.UniformSize > 0) {
+				layouts[layoutCount++] = info.Graphics.BindingTable.UniformLayoutHandle;
+			}
+			if (info.SubpassInputs.Count > 0) {
+				if (info.UniformSize == 0) {
+					layouts[layoutCount++] = info.Graphics.BindingTable.BlankLayoutHandle;
+				}
+				subpassLayout = CreateSubpassInputLayout(info.Graphics, info);
+				layouts[layoutCount++] = subpassLayout;
+			}
+			else {
+				subpassLayout = null;
+			}
+
+			// Create the pipline layout
+			VkPushConstantRange pcr = new(
+				stageFlags: (VkShaderStageFlags)info.Stages,
+				offset: 0,
+				size: ((info.MaxBindingSlot + 2) / 2) * 4
+			);
+			VkPipelineLayoutCreateInfo plci = new(
+				flags: VkPipelineLayoutCreateFlags.NoFlags,
+				setLayoutCount: layoutCount,
+				setLayouts: layouts,
+				pushConstantRangeCount: (info.BindingMask == 0) ? 0 : 1, // No bindings = no push constant indices
+				pushConstantRanges: &pcr
+			);
+			VulkanHandle<VkPipelineLayout> layoutHandle;
+			info.Graphics.VkDevice.CreatePipelineLayout(&plci, null, &layoutHandle)
+				.Throw("Failed to create shader pipeline layout");
+			return new(layoutHandle, info.Graphics.VkDevice);
+		}
+
+		// Creates a descriptor set layout matching the subpass inputs for the shader
+		private static VkDescriptorSetLayout CreateSubpassInputLayout(GraphicsDevice gd, ShaderLayout info)
+		{
+			// Setup the layouts
+			var spiCount = info.SubpassInputs.Count;
+			var layouts = stackalloc VkDescriptorSetLayoutBinding[spiCount];
+			for (int i = 0; i < spiCount; ++i) {
+				layouts[i] = new(
+					(uint)i, VkDescriptorType.InputAttachment, 1, VkShaderStageFlags.Fragment, null
+				);
+			}
+
+			// Create the set layout
+			VkDescriptorSetLayoutCreateInfo dslci = new(
+				flags: VkDescriptorSetLayoutCreateFlags.NoFlags,
+				bindingCount: (uint)spiCount,
+				bindings: layouts
+			);
+			VulkanHandle<VkDescriptorSetLayout> handle;
+			gd.VkDevice.CreateDescriptorSetLayout(&dslci, null, &handle)
+				.Throw("Failed to create subpass input layout for shader");
+			return new(handle, gd.VkDevice);
+		}
+		#endregion // Layouts
 	}
 }

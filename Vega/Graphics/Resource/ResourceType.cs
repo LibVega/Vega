@@ -21,6 +21,7 @@ namespace Vega.Graphics
 		Texture1DArray,
 		Texture2DArray,
 		Shader,
+		ShaderLayout,
 		Pipeline
 	}
 }
