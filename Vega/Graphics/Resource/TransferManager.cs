@@ -191,7 +191,7 @@ namespace Vega.Graphics
 			VkBufferCopy bc = new(srcOffset, dstOffset, count);
 			cmd.CmdCopyBuffer(srcBuffer, dstBuffer, 1, &bc);
 
-			// Last barrier and end
+			// Last barrier
 			if (dstBufferType.HasValue) {
 				VkBufferMemoryBarrier dstBarrier = new(
 					srcAccessMask: VkAccessFlags.TransferWrite,
@@ -223,66 +223,8 @@ namespace Vega.Graphics
 		public void SetImageData(VkImage dstImage, TexelFormat fmt, in TextureRegion region, HostBuffer srcBuffer, 
 			ulong srcOff, ResourceType imageType, bool discard)
 		{
-			VkPipelineStageFlags srcStage = 0, dstStage = 0;
-			VkAccessFlags srcAccess = 0, dstAccess = 0;
-			GetBarrierStages(imageType, out srcStage, out dstStage);
-			GetAccessFlags(imageType, out srcAccess, out dstAccess);
-			GetLayouts(imageType, out var srcLayout, out var dstLayout);
-			if (discard) {
-				srcLayout = VkImageLayout.Undefined;
-			}
-
-			// Start command and barrier
-			VkCommandBufferBeginInfo cbbi = new(VkCommandBufferUsageFlags.OneTimeSubmit);
-			_cmd.BeginCommandBuffer(&cbbi);
-			VkImageMemoryBarrier srcBarrier = new(
-				srcAccessMask: srcAccess,
-				dstAccessMask: VkAccessFlags.TransferWrite,
-				oldLayout: srcLayout,
-				newLayout: VkImageLayout.TransferDstOptimal,
-				srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-				dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-				image: dstImage,
-				subresourceRange: new(fmt.GetAspectFlags(), 0, 1, region.LayerStart, region.LayerCount)
-			);
-			_cmd.CmdPipelineBarrier(
-				srcStage,
-				VkPipelineStageFlags.Transfer,
-				VkDependencyFlags.ByRegion,
-				0, null,
-				0, null,
-				1, &srcBarrier
-			);
-
-			// Copy
-			VkBufferImageCopy bic = new(
-				srcOff, 0, 0,
-				new(fmt.GetAspectFlags(), 0, region.LayerStart, region.LayerCount),
-				region.Offset,
-				region.Extent
-			);
-			_cmd.CmdCopyBufferToImage(srcBuffer.Buffer, dstImage, VkImageLayout.TransferDstOptimal, 1, &bic);
-
-			// Transfer back and end
-			VkImageMemoryBarrier dstBarrier = new(
-				srcAccessMask: VkAccessFlags.TransferWrite,
-				dstAccessMask: dstAccess,
-				oldLayout: VkImageLayout.TransferDstOptimal,
-				newLayout: dstLayout,
-				srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-				dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-				image: dstImage,
-				subresourceRange: new(fmt.GetAspectFlags(), 0, 1, region.LayerStart, region.LayerCount)
-			);
-			_cmd.CmdPipelineBarrier(
-				VkPipelineStageFlags.Transfer,
-				dstStage,
-				VkDependencyFlags.ByRegion,
-				0, null,
-				0, null,
-				1, &dstBarrier
-			);
-			_cmd.EndCommandBuffer().Throw("Failed to record image upload commands");
+			// Record copy commands
+			RecordBufferImageCopy(_cmd, imageType, discard, srcBuffer.Buffer, srcOff, dstImage, fmt, region);
 
 			// Submit and wait
 			Graphics.GraphicsQueue.SubmitRaw(_cmd, _fence);
@@ -306,6 +248,7 @@ namespace Vega.Graphics
 			// Copy and transfer
 			System.Buffer.MemoryCopy(srcData, srcBuffer.DataPtr, srcBuffer.DataSize, count);
 			if (useTmp) {
+				srcBuffer.CanDestroyImmediately = true;
 				// Need Dispose safety to not leak the tmp buffer
 				using (srcBuffer) {
 					SetImageData(dstImage, fmt, region, srcBuffer, 0, imageType, discard);
@@ -314,6 +257,76 @@ namespace Vega.Graphics
 			else {
 				SetImageData(dstImage, fmt, region, srcBuffer, 0, imageType, discard);
 			}
+		}
+
+		// Record an image copy operation into the command buffer
+		public void RecordBufferImageCopy(VkCommandBuffer cmd, ResourceType dstImageType, bool discardOld,
+			VkBuffer srcBuffer, ulong srcOffset, 
+			VkImage dstImage, TexelFormat format, in TextureRegion dstRegion)
+		{
+			// Get barrier values
+			VkPipelineStageFlags srcStage = 0, dstStage = 0;
+			VkAccessFlags srcAccess = 0, dstAccess = 0;
+			GetBarrierStages(dstImageType, out srcStage, out dstStage);
+			GetAccessFlags(dstImageType, out srcAccess, out dstAccess);
+			GetLayouts(dstImageType, out var srcLayout, out var dstLayout);
+			if (discardOld) {
+				srcLayout = VkImageLayout.Undefined;
+			}
+
+			// Start command and barrier
+			VkCommandBufferBeginInfo cbbi = new(VkCommandBufferUsageFlags.OneTimeSubmit);
+			cmd.BeginCommandBuffer(&cbbi);
+			VkImageMemoryBarrier srcBarrier = new(
+				srcAccessMask: srcAccess,
+				dstAccessMask: VkAccessFlags.TransferWrite,
+				oldLayout: srcLayout,
+				newLayout: VkImageLayout.TransferDstOptimal,
+				srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+				dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+				image: dstImage,
+				subresourceRange: new(format.GetAspectFlags(), 0, 1, dstRegion.LayerStart, dstRegion.LayerCount)
+			);
+			cmd.CmdPipelineBarrier(
+				srcStage,
+				VkPipelineStageFlags.Transfer,
+				VkDependencyFlags.ByRegion,
+				0, null,
+				0, null,
+				1, &srcBarrier
+			);
+
+			// Copy
+			VkBufferImageCopy bic = new(
+				srcOffset, 0, 0,
+				new(format.GetAspectFlags(), 0, dstRegion.LayerStart, dstRegion.LayerCount),
+				dstRegion.Offset,
+				dstRegion.Extent
+			);
+			cmd.CmdCopyBufferToImage(srcBuffer, dstImage, VkImageLayout.TransferDstOptimal, 1, &bic);
+
+			// Transfer back
+			VkImageMemoryBarrier dstBarrier = new(
+				srcAccessMask: VkAccessFlags.TransferWrite,
+				dstAccessMask: dstAccess,
+				oldLayout: VkImageLayout.TransferDstOptimal,
+				newLayout: dstLayout,
+				srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+				dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+				image: dstImage,
+				subresourceRange: new(format.GetAspectFlags(), 0, 1, dstRegion.LayerStart, dstRegion.LayerCount)
+			);
+			cmd.CmdPipelineBarrier(
+				VkPipelineStageFlags.Transfer,
+				dstStage,
+				VkDependencyFlags.ByRegion,
+				0, null,
+				0, null,
+				1, &dstBarrier
+			);
+
+			// End
+			cmd.EndCommandBuffer().Throw("Failed to record image upload commands");
 		}
 		#endregion // Images
 
