@@ -44,9 +44,11 @@ namespace Vega.Graphics
 		/// <param name="indexCount">The number of indicies in the buffer.</param>
 		/// <param name="type">The index type.</param>
 		/// <param name="indexData">The initial index data, which must be large enough to supply the buffer.</param>
+		/// <param name="dataOffset">The offset into the data source buffer from which to copy.</param>
 		/// <param name="usage">The buffer usage policy.</param>
-		public IndexBuffer(uint indexCount, IndexType type, HostBuffer indexData, BufferUsage usage = BufferUsage.Dynamic)
-			: base(indexCount * (uint)type, ResourceType.IndexBuffer, usage, indexData)
+		public IndexBuffer(uint indexCount, IndexType type, HostBuffer indexData, ulong dataOffset = 0,
+				BufferUsage usage = BufferUsage.Dynamic)
+			: base(indexCount * (uint)type, ResourceType.IndexBuffer, usage, indexData, dataOffset)
 		{
 			IndexCount = indexCount;
 			IndexType = type;

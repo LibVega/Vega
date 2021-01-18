@@ -62,7 +62,7 @@ namespace Vega.Graphics
 			if (data == null) {
 				throw new ArgumentException("Initial texture data pointer cannot be null", nameof(data));
 			}
-			SetDataImpl(new(0, 0, 0, width, height, depth, 0, 1), data);
+			SetDataImpl(data, new(0, 0, 0, width, height, depth, 0, 1));
 		}
 
 		/// <summary>
@@ -78,7 +78,7 @@ namespace Vega.Graphics
 				TextureUsage usage = TextureUsage.Static)
 			: base(width, height, depth, 1, 1, format, usage, ResourceType.Texture3D)
 		{
-			SetDataImpl(new(0, 0, 0, width, height, depth, 0, 1), data);
+			SetDataImpl(data, new(0, 0, 0, width, height, depth, 0, 1));
 		}
 
 		/// <summary>
@@ -95,7 +95,7 @@ namespace Vega.Graphics
 				TextureUsage usage = TextureUsage.Static)
 			: base(width, height, depth, 1, 1, format, usage, ResourceType.Texture3D)
 		{
-			SetDataImpl(new(0, 0, 0, width, height, depth, 0, 1), data, dataOff);
+			SetDataImpl(data, dataOff, new(0, 0, 0, width, height, depth, 0, 1));
 		}
 
 		#region Data
@@ -110,7 +110,7 @@ namespace Vega.Graphics
 		/// <param name="height">The height of the texel region to update.</param>
 		/// <param name="depth">The depth of the texel region to update.</param>
 		public void SetData(void* data, uint x, uint y, uint z, uint width, uint height, uint depth) =>
-			SetDataImpl(new(x, y, z, width, height, depth), data);
+			SetDataImpl(data, new(x, y, z, width, height, depth));
 
 		/// <summary>
 		/// Updates the image data with the passed data. Only works for non-Static or uninialized textures.
@@ -123,7 +123,7 @@ namespace Vega.Graphics
 		/// <param name="height">The height of the texel region to update.</param>
 		/// <param name="depth">The depth of the texel region to update.</param>
 		public void SetData(ReadOnlySpan<byte> data, uint x, uint y, uint z, uint width, uint height, uint depth) =>
-			SetDataImpl(new(x, y, z, width, height, depth), data);
+			SetDataImpl(data, new(x, y, z, width, height, depth));
 
 		/// <summary>
 		/// Updates the image data with the passed data. Only works for non-Static or uninialized textures.
@@ -138,7 +138,7 @@ namespace Vega.Graphics
 		/// <param name="dataOffset">The offset into <paramref name="data"/> to copy data from.</param>
 		public void SetData(HostBuffer data, uint x, uint y, uint z, uint width, uint height, uint depth,
 				uint dataOffset = 0) =>
-			SetDataImpl(new(x, y, z, width, height, depth), data, dataOffset);
+			SetDataImpl(data, dataOffset, new(x, y, z, width, height, depth));
 		#endregion // Data
 	}
 }

@@ -51,11 +51,12 @@ namespace Vega.Graphics
 
 			// Set the initial data
 			if (initialData != null) {
-				Graphics.Resources.TransferManager.SetBufferData(Handle, 0, initialData, size, null);
+				Graphics.Resources.TransferManager.SetBufferData(null, DataSize, initialData, Handle, 0);
 			}
 		}
 
-		private protected DeviceBuffer(ulong size, ResourceType type, BufferUsage usage, HostBuffer initialData)
+		private protected DeviceBuffer(ulong size, ResourceType type, BufferUsage usage, HostBuffer initialData, 
+				ulong dataOffset)
 			: base(type)
 		{
 			// Validate data
@@ -72,7 +73,7 @@ namespace Vega.Graphics
 			CreateBuffer(size, type, out Handle, out Memory);
 
 			// Set initial data
-			Graphics.Resources.TransferManager.SetBufferData(Handle, 0, initialData, 0, size, null);
+			Graphics.Resources.TransferManager.SetBufferData(null, DataSize, initialData, dataOffset, Handle, 0);
 		}
 
 		private protected DeviceBuffer(ulong size, ResourceType type, BufferUsage usage, ReadOnlySpan<byte> initialData)
@@ -93,7 +94,7 @@ namespace Vega.Graphics
 
 			// Set initial data
 			fixed (byte* dataPtr = initialData) {
-				Graphics.Resources.TransferManager.SetBufferData(Handle, 0, dataPtr, size, null);
+				Graphics.Resources.TransferManager.SetBufferData(null, DataSize, dataPtr, Handle, 0);
 			}
 		}
 
@@ -126,7 +127,7 @@ namespace Vega.Graphics
 
 			// Perform async update
 			Graphics.Resources.TransferManager.UpdateBufferAsync(
-				ResourceType, Handle, offset, data, size
+				ResourceType, size, data, Handle, offset
 			);
 		}
 
@@ -156,7 +157,7 @@ namespace Vega.Graphics
 			// Perform async update
 			fixed (byte* dataPtr = data) {
 				Graphics.Resources.TransferManager.UpdateBufferAsync(
-					ResourceType, Handle, offset, dataPtr, (ulong)data.Length
+					ResourceType, (uint)data.Length, dataPtr, Handle, offset
 				);
 			}
 		}
@@ -189,7 +190,7 @@ namespace Vega.Graphics
 
 			// Perform async update
 			Graphics.Resources.TransferManager.UpdateBufferAsync(
-				ResourceType, Handle, dstOffset, data.Buffer, srcOffset, size
+				ResourceType, size, data.Buffer, srcOffset, Handle, dstOffset
 			);
 		}
 		#endregion // Data

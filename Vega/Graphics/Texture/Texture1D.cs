@@ -48,7 +48,7 @@ namespace Vega.Graphics
 			if (data == null) {
 				throw new ArgumentException("Initial texture data pointer cannot be null", nameof(data));
 			}
-			SetDataImpl(new(0, 0, 0, width, 1, 1, 0, 1), data);
+			SetDataImpl(data, new(0, 0, 0, width, 1, 1, 0, 1));
 		}
 
 		/// <summary>
@@ -62,7 +62,7 @@ namespace Vega.Graphics
 				TextureUsage usage = TextureUsage.Static)
 			: base(width, 1, 1, 1, 1, format, usage, ResourceType.Texture1D)
 		{
-			SetDataImpl(new(0, 0, 0, width, 1, 1, 0, 1), data);
+			SetDataImpl(data, new(0, 0, 0, width, 1, 1, 0, 1));
 		}
 
 		/// <summary>
@@ -77,7 +77,7 @@ namespace Vega.Graphics
 				TextureUsage usage = TextureUsage.Static)
 			: base(width, 1, 1, 1, 1, format, usage, ResourceType.Texture1D)
 		{
-			SetDataImpl(new(0, 0, 0, width, 1, 1, 0, 1), data, dataOff);
+			SetDataImpl(data, dataOff, new(0, 0, 0, width, 1, 1, 0, 1));
 		}
 
 		#region Data
@@ -88,7 +88,7 @@ namespace Vega.Graphics
 		/// <param name="x">The texel coordinate to begin updating at.</param>
 		/// <param name="width">The number of texels to update.</param>
 		public void SetData(void* data, uint x, uint width) =>
-			SetDataImpl(new(x, 0, 0, width, 1, 1), data);
+			SetDataImpl(data, new(x, 0, 0, width, 1, 1));
 
 		/// <summary>
 		/// Updates the image data with the passed data. Only works for non-Static or uninialized textures.
@@ -97,7 +97,7 @@ namespace Vega.Graphics
 		/// <param name="x">The texel coordinate to begin updating at.</param>
 		/// <param name="width">The number of texels to update.</param>
 		public void SetData(ReadOnlySpan<byte> data, uint x, uint width) =>
-			SetDataImpl(new(x, 0, 0, width, 1, 1), data);
+			SetDataImpl(data, new(x, 0, 0, width, 1, 1));
 
 		/// <summary>
 		/// Updates the image data with the passed data. Only works for non-Static or uninialized textures.
@@ -107,7 +107,7 @@ namespace Vega.Graphics
 		/// <param name="width">The number of texels to update.</param>
 		/// <param name="dataOffset">The offset into <paramref name="data"/> to copy data from.</param>
 		public void SetData(HostBuffer data, uint x, uint width, uint dataOffset = 0) =>
-			SetDataImpl(new(x, 0, 0, width, 1, 1), data, dataOffset);
+			SetDataImpl(data, dataOffset, new(x, 0, 0, width, 1, 1));
 		#endregion // Data
 	}
 }

@@ -123,7 +123,7 @@ namespace Vega.Graphics
 
 		#region SetData
 		// Implementation of SetData for general images
-		private protected void SetDataImpl(in TextureRegion region, void* data)
+		private protected void SetDataImpl(void* data, in TextureRegion region)
 		{
 			// Validate
 			ThrowOnBadRegion(this, region);
@@ -138,7 +138,7 @@ namespace Vega.Graphics
 					throw new InvalidOperationException("Cannot set data on an initialized static texture");
 				}
 				Graphics.Resources.TransferManager.SetImageData(
-					Handle, Format, region, data, RUID.Type, !Initialized || (region == FullRegion)
+					ResourceType, Format, !Initialized || (region == FullRegion), data, Handle, region
 				);
 				Initialized = true;
 			}
@@ -152,7 +152,7 @@ namespace Vega.Graphics
 			}
 		}
 
-		private protected void SetDataImpl(in TextureRegion region, ReadOnlySpan<byte> data)
+		private protected void SetDataImpl(ReadOnlySpan<byte> data, in TextureRegion region)
 		{
 			// Validate
 			ThrowOnBadRegion(this, region);
@@ -171,7 +171,7 @@ namespace Vega.Graphics
 				}
 				fixed (byte* dataptr = data) {
 					Graphics.Resources.TransferManager.SetImageData(
-						Handle, Format, region, dataptr, RUID.Type, !Initialized || (region == FullRegion)
+						ResourceType, Format, !Initialized || (region == FullRegion), dataptr, Handle, region
 					);
 				}
 				Initialized = true;
@@ -188,7 +188,7 @@ namespace Vega.Graphics
 			}
 		}
 
-		private protected void SetDataImpl(in TextureRegion region, HostBuffer data, ulong dataOffset)
+		private protected void SetDataImpl(HostBuffer data, ulong dataOffset, in TextureRegion region)
 		{
 			// Validate
 			ThrowOnBadRegion(this, region);
@@ -209,7 +209,7 @@ namespace Vega.Graphics
 					throw new InvalidOperationException("Cannot set data on an initialized static texture");
 				}
 				Graphics.Resources.TransferManager.SetImageData(
-					Handle, Format, region, data, dataOffset, RUID.Type, !Initialized || (region == FullRegion)
+					ResourceType, Format, !Initialized || (region == FullRegion), data, dataOffset, Handle, region
 				);
 				Initialized = true;
 			}

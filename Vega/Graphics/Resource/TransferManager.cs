@@ -85,11 +85,13 @@ namespace Vega.Graphics
 		#region Buffers
 		// Sets the buffer data by copying from a prepared host buffer
 		// Pass null as bufferType to signal a first-time copy that does not need pipeline barriers
-		public void SetBufferData(VkBuffer dstBuffer, ulong dstOff, HostBuffer srcBuffer, ulong srcOff, ulong count,
-			ResourceType? bufferType)
+		public void SetBufferData(ResourceType? bufferType, ulong dataSize,
+			HostBuffer srcBuffer, ulong srcOffset,
+			VkBuffer dstBuffer, ulong dstOffset
+		)
 		{
 			// Record the copy command
-			RecordBufferCopy(_cmd, bufferType, srcBuffer.Buffer, srcOff, dstBuffer, dstOff, count);
+			RecordBufferCopy(_cmd, bufferType, dataSize, srcBuffer.Buffer, srcOffset, dstBuffer, dstOffset);
 
 			// Submit and wait
 			Graphics.GraphicsQueue.SubmitRaw(_cmd, _fence);
@@ -102,57 +104,62 @@ namespace Vega.Graphics
 		}
 
 		// Sets buffer data from raw data
-		public void SetBufferData(VkBuffer dstBuffer, ulong dstOff, void* srcData, ulong count, ResourceType? bufferType)
+		public void SetBufferData(ResourceType? bufferType, ulong dataSize,
+			void* srcData,
+			VkBuffer dstBuffer, ulong dstOffset)
 		{
 			// Select which host buffer to use
-			bool useTmp = (count > Buffer.DataSize) && (count > RequestNextHostSize(count));
-			var srcBuffer = useTmp ? new HostBuffer(count) : Buffer;
+			bool useTmp = (dataSize > Buffer.DataSize) && (dataSize > RequestNextHostSize(dataSize));
+			var srcBuffer = useTmp ? new HostBuffer(dataSize) : Buffer;
 
 			// Copy and transfer
-			System.Buffer.MemoryCopy(srcData, srcBuffer.DataPtr, srcBuffer.DataSize, count);
+			System.Buffer.MemoryCopy(srcData, srcBuffer.DataPtr, srcBuffer.DataSize, dataSize);
 			if (useTmp) {
 				srcBuffer.CanDestroyImmediately = true;
 				// Need Dispose safety to not leak the tmp buffer
 				using (srcBuffer) {
-					SetBufferData(dstBuffer, dstOff, srcBuffer, 0, count, bufferType);
+					SetBufferData(bufferType, dataSize, srcBuffer, 0, dstBuffer, dstOffset);
 				}
 			}
 			else {
-				SetBufferData(dstBuffer, dstOff, srcBuffer, 0, count, bufferType);
+				SetBufferData(bufferType, dataSize, srcBuffer, 0, dstBuffer, dstOffset);
 			}
 		}
 
 		// Performs an asynchronous update of a buffer
-		public void UpdateBufferAsync(ResourceType bufferType,
-			VkBuffer dstBuffer, ulong dstOffset, VkBuffer srcBuffer, ulong srcOffset, ulong count)
+		public void UpdateBufferAsync(ResourceType bufferType, ulong dataSize,
+			VkBuffer srcBuffer, ulong srcOffset, 
+			VkBuffer dstBuffer, ulong dstOffset)
 		{
 			// Allocate a transient command buffer and record
 			var cmd = Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Primary);
-			RecordBufferCopy(cmd.Cmd, bufferType, srcBuffer, srcOffset, dstBuffer, dstOffset, count);
+			RecordBufferCopy(cmd.Cmd, bufferType, dataSize, srcBuffer, srcOffset, dstBuffer, dstOffset);
 
 			// Submit (no wait for async)
 			var _ = Graphics.GraphicsQueue.Submit(cmd);
 		}
 
 		// Performs an asynchronout update of a buffer from raw data
-		public void UpdateBufferAsync(ResourceType bufferType,
-			VkBuffer dstBuffer, ulong dstOffset, void* srcData, ulong count)
+		public void UpdateBufferAsync(ResourceType bufferType, ulong dataSize,
+			void* srcData,
+			VkBuffer dstBuffer, ulong dstOffset)
 		{
 			// Allocate a host buffer for the data update
-			using HostBuffer srcBuffer = new(count);
-			System.Buffer.MemoryCopy(srcData, srcBuffer.DataPtr, count, count);
+			using HostBuffer srcBuffer = new(dataSize);
+			System.Buffer.MemoryCopy(srcData, srcBuffer.DataPtr, dataSize, dataSize);
 
 			// Allocate a transient command buffer and record
 			var cmd = Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Primary);
-			RecordBufferCopy(cmd.Cmd, bufferType, srcBuffer.Buffer, 0, dstBuffer, dstOffset, count);
+			RecordBufferCopy(cmd.Cmd, bufferType, dataSize, srcBuffer.Buffer, 0, dstBuffer, dstOffset);
 
 			// Submit (no wait for async)
 			var _ = Graphics.GraphicsQueue.Submit(cmd);
 		}
 
 		// Record a buffer copy operation into the command buffer
-		public void RecordBufferCopy(VkCommandBuffer cmd, ResourceType? dstBufferType,
-			VkBuffer srcBuffer, ulong srcOffset, VkBuffer dstBuffer, ulong dstOffset, ulong count)
+		public void RecordBufferCopy(VkCommandBuffer cmd, ResourceType? dstBufferType, ulong dataSize,
+			VkBuffer srcBuffer, ulong srcOffset, 
+			VkBuffer dstBuffer, ulong dstOffset)
 		{
 			// Get pipeline barrier values
 			VkPipelineStageFlags srcStage = 0, dstStage = 0;
@@ -175,7 +182,7 @@ namespace Vega.Graphics
 					dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
 					buffer: dstBuffer,
 					offset: dstOffset,
-					size: count
+					size: dataSize
 				);
 				cmd.CmdPipelineBarrier(
 					srcStage,
@@ -188,7 +195,7 @@ namespace Vega.Graphics
 			}
 
 			// Create copy command
-			VkBufferCopy bc = new(srcOffset, dstOffset, count);
+			VkBufferCopy bc = new(srcOffset, dstOffset, dataSize);
 			cmd.CmdCopyBuffer(srcBuffer, dstBuffer, 1, &bc);
 
 			// Last barrier
@@ -200,7 +207,7 @@ namespace Vega.Graphics
 					dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
 					buffer: dstBuffer,
 					offset: dstOffset,
-					size: count
+					size: dataSize
 				);
 				cmd.CmdPipelineBarrier(
 					VkPipelineStageFlags.Transfer,
@@ -220,11 +227,12 @@ namespace Vega.Graphics
 		#region Images
 		// Sets the texture data by copying from a prepared host buffer
 		// Pass null as imageType to signal a first-time copy that does not need pipeline barriers
-		public void SetImageData(VkImage dstImage, TexelFormat fmt, in TextureRegion region, HostBuffer srcBuffer, 
-			ulong srcOff, ResourceType imageType, bool discard)
+		public void SetImageData(ResourceType imageType, TexelFormat format, bool discard,
+			HostBuffer srcBuffer, ulong srcOffset,
+			VkImage dstImage, in TextureRegion dstRegion)
 		{
 			// Record copy commands
-			RecordBufferImageCopy(_cmd, imageType, discard, srcBuffer.Buffer, srcOff, dstImage, fmt, region);
+			RecordBufferImageCopy(_cmd, imageType, format, discard, srcBuffer.Buffer, srcOffset, dstImage, dstRegion);
 
 			// Submit and wait
 			Graphics.GraphicsQueue.SubmitRaw(_cmd, _fence);
@@ -237,11 +245,12 @@ namespace Vega.Graphics
 		}
 
 		// Sets image data from raw data
-		public void SetImageData(VkImage dstImage, TexelFormat fmt, in TextureRegion region, void* srcData, 
-			ResourceType imageType, bool discard)
+		public void SetImageData(ResourceType imageType, TexelFormat format, bool discard,
+			void* srcData,
+			VkImage dstImage, in TextureRegion dstRegion)
 		{
 			// Select which host buffer to use
-			ulong count = region.GetDataSize(fmt);
+			ulong count = dstRegion.GetDataSize(format);
 			bool useTmp = (count > Buffer.DataSize) && (count > RequestNextHostSize(count));
 			var srcBuffer = useTmp ? new HostBuffer(count) : Buffer;
 
@@ -251,21 +260,22 @@ namespace Vega.Graphics
 				srcBuffer.CanDestroyImmediately = true;
 				// Need Dispose safety to not leak the tmp buffer
 				using (srcBuffer) {
-					SetImageData(dstImage, fmt, region, srcBuffer, 0, imageType, discard);
+					SetImageData(imageType, format, discard, srcBuffer, 0, dstImage, dstRegion);
 				}
 			}
 			else {
-				SetImageData(dstImage, fmt, region, srcBuffer, 0, imageType, discard);
+				SetImageData(imageType, format, discard, srcBuffer, 0, dstImage, dstRegion);
 			}
 		}
 
 		// Perform asynchronous update of image
 		public void UpdateImageAsync(ResourceType imageType, TexelFormat format, bool discard,
-			HostBuffer srcBuffer, ulong srcOff, VkImage dstImage, in TextureRegion dstRegion)
+			HostBuffer srcBuffer, ulong srcOff, 
+			VkImage dstImage, in TextureRegion dstRegion)
 		{
 			// Allocate transient command buffer and record
 			var cmd = Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Primary);
-			RecordBufferImageCopy(cmd.Cmd, imageType, discard, srcBuffer.Buffer, srcOff, dstImage, format, dstRegion);
+			RecordBufferImageCopy(cmd.Cmd, imageType, format, discard, srcBuffer.Buffer, srcOff, dstImage, dstRegion);
 
 			// Submit (no wait for async)
 			var _ = Graphics.GraphicsQueue.Submit(cmd);
@@ -273,7 +283,8 @@ namespace Vega.Graphics
 
 		// Perform asynchronous update of image with raw data
 		public void UpdateImageAsync(ResourceType imageType, TexelFormat format, bool discard,
-			void* srcData, VkImage dstImage, in TextureRegion dstRegion)
+			void* srcData, 
+			VkImage dstImage, in TextureRegion dstRegion)
 		{
 			// Allocate a host buffer for the data update
 			var dataSize = dstRegion.GetDataSize(format);
@@ -282,24 +293,23 @@ namespace Vega.Graphics
 
 			// Allocate transient command buffer and record
 			var cmd = Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Primary);
-			RecordBufferImageCopy(cmd.Cmd, imageType, discard, srcBuffer.Buffer, 0, dstImage, format, dstRegion);
+			RecordBufferImageCopy(cmd.Cmd, imageType, format, discard, srcBuffer.Buffer, 0, dstImage, dstRegion);
 
 			// Submit (no wait for async)
 			var _ = Graphics.GraphicsQueue.Submit(cmd);
 		}
 
 		// Record an image copy operation into the command buffer
-		public void RecordBufferImageCopy(VkCommandBuffer cmd, ResourceType dstImageType, bool discardOld,
+		public void RecordBufferImageCopy(
+			VkCommandBuffer cmd, ResourceType imageType, TexelFormat format, bool discard,
 			VkBuffer srcBuffer, ulong srcOffset, 
-			VkImage dstImage, TexelFormat format, in TextureRegion dstRegion)
+			VkImage dstImage, in TextureRegion dstRegion)
 		{
 			// Get barrier values
-			VkPipelineStageFlags srcStage = 0, dstStage = 0;
-			VkAccessFlags srcAccess = 0, dstAccess = 0;
-			GetBarrierStages(dstImageType, out srcStage, out dstStage);
-			GetAccessFlags(dstImageType, out srcAccess, out dstAccess);
-			GetLayouts(dstImageType, out var srcLayout, out var dstLayout);
-			if (discardOld) {
+			GetBarrierStages(imageType, out var srcStage, out var dstStage);
+			GetAccessFlags(imageType, out var srcAccess, out var dstAccess);
+			GetLayouts(imageType, out var srcLayout, out var dstLayout);
+			if (discard) {
 				srcLayout = VkImageLayout.Undefined;
 			}
 

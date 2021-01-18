@@ -49,10 +49,11 @@ namespace Vega.Graphics
 		/// <param name="vertexCount">The number of vertices in the buffer.</param>
 		/// <param name="description">The layout of the vertices in the buffer.</param>
 		/// <param name="data">The optional initial vertex data.</param>
+		/// <param name="dataOffset">The offset into the data source buffer from which to copy.</param>
 		/// <param name="usage">The buffer usage policy.</param>
-		public VertexBuffer(uint vertexCount, VertexDescription description, HostBuffer data,
+		public VertexBuffer(uint vertexCount, VertexDescription description, HostBuffer data, ulong dataOffset = 0,
 				BufferUsage usage = BufferUsage.Static)
-			: base(vertexCount * description.Stride, ResourceType.VertexBuffer, usage, data)
+			: base(vertexCount * description.Stride, ResourceType.VertexBuffer, usage, data, dataOffset)
 		{
 			VertexCount = vertexCount;
 			VertexDescription = description.Duplicate();
