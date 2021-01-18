@@ -259,6 +259,35 @@ namespace Vega.Graphics
 			}
 		}
 
+		// Perform asynchronous update of image
+		public void UpdateImageAsync(ResourceType imageType, TexelFormat format, bool discard,
+			HostBuffer srcBuffer, ulong srcOff, VkImage dstImage, in TextureRegion dstRegion)
+		{
+			// Allocate transient command buffer and record
+			var cmd = Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Primary);
+			RecordBufferImageCopy(cmd.Cmd, imageType, discard, srcBuffer.Buffer, srcOff, dstImage, format, dstRegion);
+
+			// Submit (no wait for async)
+			var _ = Graphics.GraphicsQueue.Submit(cmd);
+		}
+
+		// Perform asynchronous update of image with raw data
+		public void UpdateImageAsync(ResourceType imageType, TexelFormat format, bool discard,
+			void* srcData, VkImage dstImage, in TextureRegion dstRegion)
+		{
+			// Allocate a host buffer for the data update
+			var dataSize = dstRegion.GetDataSize(format);
+			using HostBuffer srcBuffer = new(dataSize);
+			System.Buffer.MemoryCopy(srcData, srcBuffer.DataPtr, dataSize, dataSize);
+
+			// Allocate transient command buffer and record
+			var cmd = Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Primary);
+			RecordBufferImageCopy(cmd.Cmd, imageType, discard, srcBuffer.Buffer, 0, dstImage, format, dstRegion);
+
+			// Submit (no wait for async)
+			var _ = Graphics.GraphicsQueue.Submit(cmd);
+		}
+
 		// Record an image copy operation into the command buffer
 		public void RecordBufferImageCopy(VkCommandBuffer cmd, ResourceType dstImageType, bool discardOld,
 			VkBuffer srcBuffer, ulong srcOffset, 

@@ -147,7 +147,8 @@ namespace Vega.Graphics
 					throw new InvalidOperationException("Dynamic textures can only be updated once per frame");
 				}
 				_lastDynamicUpdate = AppTime.FrameCount;
-				// TODO: Set Data
+				Graphics.Resources.TransferManager.UpdateImageAsync(
+					ResourceType, Format, (region == FullRegion), data, Handle, region);
 			}
 		}
 
@@ -180,7 +181,10 @@ namespace Vega.Graphics
 					throw new InvalidOperationException("Dynamic textures can only be updated once per frame");
 				}
 				_lastDynamicUpdate = AppTime.FrameCount;
-				// TODO: Set Data
+				fixed (byte* dataptr = data) {
+					Graphics.Resources.TransferManager.UpdateImageAsync(
+						ResourceType, Format, (region == FullRegion), dataptr, Handle, region);
+				}
 			}
 		}
 
@@ -214,7 +218,8 @@ namespace Vega.Graphics
 					throw new InvalidOperationException("Dynamic textures can only be updated once per frame");
 				}
 				_lastDynamicUpdate = AppTime.FrameCount;
-				// TODO: Set Data
+				Graphics.Resources.TransferManager.UpdateImageAsync(
+					ResourceType, Format, (region == FullRegion), data, dataOffset, Handle, region);
 			}
 		}
 		#endregion // SetData
