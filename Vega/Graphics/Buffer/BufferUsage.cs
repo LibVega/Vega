@@ -16,6 +16,11 @@ namespace Vega.Graphics
 		/// <summary>
 		/// The buffer data is set at construction and cannot be updated at any point.
 		/// </summary>
-		Static
+		Static,
+		/// <summary>
+		/// The buffer data can be updated after construction <em>up to, but not more than, <b>ONE</b> time per 
+		/// frame</em>.
+		/// </summary>
+		Dynamic
 	}
 }

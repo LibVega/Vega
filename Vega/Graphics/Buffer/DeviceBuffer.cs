@@ -94,6 +94,66 @@ namespace Vega.Graphics
 			}
 		}
 
+		#region Data
+		// Update the data (non-static buffers only) from a raw pointer
+		protected void SetDataImpl(void* data, ulong size, ulong offset)
+		{
+			// Validate
+			if (Usage == BufferUsage.Static) {
+				throw new InvalidOperationException("Cannot update data for static-usage buffers");
+			}
+			if ((size + offset) > DataSize) {
+				throw new InvalidOperationException("Cannot update data outside of buffer range");
+			}
+			if (data == null) {
+				throw new InvalidOperationException("Cannot update buffer data from a null pointer");
+			}
+			if (size == 0) {
+				throw new InvalidOperationException("Cannot update buffer from data of length 0");
+			}
+
+			// TODO: Update data
+		}
+
+		// Update the data (non-static buffers only) from a span of data
+		protected void SetDataImpl(ReadOnlySpan<byte> data, ulong offset)
+		{
+			// Validate
+			if (Usage == BufferUsage.Static) {
+				throw new InvalidOperationException("Cannot update data for static-usage buffers");
+			}
+			if (((ulong)data.Length + offset) > DataSize) {
+				throw new InvalidOperationException("Cannot update data outside of buffer range");
+			}
+			if (data.Length == 0) {
+				throw new InvalidOperationException("Cannot update buffer from an empty span");
+			}
+
+			// TODO: Update data
+		}
+
+		// Update the data (non-static buffers only) from an existing host buffer
+		protected void SetDataImpl(HostBuffer data, ulong size, ulong srcOffset, ulong dstOffset)
+		{
+			// Validate
+			if (Usage == BufferUsage.Static) {
+				throw new InvalidOperationException("Cannot update data for static-usage buffers");
+			}
+			if ((size + dstOffset) > DataSize) {
+				throw new InvalidOperationException("Cannot update data outside of buffer range");
+			}
+			if ((size + srcOffset) > data.DataSize) {
+				throw new InvalidOperationException("Cannot update from data outside of host buffer range");
+			}
+			if (size == 0) {
+				throw new InvalidOperationException("Cannot update buffer from data of length 0");
+			}
+
+			// TODO: Update data
+		}
+		#endregion // Data
+
+		#region ResourceBase
 		protected override void OnDispose(bool disposing)
 		{
 			if (Core.Instance is not null) {
@@ -109,6 +169,7 @@ namespace Vega.Graphics
 			Handle?.DestroyBuffer(null);
 			Memory?.Free();
 		}
+		#endregion // ResourceBase
 
 		private static VkBufferUsageFlags GetUsageFlags(ResourceType type)
 		{
