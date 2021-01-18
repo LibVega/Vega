@@ -95,6 +95,9 @@ namespace Vega.Content
 		static ContentLoaderRegistry()
 		{
 			// Register default builtin loader types
+			if (!TryRegisterLoaderType(typeof(ShaderProgramLoader), out var err)) {
+				throw new Exception($"LIBRARY BUG - Failed to register ShaderProgramLoader - {err}");
+			}
 		}
 	}
 }

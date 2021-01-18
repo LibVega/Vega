@@ -129,8 +129,9 @@ namespace Vega.Content
 			where T : class
 		{
 			// Ensure the file exists
+			string fullPath;
 			try {
-				var fullPath = Path.IsPathRooted(path)
+				fullPath = Path.IsPathRooted(path)
 					? path
 					: Path.GetFullPath(Path.Combine(RootPath, path));
 				if (!File.Exists(fullPath)) {
@@ -146,7 +147,7 @@ namespace Vega.Content
 
 			// Try to load the file
 			try {
-				var item = loader.Load(path);
+				var item = loader.Load(fullPath);
 				if (item is null) {
 					throw new ContentLoadException(path, "The content loader for the item returned null");
 				}
