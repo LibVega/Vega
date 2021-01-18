@@ -87,61 +87,8 @@ namespace Vega.Graphics
 		public void SetBufferData(VkBuffer dstBuffer, ulong dstOff, HostBuffer srcBuffer, ulong srcOff, ulong count,
 			ResourceType? bufferType)
 		{
-			VkPipelineStageFlags srcStage = 0, dstStage = 0;
-			VkAccessFlags srcAccess = 0, dstAccess = 0;
-			if (bufferType.HasValue) {
-				GetBarrierStages(bufferType!.Value, out srcStage, out dstStage);
-				GetAccessFlags(bufferType!.Value, out srcAccess, out dstAccess);
-			}
-
-			// Start command and barrier
-			VkCommandBufferBeginInfo cbbi = new(VkCommandBufferUsageFlags.OneTimeSubmit);
-			_cmd.BeginCommandBuffer(&cbbi);
-			if (bufferType.HasValue) {
-				VkBufferMemoryBarrier srcBarrier = new(
-					srcAccessMask: srcAccess,
-					dstAccessMask: VkAccessFlags.TransferWrite,
-					srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-					dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-					buffer: dstBuffer,
-					offset: dstOff,
-					size: count
-				);
-				_cmd.CmdPipelineBarrier(
-					srcStage,
-					VkPipelineStageFlags.Transfer,
-					VkDependencyFlags.ByRegion,
-					0, null,
-					1, &srcBarrier,
-					0, null
-				); 
-			}
-
-			// Create copy command
-			VkBufferCopy bc = new(srcOff, dstOff, count);
-			_cmd.CmdCopyBuffer(srcBuffer.Buffer, dstBuffer, 1, &bc);
-
-			// Last barrier and end
-			if (bufferType.HasValue) {
-				VkBufferMemoryBarrier dstBarrier = new(
-					srcAccessMask: VkAccessFlags.TransferWrite,
-					dstAccessMask: dstAccess,
-					srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-					dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
-					buffer: dstBuffer,
-					offset: dstOff,
-					size: count
-				);
-				_cmd.CmdPipelineBarrier(
-					VkPipelineStageFlags.Transfer,
-					dstStage,
-					VkDependencyFlags.ByRegion,
-					0, null,
-					1, &dstBarrier,
-					0, null
-				); 
-			}
-			_cmd.EndCommandBuffer().Throw("Failed to record buffer upload commands");
+			// Record the copy command
+			RecordBufferCopy(_cmd, bufferType, srcBuffer.Buffer, srcOff, dstBuffer, dstOff, count);
 
 			// Submit and wait
 			Graphics.GraphicsQueue.SubmitRaw(_cmd, _fence);
@@ -171,6 +118,72 @@ namespace Vega.Graphics
 			else {
 				SetBufferData(dstBuffer, dstOff, srcBuffer, 0, count, bufferType);
 			}
+		}
+
+		// Record a buffer copy operation into the command buffer
+		public void RecordBufferCopy(VkCommandBuffer cmd, ResourceType? dstBufferType,
+			VkBuffer srcBuffer, ulong srcOffset, VkBuffer dstBuffer, ulong dstOffset, ulong count)
+		{
+			// Get pipeline barrier values
+			VkPipelineStageFlags srcStage = 0, dstStage = 0;
+			VkAccessFlags srcAccess = 0, dstAccess = 0;
+			if (dstBufferType.HasValue) {
+				GetBarrierStages(dstBufferType.Value, out srcStage, out dstStage);
+				GetAccessFlags(dstBufferType.Value, out srcAccess, out dstAccess);
+			}
+
+			// Start command
+			VkCommandBufferBeginInfo cbbi = new(VkCommandBufferUsageFlags.OneTimeSubmit, null);
+			cmd.BeginCommandBuffer(&cbbi);
+
+			// Src barrier
+			if (dstBufferType.HasValue) {
+				VkBufferMemoryBarrier srcBarrier = new(
+					srcAccessMask: srcAccess,
+					dstAccessMask: VkAccessFlags.TransferWrite,
+					srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+					dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+					buffer: dstBuffer,
+					offset: dstOffset,
+					size: count
+				);
+				cmd.CmdPipelineBarrier(
+					srcStage,
+					VkPipelineStageFlags.Transfer,
+					VkDependencyFlags.ByRegion,
+					0, null,
+					1, &srcBarrier,
+					0, null
+				);
+			}
+
+			// Create copy command
+			VkBufferCopy bc = new(srcOffset, dstOffset, count);
+			cmd.CmdCopyBuffer(srcBuffer, dstBuffer, 1, &bc);
+
+			// Last barrier and end
+			if (dstBufferType.HasValue) {
+				VkBufferMemoryBarrier dstBarrier = new(
+					srcAccessMask: VkAccessFlags.TransferWrite,
+					dstAccessMask: dstAccess,
+					srcQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+					dstQueueFamilyIndex: VkConstants.QUEUE_FAMILY_IGNORED,
+					buffer: dstBuffer,
+					offset: dstOffset,
+					size: count
+				);
+				cmd.CmdPipelineBarrier(
+					VkPipelineStageFlags.Transfer,
+					dstStage,
+					VkDependencyFlags.ByRegion,
+					0, null,
+					1, &dstBarrier,
+					0, null
+				);
+			}
+
+			// End
+			cmd.EndCommandBuffer().Throw("Failed to record buffer upload commands");
 		}
 		#endregion // Buffers
 
