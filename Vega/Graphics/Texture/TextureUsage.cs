@@ -16,6 +16,11 @@ namespace Vega.Graphics
 		/// <summary>
 		/// The texture data is set before first use and cannot be updated at any point.
 		/// </summary>
-		Static
+		Static,
+		/// <summary>
+		/// The texture data can be updated after construction <em>up to, but not more than, <b>ONE</b> time per 
+		/// frame</em>.
+		/// </summary>
+		Dynamic
 	}
 }

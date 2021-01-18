@@ -54,6 +54,9 @@ namespace Vega.Graphics
 		// Global binding table indices for different shaders, UINT16_MAX for unassigned slots
 		private readonly ushort[] _tableIndices;
 		private readonly FastMutex _tableMutex = new();
+
+		// Last frame in which a dynamic buffer was updated
+		internal ulong _lastDynamicUpdate = 0;
 		#endregion // Fields
 
 		private protected TextureBase(uint w, uint h, uint d, uint m, uint l, TexelFormat format, TextureUsage use,
@@ -122,52 +125,72 @@ namespace Vega.Graphics
 		// Implementation of SetData for general images
 		private protected void SetDataImpl(in TextureRegion region, void* data)
 		{
+			// Validate
 			ThrowOnBadRegion(this, region);
-			if (Usage == TextureUsage.Static) {
+			if (!Initialized && (region != FullRegion)) {
+				throw new ArgumentException(
+					"The first call to SetData for a texture must set the entire texture data", nameof(region));
+			}
+
+			// Switch on usage
+			if (!Initialized || (Usage == TextureUsage.Static)) {
 				if (Initialized) {
 					throw new InvalidOperationException("Cannot set data on an initialized static texture");
 				}
+				Graphics.Resources.TransferManager.SetImageData(
+					Handle, Format, region, data, RUID.Type, !Initialized || (region == FullRegion)
+				);
+				Initialized = true;
 			}
-
-			Graphics.Resources.TransferManager.SetImageData(
-				Handle, Format, region, data, RUID.Type, !Initialized || (region == FullRegion)
-			);
-			Initialized = true;
+			else { // Usage == Dynamic
+				if (_lastDynamicUpdate == AppTime.FrameCount) {
+					throw new InvalidOperationException("Dynamic textures can only be updated once per frame");
+				}
+				_lastDynamicUpdate = AppTime.FrameCount;
+				// TODO: Set Data
+			}
 		}
 
 		private protected void SetDataImpl(in TextureRegion region, ReadOnlySpan<byte> data)
 		{
+			// Validate
 			ThrowOnBadRegion(this, region);
-			if (Usage == TextureUsage.Static) {
-				if (Initialized) {
-					throw new InvalidOperationException("Cannot set data on an initialized static texture");
-				}
-				if (region != FullRegion) {
-					throw new InvalidOperationException("Static texture initialization must fill entire texture");
-				}
+			if (!Initialized && (region != FullRegion)) {
+				throw new ArgumentException(
+					"The first call to SetData for a texture must set the entire texture data", nameof(region));
 			}
 			if ((ulong)data.Length < region.GetDataSize(Format)) {
 				throw new InvalidOperationException("data span is not large enough for the requested data");
 			}
 
-			fixed (byte* dataptr = data) {
-				Graphics.Resources.TransferManager.SetImageData(
-					Handle, Format, region, dataptr, RUID.Type, !Initialized || (region == FullRegion)
-				);
+			// Switch on usage
+			if (!Initialized || (Usage == TextureUsage.Static)) {
+				if (Initialized) {
+					throw new InvalidOperationException("Cannot set data on an initialized static texture");
+				}
+				fixed (byte* dataptr = data) {
+					Graphics.Resources.TransferManager.SetImageData(
+						Handle, Format, region, dataptr, RUID.Type, !Initialized || (region == FullRegion)
+					);
+				}
+				Initialized = true;
 			}
-			Initialized = true;
+			else { // Usage == Dynamic
+				if (_lastDynamicUpdate == AppTime.FrameCount) {
+					throw new InvalidOperationException("Dynamic textures can only be updated once per frame");
+				}
+				_lastDynamicUpdate = AppTime.FrameCount;
+				// TODO: Set Data
+			}
 		}
 
 		private protected void SetDataImpl(in TextureRegion region, HostBuffer data, ulong dataOffset)
 		{
+			// Validate
 			ThrowOnBadRegion(this, region);
-			if (Usage == TextureUsage.Static) {
-				if (Initialized) {
-					throw new InvalidOperationException("Cannot set data on an initialized static texture");
-				}
-				if (region != FullRegion) {
-					throw new InvalidOperationException("Static texture initialization must fill entire texture");
-				}
+			if (!Initialized && (region != FullRegion)) {
+				throw new ArgumentException(
+					"The first call to SetData for a texture must set the entire texture data", nameof(region));
 			}
 			if (dataOffset >= data.DataSize) {
 				throw new InvalidOperationException("Offset into texture source data is too large");
@@ -176,10 +199,23 @@ namespace Vega.Graphics
 				throw new InvalidOperationException("host buffer is not large enough for the requested data");
 			}
 
-			Graphics.Resources.TransferManager.SetImageData(
-				Handle, Format, region, data, dataOffset, RUID.Type, !Initialized || (region == FullRegion)
-			);
-			Initialized = true;
+			// Switch on usage
+			if (!Initialized || (Usage == TextureUsage.Static)) {
+				if (Initialized) {
+					throw new InvalidOperationException("Cannot set data on an initialized static texture");
+				}
+				Graphics.Resources.TransferManager.SetImageData(
+					Handle, Format, region, data, dataOffset, RUID.Type, !Initialized || (region == FullRegion)
+				);
+				Initialized = true;
+			}
+			else { // Usage == Dynamic
+				if (_lastDynamicUpdate == AppTime.FrameCount) {
+					throw new InvalidOperationException("Dynamic textures can only be updated once per frame");
+				}
+				_lastDynamicUpdate = AppTime.FrameCount;
+				// TODO: Set Data
+			}
 		}
 		#endregion // SetData
 

@@ -29,7 +29,7 @@ namespace Vega.Graphics
 		// The memory allocation object
 		internal readonly MemoryAllocation Memory;
 
-		// Last frame in which a dynamic buffer was updates
+		// Last frame in which a dynamic buffer was updated
 		internal ulong _lastDynamicUpdate = 0;
 		#endregion // Fields
 
