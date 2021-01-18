@@ -31,7 +31,7 @@ namespace Vega.Graphics
 		/// <param name="indexCount">The number of indicies in the buffer.</param>
 		/// <param name="type">The index type.</param>
 		/// <param name="usage">The buffer usage policy.</param>
-		public IndexBuffer(uint indexCount, IndexType type, BufferUsage usage = BufferUsage.Static)
+		public IndexBuffer(uint indexCount, IndexType type, BufferUsage usage = BufferUsage.Dynamic)
 			: base(indexCount * (ulong)type, ResourceType.IndexBuffer, usage, (void*)null)
 		{
 			IndexCount = indexCount;
@@ -45,7 +45,7 @@ namespace Vega.Graphics
 		/// <param name="type">The index type.</param>
 		/// <param name="indexData">The initial index data, which must be large enough to supply the buffer.</param>
 		/// <param name="usage">The buffer usage policy.</param>
-		public IndexBuffer(uint indexCount, IndexType type, HostBuffer indexData, BufferUsage usage = BufferUsage.Static)
+		public IndexBuffer(uint indexCount, IndexType type, HostBuffer indexData, BufferUsage usage = BufferUsage.Dynamic)
 			: base(indexCount * (uint)type, ResourceType.IndexBuffer, usage, indexData)
 		{
 			IndexCount = indexCount;
@@ -101,5 +101,74 @@ namespace Vega.Graphics
 			IndexCount = (uint)indexData.Length;
 			IndexType = IndexType.Int;
 		}
+
+		#region Data
+		/// <summary>
+		/// Updates the index buffer data with the passed data. Only valid on non-Static buffers.
+		/// </summary>
+		/// <param name="data">The index data to update the buffer with.</param>
+		/// <param name="indexCount">The number of indices to update.</param>
+		/// <param name="indexOffset">The offset into the buffer, in indices, to which to copy.</param>
+		public void SetData(ushort* data, uint indexCount, uint indexOffset)
+		{
+			if (IndexType != IndexType.Short) {
+				throw new InvalidOperationException("Cannot update 4-byte index buffer with 2-byte data");
+			}
+			SetDataImpl(data, indexCount * 2, indexOffset * 2);
+		}
+
+		/// <summary>
+		/// Updates the index buffer data with the passed data. Only valid on non-Static buffers.
+		/// </summary>
+		/// <param name="data">The index data to update the buffer with.</param>
+		/// <param name="indexOffset">The offset into the buffer, in indices, to which to copy.</param>
+		public void SetData(ReadOnlySpan<ushort> data, uint indexOffset)
+		{
+			if (IndexType != IndexType.Short) {
+				throw new InvalidOperationException("Cannot update 4-byte index buffer with 2-byte data");
+			}
+			SetDataImpl(MemoryMarshal.AsBytes(data), indexOffset * 2);
+		}
+
+		/// <summary>
+		/// Updates the index buffer data with the passed data. Only valid on non-Static buffers.
+		/// </summary>
+		/// <param name="data">The index data to update the buffer with.</param>
+		/// <param name="indexCount">The number of indices to update.</param>
+		/// <param name="indexOffset">The offset into the buffer, in indices, to which to copy.</param>
+		public void SetData(uint* data, uint indexCount, uint indexOffset)
+		{
+			if (IndexType != IndexType.Int) {
+				throw new InvalidOperationException("Cannot update 2-byte index buffer with 4-byte data");
+			}
+			SetDataImpl(data, indexCount * 4, indexOffset * 4);
+		}
+
+		/// <summary>
+		/// Updates the index buffer data with the passed data. Only valid on non-Static buffers.
+		/// </summary>
+		/// <param name="data">The index data to update the buffer with.</param>
+		/// <param name="indexOffset">The offset into the buffer, in indices, to which to copy.</param>
+		public void SetData(ReadOnlySpan<uint> data, uint indexOffset)
+		{
+			if (IndexType != IndexType.Int) {
+				throw new InvalidOperationException("Cannot update 2-byte index buffer with 4-byte data");
+			}
+			SetDataImpl(MemoryMarshal.AsBytes(data), indexOffset * 4);
+		}
+
+		/// <summary>
+		/// Updates the index buffer data with data from the passed host buffer. Only valid on non-Static buffers.
+		/// </summary>
+		/// <param name="data">The data buffer from which to copy.</param>
+		/// <param name="indexCount">The number of indices to update.</param>
+		/// <param name="srcOffset">The offset into the source buffer, in bytes.</param>
+		/// <param name="indexOffset">The offset into the buffer, in indices, to which to copy.</param>
+		public void SetData(HostBuffer data, uint indexCount, uint srcOffset, uint indexOffset)
+		{
+			var indexSize = (IndexType == IndexType.Short) ? 2u : 4u;
+			SetDataImpl(data, indexCount * indexSize, srcOffset, indexOffset * indexSize);
+		}
+		#endregion // Data
 	}
 }

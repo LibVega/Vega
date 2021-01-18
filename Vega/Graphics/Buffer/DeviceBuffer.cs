@@ -28,6 +28,9 @@ namespace Vega.Graphics
 		internal readonly VkBuffer Handle;
 		// The memory allocation object
 		internal readonly MemoryAllocation Memory;
+
+		// Last frame in which a dynamic buffer was updates
+		internal ulong _lastDynamicUpdate = 0;
 		#endregion // Fields
 
 		private protected DeviceBuffer(ulong size, ResourceType type, BufferUsage usage, void* initialData)
@@ -99,6 +102,9 @@ namespace Vega.Graphics
 		protected void SetDataImpl(void* data, ulong size, ulong offset)
 		{
 			// Validate
+			if (IsDisposed) {
+				throw new ObjectDisposedException(nameof(DeviceBuffer));
+			}
 			if (Usage == BufferUsage.Static) {
 				throw new InvalidOperationException("Cannot update data for static-usage buffers");
 			}
@@ -111,6 +117,14 @@ namespace Vega.Graphics
 			if (size == 0) {
 				throw new InvalidOperationException("Cannot update buffer from data of length 0");
 			}
+			
+			// Check dynamic frame
+			if (Usage == BufferUsage.Dynamic) {
+				if (AppTime.FrameCount == _lastDynamicUpdate) {
+					throw new InvalidOperationException("Dynamic buffers can only be updated once per frame");
+				}
+				_lastDynamicUpdate = AppTime.FrameCount;
+			}
 
 			// TODO: Update data
 		}
@@ -119,6 +133,9 @@ namespace Vega.Graphics
 		protected void SetDataImpl(ReadOnlySpan<byte> data, ulong offset)
 		{
 			// Validate
+			if (IsDisposed) {
+				throw new ObjectDisposedException(nameof(DeviceBuffer));
+			}
 			if (Usage == BufferUsage.Static) {
 				throw new InvalidOperationException("Cannot update data for static-usage buffers");
 			}
@@ -129,6 +146,14 @@ namespace Vega.Graphics
 				throw new InvalidOperationException("Cannot update buffer from an empty span");
 			}
 
+			// Check dynamic frame
+			if (Usage == BufferUsage.Dynamic) {
+				if (AppTime.FrameCount == _lastDynamicUpdate) {
+					throw new InvalidOperationException("Dynamic buffers can only be updated once per frame");
+				}
+				_lastDynamicUpdate = AppTime.FrameCount;
+			}
+
 			// TODO: Update data
 		}
 
@@ -136,6 +161,9 @@ namespace Vega.Graphics
 		protected void SetDataImpl(HostBuffer data, ulong size, ulong srcOffset, ulong dstOffset)
 		{
 			// Validate
+			if (IsDisposed) {
+				throw new ObjectDisposedException(nameof(DeviceBuffer));
+			}
 			if (Usage == BufferUsage.Static) {
 				throw new InvalidOperationException("Cannot update data for static-usage buffers");
 			}
@@ -147,6 +175,14 @@ namespace Vega.Graphics
 			}
 			if (size == 0) {
 				throw new InvalidOperationException("Cannot update buffer from data of length 0");
+			}
+
+			// Check dynamic frame
+			if (Usage == BufferUsage.Dynamic) {
+				if (AppTime.FrameCount == _lastDynamicUpdate) {
+					throw new InvalidOperationException("Dynamic buffers can only be updated once per frame");
+				}
+				_lastDynamicUpdate = AppTime.FrameCount;
 			}
 
 			// TODO: Update data

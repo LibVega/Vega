@@ -57,5 +57,39 @@ namespace Vega.Graphics
 			VertexCount = vertexCount;
 			VertexDescription = description.Duplicate();
 		}
+
+		#region Data
+		/// <summary>
+		/// Updates the vertex buffer data with the passed data. Only allowed on non-Static buffers.
+		/// </summary>
+		/// <param name="data">Pointer to the data to upload to the buffer.</param>
+		/// <param name="vertexCount">The number of vertices to update in the buffer.</param>
+		/// <param name="vertexOffset">The offset into the buffer, in vertices, to which to copy.</param>
+		public void SetData(void* data, uint vertexCount, uint vertexOffset) =>
+			SetDataImpl(data, vertexCount * Stride, vertexOffset * Stride);
+
+		/// <summary>
+		/// Updates the vertex buffer data with the passed data. Only allowed on non-Static buffers.
+		/// </summary>
+		/// <param name="data">The data to update to the buffer, must have length multiple of the stride.</param>
+		/// <param name="vertexOffset">The offset into the buffer, in vertices, to which to copy.</param>
+		public void SetData(ReadOnlySpan<byte> data, uint vertexOffset)
+		{
+			if ((data.Length % Stride) != 0) {
+				throw new ArgumentException("Data span length must be multiple of vertex stride", nameof(data));
+			}
+			SetDataImpl(data, vertexOffset);
+		}
+
+		/// <summary>
+		/// Updates the vertex buffer data with data from the passed host buffer. Only allowed on non-Static buffers.
+		/// </summary>
+		/// <param name="data">The host buffer to update from.</param>
+		/// <param name="vertexCount">The number of vertices to update.</param>
+		/// <param name="srcOffset">The offset into <paramref name="data"/>, in bytes, from which to copy.</param>
+		/// <param name="dstVertexOffset">The offset into the buffer, in vertices, to which to copy.</param>
+		public void SetData(HostBuffer data, uint vertexCount, uint srcOffset, uint dstVertexOffset) =>
+			SetDataImpl(data, vertexCount * Stride, srcOffset, dstVertexOffset * Stride);
+		#endregion // Data
 	}
 }
