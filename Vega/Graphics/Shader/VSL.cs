@@ -21,7 +21,7 @@ namespace Vega.Graphics
 
 		// Parse a compiled VSL shader and return the info and modules
 		public static void LoadStream(string path, Stream stream,
-			out ShaderInfo info, 
+			out ShaderLayout info, 
 			out VkShaderModule vertMod, out VkShaderModule fragMod)
 		{
 			// Open the file and check the header
@@ -81,7 +81,7 @@ namespace Vega.Graphics
 
 			// Read the uniform info
 			var uniformSize = file.ReadUInt32();
-			ShaderInfo.UniformMember[]? reflUniformMembers = null;
+			ShaderLayout.UniformMember[]? reflUniformMembers = null;
 			ShaderStages uniformStages = ShaderStages.None;
 			if (uniformSize > 0) {
 				uniformStages = (ShaderStages)file.ReadUInt16();
@@ -123,7 +123,7 @@ namespace Vega.Graphics
 				reflInputs,
 				reflOutputs,
 				reflBindings,
-				uniformSize, uniformStages, reflUniformMembers ?? Array.Empty<ShaderInfo.UniformMember>(),
+				uniformSize, uniformStages, reflUniformMembers ?? Array.Empty<ShaderLayout.UniformMember>(),
 				reflSpi
 			);
 			CreateShaderModules(path, Core.Instance!.Graphics.VkDevice,
@@ -134,9 +134,9 @@ namespace Vega.Graphics
 
 		// Perform processing of vertex inputs
 		private static void ProcessVertexInputs(string? path,
-			Span<InterfaceVariable> rawInputs, out ShaderInfo.VertexInput[] inputs)
+			Span<InterfaceVariable> rawInputs, out ShaderLayout.VertexInput[] inputs)
 		{
-			inputs = new ShaderInfo.VertexInput[rawInputs.Length];
+			inputs = new ShaderLayout.VertexInput[rawInputs.Length];
 			for (int i = 0; i < rawInputs.Length; ++i) {
 				ref readonly var raw = ref rawInputs[i];
 				var inputType = ParseVertexFormat(raw.BaseType, raw.Dims[0], raw.Dims[1]);
@@ -149,9 +149,9 @@ namespace Vega.Graphics
 
 		// Perform processing of fragment outputs
 		private static void ProcessFragmentOutputs(string? path,
-			Span<InterfaceVariable> rawOutputs, out ShaderInfo.FragmentOutput[] outputs)
+			Span<InterfaceVariable> rawOutputs, out ShaderLayout.FragmentOutput[] outputs)
 		{
-			outputs = new ShaderInfo.FragmentOutput[rawOutputs.Length];
+			outputs = new ShaderLayout.FragmentOutput[rawOutputs.Length];
 			for (int i = 0; i < rawOutputs.Length; ++i) {
 				ref readonly var raw = ref rawOutputs[i];
 				var outputType = ParseTexelFormat(raw.BaseType, 4, raw.Dims[0]);
@@ -164,9 +164,9 @@ namespace Vega.Graphics
 
 		// Perform processing of binding variables
 		private static void ProcessBindings(string? path,
-			Span<BindingVariable> rawBindings, out ShaderInfo.Binding[] bindings)
+			Span<BindingVariable> rawBindings, out ShaderLayout.Binding[] bindings)
 		{
-			bindings = new ShaderInfo.Binding[rawBindings.Length];
+			bindings = new ShaderLayout.Binding[rawBindings.Length];
 			for (int i = 0; i < rawBindings.Length; ++i) {
 				ref readonly var raw = ref rawBindings[i];
 				var btype = ParseBindingType(raw);
@@ -188,9 +188,9 @@ namespace Vega.Graphics
 
 		// Perform processing of the uniform members into the final reflection types
 		private static void ProcessUniformMembers(string? path,
-			Span<UniformMember> rawMembers, string[] names, out ShaderInfo.UniformMember[] members)
+			Span<UniformMember> rawMembers, string[] names, out ShaderLayout.UniformMember[] members)
 		{
-			members = new ShaderInfo.UniformMember[rawMembers.Length];
+			members = new ShaderLayout.UniformMember[rawMembers.Length];
 			for (int i = 0; i < rawMembers.Length; ++i) {
 				ref readonly var raw = ref rawMembers[i];
 				var memType = ParseVertexFormat(raw.BaseType, raw.Dims[0], raw.Dims[1]);
@@ -203,9 +203,9 @@ namespace Vega.Graphics
 
 		// Perform processing of subpass inputs
 		private static void ProcessSubpassInputs(string? path,
-			Span<SubpassInput> rawInputs, out ShaderInfo.SubpassInput[] inputs)
+			Span<SubpassInput> rawInputs, out ShaderLayout.SubpassInput[] inputs)
 		{
-			inputs = new ShaderInfo.SubpassInput[rawInputs.Length];
+			inputs = new ShaderLayout.SubpassInput[rawInputs.Length];
 			for (int i = 0; i < rawInputs.Length; ++i) {
 				ref readonly var raw = ref rawInputs[i];
 				var tfmt = raw.ComponentType switch {

@@ -123,12 +123,12 @@ namespace Vega.Render
 			resetRenderState();
 
 			// Bind renderer-specific descriptors
-			if (pipeline.Shader.Info.BindingMask != 0) { // Global binding table
+			if (pipeline.Shader.Layout.BindingMask != 0) { // Global binding table
 				var tableHandle = pipeline.Renderer.Graphics.BindingTable.SetHandle.Handle;
 				_cmd.Cmd.CmdBindDescriptorSets(VkPipelineBindPoint.Graphics,
 					pipeline.Shader.PipelineLayout, 0, 1, &tableHandle, 0, null);
 			}
-			if (pipeline.Shader.Info.UniformSize > 0) { // Uniform buffer
+			if (pipeline.Shader.Layout.UniformSize > 0) { // Uniform buffer
 				var unifHandle = pipeline.Renderer.UniformDescriptor.Handle;
 				var zero = 0u;
 				_cmd.Cmd.CmdBindDescriptorSets(VkPipelineBindPoint.Graphics,
@@ -343,7 +343,7 @@ namespace Vega.Render
 					"Cannot bind a single vertex buffer to pipeline expecting more than one");
 			}
 			uint mask = buffer.VertexDescription.LocationMask;
-			if ((BoundShader!.Info.VertexLocationMask & mask) != mask) {
+			if ((BoundShader!.Layout.VertexLocationMask & mask) != mask) {
 				throw new ArgumentException("Invalid vertex buffer bind - attribute location mismatch", nameof(buffer));
 			}
 
@@ -372,7 +372,7 @@ namespace Vega.Render
 				throw new InvalidOperationException($"Vertex buffer index {index} is invalid for the bound pipeline");
 			}
 			uint mask = buffer.VertexDescription.LocationMask;
-			if ((BoundShader!.Info.VertexLocationMask & mask) != mask) {
+			if ((BoundShader!.Layout.VertexLocationMask & mask) != mask) {
 				throw new ArgumentException("Invalid vertex buffer bind - attribute location mismatch", nameof(buffer));
 			}
 
@@ -406,7 +406,7 @@ namespace Vega.Render
 					throw new ObjectDisposedException(nameof(buffer));
 				}
 				uint mask = buffer.VertexDescription.LocationMask;
-				if ((BoundShader!.Info.VertexLocationMask & mask) != mask) {
+				if ((BoundShader!.Layout.VertexLocationMask & mask) != mask) {
 					throw new ArgumentException("Invalid vertex buffer bind - attribute location mismatch", nameof(buffers));
 				}
 			}
@@ -458,12 +458,12 @@ namespace Vega.Render
 			if (!IsRecording) {
 				throw new InvalidOperationException("Cannot set uniform data on non-recording command recorder");
 			}
-			if (BoundShader!.Info.UniformSize == 0) {
+			if (BoundShader!.Layout.UniformSize == 0) {
 				throw new InvalidOperationException("Cannot set uniform data on shader that does not take uniforms");
 			}
 
 			// Push data
-			if (!BoundRenderer!.PushUniformData(data, BoundShader!.Info.UniformSize, out _uniformOffset)) {
+			if (!BoundRenderer!.PushUniformData(data, BoundShader!.Layout.UniformSize, out _uniformOffset)) {
 				throw new InvalidOperationException("Per-frame limit for uniform buffer updates is exceeded");
 			}
 			_uniformDirty = true;
@@ -481,16 +481,16 @@ namespace Vega.Render
 			if (!IsRecording) {
 				throw new InvalidOperationException("Cannot set uniform data on non-recording command recorder");
 			}
-			if (BoundShader!.Info.UniformSize == 0) {
+			if (BoundShader!.Layout.UniformSize == 0) {
 				throw new InvalidOperationException("Cannot set uniform data on shader that does not take uniforms");
 			}
-			if (data.Length < BoundShader!.Info.UniformSize) {
+			if (data.Length < BoundShader!.Layout.UniformSize) {
 				throw new ArgumentException("Not enough data in span for SetUniformData()", nameof(data));
 			}
 
 			// Push data
 			fixed (byte* dataptr = data) {
-				if (!BoundRenderer!.PushUniformData(dataptr, BoundShader!.Info.UniformSize, out _uniformOffset)) {
+				if (!BoundRenderer!.PushUniformData(dataptr, BoundShader!.Layout.UniformSize, out _uniformOffset)) {
 					throw new InvalidOperationException("Per-frame limit for uniform buffer updates is exceeded");
 				}
 			}
@@ -511,16 +511,16 @@ namespace Vega.Render
 			if (!IsRecording) {
 				throw new InvalidOperationException("Cannot set uniform data on non-recording command recorder");
 			}
-			if (BoundShader!.Info.UniformSize == 0) {
+			if (BoundShader!.Layout.UniformSize == 0) {
 				throw new InvalidOperationException("Cannot set uniform data on shader that does not take uniforms");
 			}
-			if ((uint)Marshal.SizeOf<T>() < BoundShader!.Info.UniformSize) {
+			if ((uint)Marshal.SizeOf<T>() < BoundShader!.Layout.UniformSize) {
 				throw new ArgumentException("Not enough data in generic object for SetUniformData()", nameof(data));
 			}
 
 			// Push data
 			fixed (T* dataptr = &data) {
-				if (!BoundRenderer!.PushUniformData(dataptr, BoundShader!.Info.UniformSize, out _uniformOffset)) {
+				if (!BoundRenderer!.PushUniformData(dataptr, BoundShader!.Layout.UniformSize, out _uniformOffset)) {
 					throw new InvalidOperationException("Per-frame limit for uniform buffer updates is exceeded");
 				}
 			}
@@ -613,7 +613,7 @@ namespace Vega.Render
 			if (slot >= VSL.MAX_BINDING_COUNT) {
 				return false;
 			}
-			if (BoundShader!.Info.GetBindingType(slot) is not BindingType type) {
+			if (BoundShader!.Layout.GetBindingType(slot) is not BindingType type) {
 				return false;
 			}
 			if (type != tex.BindingType) {
@@ -632,7 +632,7 @@ namespace Vega.Render
 		{
 			Array.Fill(_bindingIndices, (ushort)0);
 			_bindingsDirty = false;
-			_bindingSize = ((BoundShader!.Info.MaxBindingSlot + 2) / 2) * 4;
+			_bindingSize = ((BoundShader!.Layout.MaxBindingSlot + 2) / 2) * 4;
 
 			_vertexBufferMask = 0;
 			_boundIndexBuffer = false;

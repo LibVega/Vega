@@ -23,7 +23,7 @@ namespace Vega.Graphics
 		/// <summary>
 		/// The reflection information for this shader program.
 		/// </summary>
-		public readonly ShaderInfo Info;
+		public readonly ShaderLayout Layout;
 
 		/// <summary>
 		/// The number of <see cref="Pipeline"/> instances that are actively using this shader.
@@ -42,10 +42,10 @@ namespace Vega.Graphics
 		internal readonly VkDescriptorSetLayout? SubpassInputLayout = null;
 		#endregion // Fields
 
-		internal ShaderProgram(ShaderInfo info, VkShaderModule vertMod, VkShaderModule fragMod)
+		internal ShaderProgram(ShaderLayout info, VkShaderModule vertMod, VkShaderModule fragMod)
 			: base(ResourceType.Shader)
 		{
-			Info = info;
+			Layout = info;
 			VertexModule = vertMod;
 			FragmentModule = fragMod;
 
@@ -102,7 +102,7 @@ namespace Vega.Graphics
 			ref readonly var subpass = ref renderer.Layout.Subpasses[subpassIndex];
 
 			// Check fragment outputs
-			if (subpass.ColorCount != Info.FragmentOutputs.Count) {
+			if (subpass.ColorCount != Layout.FragmentOutputs.Count) {
 				return "color attachment count mismatch";
 			}
 			var outputs = renderer.Layout.Attachments
@@ -110,14 +110,14 @@ namespace Vega.Graphics
 				.ToArray();
 			for (int i = 0; i < subpass.ColorCount; ++i) {
 				ref readonly var output = ref outputs[i];
-				if (!Info.FragmentOutputs[i].Format.IsConvertible(output.Format)) {
+				if (!Layout.FragmentOutputs[i].Format.IsConvertible(output.Format)) {
 					return $"incompatible formats for fragment output {i} (data: {output.Format}) " +
-						$"(shader: {Info.FragmentOutputs[i].Format})";
+						$"(shader: {Layout.FragmentOutputs[i].Format})";
 				}
 			}
 
 			// Check input attachments
-			if (subpass.InputCount != Info.SubpassInputs.Count) {
+			if (subpass.InputCount != Layout.SubpassInputs.Count) {
 				return "input attachment count mismatch";
 			}
 			var spinputs = renderer.Layout.Attachments
@@ -125,19 +125,19 @@ namespace Vega.Graphics
 				.ToArray();
 			for (int i = 0; i < subpass.InputCount; ++i) {
 				ref readonly var spi = ref spinputs[i];
-				if (!Info.SubpassInputs[i].Format.IsConvertible(spi.Format)) {
+				if (!Layout.SubpassInputs[i].Format.IsConvertible(spi.Format)) {
 					return $"incompatible formats for subpass input {i} (data: {spi.Format}) " +
-						$"(shader: {Info.SubpassInputs[i].Format})";
+						$"(shader: {Layout.SubpassInputs[i].Format})";
 				}
 			}
 
 			// Check vertex inputs
 			var allVertex = desc.VertexDescriptions!.SelectMany(desc => desc.EnumerateElements()).ToArray();
-			if (allVertex.Length != Info.VertexInputs.Count) {
+			if (allVertex.Length != Layout.VertexInputs.Count) {
 				return "vertex attribute count mismatch";
 			}
 			foreach (var velem in allVertex) {
-				var input = Info.GetVertexInput(velem.slot);
+				var input = Layout.GetVertexInput(velem.slot);
 				if (!input.HasValue) {
 					return $"shader does not consume vertex attribute at index {velem.slot}";
 				}
@@ -179,7 +179,7 @@ namespace Vega.Graphics
 		#endregion // ResourceBase
 
 		// Creates a descriptor set layout matching the subpass inputs for the shader
-		private static VkDescriptorSetLayout CreateSubpassInputLayout(GraphicsDevice gd, ShaderInfo info)
+		private static VkDescriptorSetLayout CreateSubpassInputLayout(GraphicsDevice gd, ShaderLayout info)
 		{
 			// Setup the layouts
 			var spiCount = info.SubpassInputs.Count;
