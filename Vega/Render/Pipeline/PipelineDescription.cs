@@ -131,11 +131,11 @@ namespace Vega.Render
 		/// <summary>
 		/// The shader program to execute for the pipieline.
 		/// </summary>
-		public ShaderProgram? Shader {
+		public Shader? Shader {
 			get => _shader;
 			set => _shader = value;
 		}
-		private ShaderProgram? _shader;
+		private Shader? _shader;
 
 		/// <summary>
 		/// Gets if the pipeline is fully described by all fields (no required fields are <c>null</c>).
@@ -173,7 +173,7 @@ namespace Vega.Render
 			VertexInput? vertexInput = null,
 			VertexDescription[]? vertexDescs = null,
 			RasterizerState? rasterizer = null,
-			ShaderProgram? shader = null
+			Shader? shader = null
 		)
 		{
 			AllColorBlends = colorBlends;
@@ -199,7 +199,7 @@ namespace Vega.Render
 			VertexInput? vertexInput = null,
 			VertexDescription[]? vertexDescs = null,
 			RasterizerState? rasterizer = null,
-			ShaderProgram? shader = null
+			Shader? shader = null
 		)
 		{
 			SharedColorBlend = colorBlend;

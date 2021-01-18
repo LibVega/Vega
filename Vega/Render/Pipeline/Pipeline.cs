@@ -29,7 +29,7 @@ namespace Vega.Render
 		/// <summary>
 		/// The shader program used by this pipeline.
 		/// </summary>
-		public readonly ShaderProgram Shader;
+		public readonly Shader Shader;
 		/// <summary>
 		/// The renderer that this pipeline is utilized within.
 		/// </summary>
@@ -158,7 +158,7 @@ namespace Vega.Render
 
 		// Create a pipeline from a set of build states and a shader
 		private static VkPipeline CreatePipeline(BuildStates states, Renderer renderer, uint subpass,
-			ShaderProgram shader)
+			Shader shader)
 		{
 			var MAIN_STR = stackalloc byte[5] { (byte)'m', (byte)'a', (byte)'i', (byte)'n', (byte)'\0' };
 

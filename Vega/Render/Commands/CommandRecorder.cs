@@ -41,7 +41,7 @@ namespace Vega.Render
 		/// <summary>
 		/// The shader program current bound to this recorder from the pipeline.
 		/// </summary>
-		public ShaderProgram? BoundShader => BoundPipeline?.Shader;
+		public Shader? BoundShader => BoundPipeline?.Shader;
 		/// <summary>
 		/// Gets the value of <see cref="AppTime.FrameCount"/> when the current recording process started.
 		/// </summary>

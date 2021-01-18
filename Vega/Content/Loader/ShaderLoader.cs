@@ -9,10 +9,10 @@ using Vega.Graphics;
 
 namespace Vega.Content
 {
-	// Builtin type for loading ShaderProgram files
-	internal sealed class ShaderProgramLoader : ContentLoaderBase<ShaderProgram>
+	// Builtin type for loading Shader files
+	internal sealed class ShaderLoader : ContentLoaderBase<Shader>
 	{
-		// Just call down to ShaderProgram.LoadFile
-		public override ShaderProgram Load(string fullPath) => ShaderProgram.LoadFile(fullPath);
+		// Just call down to Shader.LoadFile
+		public override Shader Load(string fullPath) => Shader.LoadFile(fullPath);
 	}
 }

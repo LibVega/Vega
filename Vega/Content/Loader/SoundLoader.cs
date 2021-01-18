@@ -13,7 +13,7 @@ namespace Vega.Content
 	// Builtin type for loading audio files as sounds
 	internal sealed class SoundLoader : ContentLoaderBase<Sound>
 	{
-		// Just call down to ShaderProgram.LoadFile
+		// Just call down to Sound.LoadFile
 		public override Sound Load(string fullPath) => Sound.LoadFile(fullPath);
 	}
 }

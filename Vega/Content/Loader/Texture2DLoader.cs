@@ -13,7 +13,7 @@ namespace Vega.Content
 	// Builtin type for loading images as Texture2D
 	internal sealed class Texture2DLoader : ContentLoaderBase<Texture2D>
 	{
-		// Just call down to ShaderProgram.LoadFile, and create static usage texture
+		// Just call down to Texture2D.LoadFile, and create static usage texture
 		public override Texture2D Load(string fullPath) => Texture2D.LoadFile(fullPath, TextureUsage.Static);
 	}
 }
