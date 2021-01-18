@@ -42,7 +42,7 @@ namespace Vega.Graphics
 		/// <summary>
 		/// Gets a write-only stream object for the unmanaged memory in the buffer.
 		/// </summary>
-		public UnmanagedMemoryStream WriteStream { 
+		public UnmanagedMemoryStream WriteStream {
 			get {
 				ThrowIfDisposed();
 				return _stream;
@@ -53,6 +53,9 @@ namespace Vega.Graphics
 		// Vulkan buffer and memory
 		internal readonly VkBuffer Buffer;
 		internal readonly MemoryAllocation Memory;
+
+		// Special flag for marking that a host buffer is safe to delete without waiting for some frames
+		internal bool CanDestroyImmediately = false; // Default to normal delayed-destroy
 		#endregion // Fields
 
 		/// <summary>
@@ -80,7 +83,7 @@ namespace Vega.Graphics
 			// Allocate/bind memory
 			VkMemoryRequirements memreq;
 			Buffer.GetBufferMemoryRequirements(&memreq);
-			Memory = gd.Resources.AllocateMemoryUpload(memreq) ?? 
+			Memory = gd.Resources.AllocateMemoryUpload(memreq) ??
 				throw new Exception("Failed to allocate host buffer memory");
 			Buffer.BindBufferMemory(Memory.Handle, Memory.Offset);
 
@@ -94,8 +97,13 @@ namespace Vega.Graphics
 			if (disposing) {
 				_stream.Dispose();
 			}
-			// No delayed destroy, this type cannot be used in async graphics ops
-			Destroy();
+
+			if (CanDestroyImmediately) {
+				Destroy();
+			}
+			else {
+				Core.Instance?.Graphics.Resources.QueueDestroy(this);
+			}
 		}
 
 		protected internal override void Destroy()

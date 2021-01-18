@@ -40,6 +40,7 @@ namespace Vega.Graphics
 		{
 			Graphics = graphics;
 			Buffer = new((ulong)INITIAL_HOST_SIZE.B);
+			Buffer.CanDestroyImmediately = true; // Safe to do since all operations with this are synchronous
 
 			// Create command objects
 			VkCommandPoolCreateInfo cpci = new(VkCommandPoolCreateFlags.Transient, Graphics.GraphicsQueue.FamilyIndex);
@@ -110,6 +111,7 @@ namespace Vega.Graphics
 			// Copy and transfer
 			System.Buffer.MemoryCopy(srcData, srcBuffer.DataPtr, srcBuffer.DataSize, count);
 			if (useTmp) {
+				srcBuffer.CanDestroyImmediately = true;
 				// Need Dispose safety to not leak the tmp buffer
 				using (srcBuffer) {
 					SetBufferData(dstBuffer, dstOff, srcBuffer, 0, count, bufferType);
@@ -118,6 +120,34 @@ namespace Vega.Graphics
 			else {
 				SetBufferData(dstBuffer, dstOff, srcBuffer, 0, count, bufferType);
 			}
+		}
+
+		// Performs an asynchronous update of a buffer
+		public void UpdateBufferAsync(ResourceType bufferType,
+			VkBuffer dstBuffer, ulong dstOffset, VkBuffer srcBuffer, ulong srcOffset, ulong count)
+		{
+			// Allocate a transient command buffer and record
+			var cmd = Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Primary);
+			RecordBufferCopy(cmd.Cmd, bufferType, srcBuffer, srcOffset, dstBuffer, dstOffset, count);
+
+			// Submit (no wait for async)
+			var _ = Graphics.GraphicsQueue.Submit(cmd);
+		}
+
+		// Performs an asynchronout update of a buffer from raw data
+		public void UpdateBufferAsync(ResourceType bufferType,
+			VkBuffer dstBuffer, ulong dstOffset, void* srcData, ulong count)
+		{
+			// Allocate a host buffer for the data update
+			using HostBuffer srcBuffer = new(count);
+			System.Buffer.MemoryCopy(srcData, srcBuffer.DataPtr, count, count);
+
+			// Allocate a transient command buffer and record
+			var cmd = Graphics.Resources.AllocateTransientCommandBuffer(VkCommandBufferLevel.Primary);
+			RecordBufferCopy(cmd.Cmd, bufferType, srcBuffer.Buffer, 0, dstBuffer, dstOffset, count);
+
+			// Submit (no wait for async)
+			var _ = Graphics.GraphicsQueue.Submit(cmd);
 		}
 
 		// Record a buffer copy operation into the command buffer
@@ -287,6 +317,7 @@ namespace Vega.Graphics
 		}
 		#endregion // Images
 
+		#region Barriers
 		private static void GetBarrierStages(ResourceType type, 
 			out VkPipelineStageFlags srcStage, out VkPipelineStageFlags dstStage)
 		{
@@ -337,6 +368,7 @@ namespace Vega.Graphics
 				dstLayout = VkImageLayout.ShaderReadOnlyOptimal;
 			}
 		}
+		#endregion // Barriers
 
 		#region IDisposable
 		public void Dispose()

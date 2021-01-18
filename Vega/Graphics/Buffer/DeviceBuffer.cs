@@ -102,9 +102,7 @@ namespace Vega.Graphics
 		protected void SetDataImpl(void* data, ulong size, ulong offset)
 		{
 			// Validate
-			if (IsDisposed) {
-				throw new ObjectDisposedException(nameof(DeviceBuffer));
-			}
+			ThrowIfDisposed();
 			if (Usage == BufferUsage.Static) {
 				throw new InvalidOperationException("Cannot update data for static-usage buffers");
 			}
@@ -126,16 +124,17 @@ namespace Vega.Graphics
 				_lastDynamicUpdate = AppTime.FrameCount;
 			}
 
-			// TODO: Update data
+			// Perform async update
+			Core.Instance!.Graphics.Resources.TransferManager.UpdateBufferAsync(
+				ResourceType, Handle, offset, data, size
+			);
 		}
 
 		// Update the data (non-static buffers only) from a span of data
 		protected void SetDataImpl(ReadOnlySpan<byte> data, ulong offset)
 		{
 			// Validate
-			if (IsDisposed) {
-				throw new ObjectDisposedException(nameof(DeviceBuffer));
-			}
+			ThrowIfDisposed();
 			if (Usage == BufferUsage.Static) {
 				throw new InvalidOperationException("Cannot update data for static-usage buffers");
 			}
@@ -154,16 +153,19 @@ namespace Vega.Graphics
 				_lastDynamicUpdate = AppTime.FrameCount;
 			}
 
-			// TODO: Update data
+			// Perform async update
+			fixed (byte* dataPtr = data) {
+				Core.Instance!.Graphics.Resources.TransferManager.UpdateBufferAsync(
+					ResourceType, Handle, offset, dataPtr, (ulong)data.Length
+				);
+			}
 		}
 
 		// Update the data (non-static buffers only) from an existing host buffer
 		protected void SetDataImpl(HostBuffer data, ulong size, ulong srcOffset, ulong dstOffset)
 		{
 			// Validate
-			if (IsDisposed) {
-				throw new ObjectDisposedException(nameof(DeviceBuffer));
-			}
+			ThrowIfDisposed();
 			if (Usage == BufferUsage.Static) {
 				throw new InvalidOperationException("Cannot update data for static-usage buffers");
 			}
@@ -185,7 +187,10 @@ namespace Vega.Graphics
 				_lastDynamicUpdate = AppTime.FrameCount;
 			}
 
-			// TODO: Update data
+			// Perform async update
+			Core.Instance!.Graphics.Resources.TransferManager.UpdateBufferAsync(
+				ResourceType, Handle, dstOffset, data.Buffer, srcOffset, size
+			);
 		}
 		#endregion // Data
 
