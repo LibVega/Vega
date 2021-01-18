@@ -20,6 +20,16 @@ namespace Vega.Graphics
 		// The resource type
 		internal ResourceType ResourceType => RUID.Type;
 
+		public GraphicsDevice Graphics { 
+			get {
+				if (_graphics.TryGetTarget(out var gd) && !gd.IsDisposed) {
+					return gd;
+				}
+				throw new ObjectDisposedException(RUID.ToString() + ".Graphics");
+			}
+		}
+		private readonly WeakReference<GraphicsDevice> _graphics;
+
 		/// <summary>
 		/// If the resource has been disposed.
 		/// </summary>
@@ -29,6 +39,8 @@ namespace Vega.Graphics
 		private protected ResourceBase(ResourceType type)
 		{
 			RUID = new(type);
+			_graphics = new(Core.Instance?.Graphics 
+				?? throw new InvalidOperationException("Cannot create graphics resources before Core"));
 		}
 		~ResourceBase()
 		{

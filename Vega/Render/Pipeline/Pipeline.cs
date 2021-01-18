@@ -94,7 +94,7 @@ namespace Vega.Render
 			Shader?.DecRef();
 
 			if (Core.Instance is not null) {
-				Core.Instance.Graphics.Resources.QueueDestroy(this);
+				Graphics.Resources.QueueDestroy(this);
 
 				if (disposing && !Renderer.IsDisposed) {
 					Renderer.RemovePipeline(this);

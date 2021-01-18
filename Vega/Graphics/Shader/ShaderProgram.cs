@@ -49,20 +49,18 @@ namespace Vega.Graphics
 			VertexModule = vertMod;
 			FragmentModule = fragMod;
 
-			var gd = Core.Instance!.Graphics;
-
 			// Get the binding layouts
 			var layouts = stackalloc VulkanHandle<VkDescriptorSetLayout>[3];
 			uint layoutCount = 1;
-			layouts[0] = gd.BindingTable.LayoutHandle;
+			layouts[0] = Graphics.BindingTable.LayoutHandle;
 			if (info.UniformSize > 0) {
-				layouts[layoutCount++] = gd.BindingTable.UniformLayoutHandle;
+				layouts[layoutCount++] = Graphics.BindingTable.UniformLayoutHandle;
 			}
 			if (info.SubpassInputs.Count > 0) {
 				if (info.UniformSize == 0) {
-					layouts[layoutCount++] = gd.BindingTable.BlankLayoutHandle;
+					layouts[layoutCount++] = Graphics.BindingTable.BlankLayoutHandle;
 				}
-				SubpassInputLayout = CreateSubpassInputLayout(gd, info);
+				SubpassInputLayout = CreateSubpassInputLayout(Graphics, info);
 				layouts[layoutCount++] = SubpassInputLayout;
 			}
 
@@ -82,9 +80,9 @@ namespace Vega.Graphics
 				pushConstantRanges: &pcr
 			);
 			VulkanHandle<VkPipelineLayout> layoutHandle;
-			gd.VkDevice.CreatePipelineLayout(&plci, null, &layoutHandle)
+			Graphics.VkDevice.CreatePipelineLayout(&plci, null, &layoutHandle)
 				.Throw("Failed to create shader pipeline layout");
-			PipelineLayout = new(layoutHandle, gd.VkDevice);
+			PipelineLayout = new(layoutHandle, Graphics.VkDevice);
 		}
 
 		// Reference counting functions for pipelines
@@ -163,7 +161,7 @@ namespace Vega.Graphics
 			}
 
 			if (Core.Instance is not null) {
-				Core.Instance!.Graphics.Resources.QueueDestroy(this);
+				Graphics.Resources.QueueDestroy(this);
 			}
 			else {
 				Destroy();

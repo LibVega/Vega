@@ -51,7 +51,7 @@ namespace Vega.Graphics
 
 			// Set the initial data
 			if (initialData != null) {
-				Core.Instance!.Graphics.Resources.TransferManager.SetBufferData(Handle, 0, initialData, size, null);
+				Graphics.Resources.TransferManager.SetBufferData(Handle, 0, initialData, size, null);
 			}
 		}
 
@@ -72,7 +72,7 @@ namespace Vega.Graphics
 			CreateBuffer(size, type, out Handle, out Memory);
 
 			// Set initial data
-			Core.Instance!.Graphics.Resources.TransferManager.SetBufferData(Handle, 0, initialData, 0, size, null);
+			Graphics.Resources.TransferManager.SetBufferData(Handle, 0, initialData, 0, size, null);
 		}
 
 		private protected DeviceBuffer(ulong size, ResourceType type, BufferUsage usage, ReadOnlySpan<byte> initialData)
@@ -93,7 +93,7 @@ namespace Vega.Graphics
 
 			// Set initial data
 			fixed (byte* dataPtr = initialData) {
-				Core.Instance!.Graphics.Resources.TransferManager.SetBufferData(Handle, 0, dataPtr, size, null);
+				Graphics.Resources.TransferManager.SetBufferData(Handle, 0, dataPtr, size, null);
 			}
 		}
 
@@ -125,7 +125,7 @@ namespace Vega.Graphics
 			}
 
 			// Perform async update
-			Core.Instance!.Graphics.Resources.TransferManager.UpdateBufferAsync(
+			Graphics.Resources.TransferManager.UpdateBufferAsync(
 				ResourceType, Handle, offset, data, size
 			);
 		}
@@ -155,7 +155,7 @@ namespace Vega.Graphics
 
 			// Perform async update
 			fixed (byte* dataPtr = data) {
-				Core.Instance!.Graphics.Resources.TransferManager.UpdateBufferAsync(
+				Graphics.Resources.TransferManager.UpdateBufferAsync(
 					ResourceType, Handle, offset, dataPtr, (ulong)data.Length
 				);
 			}
@@ -188,7 +188,7 @@ namespace Vega.Graphics
 			}
 
 			// Perform async update
-			Core.Instance!.Graphics.Resources.TransferManager.UpdateBufferAsync(
+			Graphics.Resources.TransferManager.UpdateBufferAsync(
 				ResourceType, Handle, dstOffset, data.Buffer, srcOffset, size
 			);
 		}
@@ -198,7 +198,7 @@ namespace Vega.Graphics
 		protected override void OnDispose(bool disposing)
 		{
 			if (Core.Instance is not null) {
-				Core.Instance.Graphics.Resources.QueueDestroy(this);
+				Graphics.Resources.QueueDestroy(this);
 			}
 			else {
 				Destroy();

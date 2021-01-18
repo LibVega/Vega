@@ -67,8 +67,6 @@ namespace Vega.Graphics
 		{
 			DataSize = size;
 
-			var gd = Core.Instance!.Graphics;
-
 			// Create buffer
 			VkBufferCreateInfo bci = new(
 				flags: VkBufferCreateFlags.NoFlags,
@@ -77,13 +75,13 @@ namespace Vega.Graphics
 				sharingMode: VkSharingMode.Exclusive
 			);
 			VulkanHandle<VkBuffer> handle;
-			gd.VkDevice.CreateBuffer(&bci, null, &handle).Throw("Failed to create host buffer");
-			Buffer = new(handle, gd.VkDevice);
+			Graphics.VkDevice.CreateBuffer(&bci, null, &handle).Throw("Failed to create host buffer");
+			Buffer = new(handle, Graphics.VkDevice);
 
 			// Allocate/bind memory
 			VkMemoryRequirements memreq;
 			Buffer.GetBufferMemoryRequirements(&memreq);
-			Memory = gd.Resources.AllocateMemoryUpload(memreq) ??
+			Memory = Graphics.Resources.AllocateMemoryUpload(memreq) ??
 				throw new Exception("Failed to allocate host buffer memory");
 			Buffer.BindBufferMemory(Memory.Handle, Memory.Offset);
 
@@ -101,8 +99,8 @@ namespace Vega.Graphics
 			if (CanDestroyImmediately) {
 				Destroy();
 			}
-			else {
-				Core.Instance?.Graphics.Resources.QueueDestroy(this);
+			else if (Core.Instance is not null) {
+				Graphics.Resources.QueueDestroy(this);
 			}
 		}
 

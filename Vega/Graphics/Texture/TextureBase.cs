@@ -60,15 +60,14 @@ namespace Vega.Graphics
 				ResourceType type)
 			: base(type)
 		{
-			var gd = Core.Instance!.Graphics;
-			GetImageInfo(gd, type, out var vType, out var imType, out var sizeLim);
+			GetImageInfo(Graphics, type, out var vType, out var imType, out var sizeLim);
 
 			// Validate
 			if ((w > sizeLim) || (h > sizeLim) || (d > sizeLim)) {
 				throw new ArgumentException($"Invalid texture dims {w}x{h}x{d} (limit={sizeLim})");
 			}
-			if (l > gd.Limits.MaxTextureLayers) {
-				throw new ArgumentException($"Invalid texture layer count {l} (limit={gd.Limits.MaxTextureLayers})");
+			if (l > Graphics.Limits.MaxTextureLayers) {
+				throw new ArgumentException($"Invalid texture layer count {l} (limit={Graphics.Limits.MaxTextureLayers})");
 			}
 
 			// Set values
@@ -95,13 +94,13 @@ namespace Vega.Graphics
 				initialLayout: VkImageLayout.Undefined
 			);
 			VulkanHandle<VkImage> imageHandle;
-			gd.VkDevice.CreateImage(&ici, null, &imageHandle).Throw("Failed to create image handle");
-			Handle = new(imageHandle, gd.VkDevice);
+			Graphics.VkDevice.CreateImage(&ici, null, &imageHandle).Throw("Failed to create image handle");
+			Handle = new(imageHandle, Graphics.VkDevice);
 
 			// Allocate/bind memory
 			VkMemoryRequirements memreq;
 			Handle.GetImageMemoryRequirements(&memreq);
-			Memory = gd.Resources.AllocateMemoryDevice(memreq) ?? 
+			Memory = Graphics.Resources.AllocateMemoryDevice(memreq) ?? 
 				throw new Exception("Failed to allocate texture memory");
 			Handle.BindImageMemory(Memory.Handle, Memory.Offset);
 
@@ -115,8 +114,8 @@ namespace Vega.Graphics
 				subresourceRange: new(Format.GetAspectFlags(), 0, m, 0, l)
 			);
 			VulkanHandle<VkImageView> viewHandle;
-			gd.VkDevice.CreateImageView(&ivci, null, &viewHandle).Throw("Failed to create image view");
-			View = new(viewHandle, gd.VkDevice);
+			Graphics.VkDevice.CreateImageView(&ivci, null, &viewHandle).Throw("Failed to create image view");
+			View = new(viewHandle, Graphics.VkDevice);
 		}
 
 		#region SetData
@@ -130,7 +129,7 @@ namespace Vega.Graphics
 				}
 			}
 
-			Core.Instance!.Graphics.Resources.TransferManager.SetImageData(
+			Graphics.Resources.TransferManager.SetImageData(
 				Handle, Format, region, data, RUID.Type, !Initialized || (region == FullRegion)
 			);
 			Initialized = true;
@@ -152,7 +151,7 @@ namespace Vega.Graphics
 			}
 
 			fixed (byte* dataptr = data) {
-				Core.Instance!.Graphics.Resources.TransferManager.SetImageData(
+				Graphics.Resources.TransferManager.SetImageData(
 					Handle, Format, region, dataptr, RUID.Type, !Initialized || (region == FullRegion)
 				);
 			}
@@ -177,7 +176,7 @@ namespace Vega.Graphics
 				throw new InvalidOperationException("host buffer is not large enough for the requested data");
 			}
 
-			Core.Instance!.Graphics.Resources.TransferManager.SetImageData(
+			Graphics.Resources.TransferManager.SetImageData(
 				Handle, Format, region, data, dataOffset, RUID.Type, !Initialized || (region == FullRegion)
 			);
 			Initialized = true;
@@ -216,7 +215,7 @@ namespace Vega.Graphics
 		protected override void OnDispose(bool disposing)
 		{
 			if (Core.Instance is not null) {
-				Core.Instance.Graphics.Resources.QueueDestroy(this);
+				Graphics.Resources.QueueDestroy(this);
 			}
 			else {
 				Destroy();
@@ -225,15 +224,14 @@ namespace Vega.Graphics
 
 		protected internal override void Destroy()
 		{
-			var gd = Core.Instance?.Graphics;
-			if (gd is null) {
+			if (Core.Instance is null) {
 				return;
 			}
 
 			// Free global binding table indices
 			foreach (var idx in _tableIndices) {
 				if (idx != UInt16.MaxValue) {
-					gd.BindingTable.Release(BindingTableType.Sampler, idx);
+					Graphics.BindingTable.Release(BindingTableType.Sampler, idx);
 				}
 			}
 
