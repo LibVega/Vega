@@ -98,6 +98,12 @@ namespace Vega.Content
 			if (!TryRegisterLoaderType(typeof(ShaderProgramLoader), out var err)) {
 				throw new Exception($"LIBRARY BUG - Failed to register ShaderProgramLoader - {err}");
 			}
+			if (!TryRegisterLoaderType(typeof(Texture2DLoader), out err)) {
+				throw new Exception($"LIBRARY BUG - Failed to register Texture2DLoader - {err}");
+			}
+			if (!TryRegisterLoaderType(typeof(SoundLoader), out err)) {
+				throw new Exception($"LIBRARY BUG - Failed to register SoundLoader - {err}");
+			}
 		}
 	}
 }
