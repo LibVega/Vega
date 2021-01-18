@@ -208,7 +208,7 @@ namespace Vega.Render
 			);
 
 			// Shader create info
-			var stageCIs = shader.EnumerateModules().Select(mod => new VkPipelineShaderStageCreateInfo(
+			var stageCIs = shader.Program.EnumerateModules().Select(mod => new VkPipelineShaderStageCreateInfo(
 				flags: VkPipelineShaderStageCreateFlags.NoFlags,
 				stage: (VkShaderStageFlags)mod.stage,
 				module: mod.mod,

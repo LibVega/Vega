@@ -31,31 +31,23 @@ namespace Vega.Graphics
 		public uint RefCount => _refCount;
 		private uint _refCount = 0;
 
-		// The shader modules in the program
-		internal readonly VkShaderModule VertexModule;
-		internal readonly VkShaderModule FragmentModule;
+		// The shader modules
+		internal readonly ShaderProgram Program;
 		#endregion // Fields
 
-		internal Shader(ShaderLayout info, VkShaderModule vertMod, VkShaderModule fragMod)
-			: base(ResourceType.Shader)
+		internal Shader(ShaderLayout info, ShaderProgram program)
+			: base(ResourceType.ShaderProgram)
 		{
 			Layout = info;
 			Layout.IncRefCount();
 
-			VertexModule = vertMod;
-			FragmentModule = fragMod;
+			Program = program;
+			Program.IncRefCount();
 		}
 
 		// Reference counting functions for pipelines
 		internal void IncRef() => Interlocked.Increment(ref _refCount);
 		internal void DecRef() => Interlocked.Decrement(ref _refCount);
-
-		// Enumerates over the available shader modules
-		internal IEnumerable<(VkShaderModule mod, ShaderStages stage)> EnumerateModules()
-		{
-			yield return (VertexModule, ShaderStages.Vertex);
-			yield return (FragmentModule, ShaderStages.Fragment);
-		}
 
 		// Validation against pipelines
 		internal string? CheckCompatiblity(PipelineDescription desc, Renderer renderer, uint subpassIndex)
@@ -129,24 +121,24 @@ namespace Vega.Graphics
 			}
 
 			Layout.DecRefCount();
+			Program.DecRefCount();
 		}
 
 		protected internal override void Destroy()
 		{
-			VertexModule.DestroyShaderModule(null);
-			FragmentModule.DestroyShaderModule(null);
+			
 		}
 		#endregion // ResourceBase
 
 		#region Loading
 		/// <summary>
-		/// Loads a new shader program from a <em>compiled</em> VSL shader file.
+		/// Loads a new shader from a <em>compiled</em> VSL shader file.
 		/// <para>
 		/// The shader file must be a compiled VSL file (.vbc), <em>NOT</em> a raw shader source.
 		/// </para>
 		/// </summary>
 		/// <param name="path">The path to the compiled file.</param>
-		/// <returns>The loaded shader program.</returns>
+		/// <returns>The loaded shader.</returns>
 		public static Shader LoadFile(string path)
 		{
 			try {
@@ -155,7 +147,8 @@ namespace Vega.Graphics
 				}
 				using var file = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
 				VSL.LoadStream(path, file, out var info, out var vertMod, out var fragMod);
-				return new(info, vertMod, fragMod);
+				var program = new ShaderProgram(vertMod, null, null, null, fragMod);
+				return new(info, program);
 			}
 			catch (InvalidShaderException) { throw; }
 			catch (Exception e) {
@@ -172,7 +165,8 @@ namespace Vega.Graphics
 					throw new InvalidShaderException(resName, $"Failed to load embedded shader '{resName}'");
 				}
 				VSL.LoadStream(resName, asm, out var info, out var vertMod, out var fragMod);
-				return new(info, vertMod, fragMod);
+				var program = new ShaderProgram(vertMod, null, null, null, fragMod);
+				return new(info, program);
 			}
 			catch (InvalidShaderException) { throw; }
 			catch (Exception e) {
