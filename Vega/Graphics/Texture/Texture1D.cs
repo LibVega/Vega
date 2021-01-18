@@ -28,8 +28,9 @@ namespace Vega.Graphics
 		/// </summary>
 		/// <param name="width">The width of the texture.</param>
 		/// <param name="format">The texel format.</param>
-		public Texture1D(uint width, TexelFormat format)
-			: base(width, 1, 1, 1, 1, format, TextureUsage.Static, ResourceType.Texture1D)
+		/// <param name="usage">The texture usage policy.</param>
+		public Texture1D(uint width, TexelFormat format, TextureUsage usage = TextureUsage.Static)
+			: base(width, 1, 1, 1, 1, format, usage, ResourceType.Texture1D)
 		{
 
 		}
@@ -40,8 +41,9 @@ namespace Vega.Graphics
 		/// <param name="width">The width of the texture.</param>
 		/// <param name="format">The texel format.</param>
 		/// <param name="data">The initial texture data. Must be large enough to fill entire texture.</param>
-		public Texture1D(uint width, TexelFormat format, void* data)
-			: base(width, 1, 1, 1, 1, format, TextureUsage.Static, ResourceType.Texture1D)
+		/// <param name="usage">The texture usage policy.</param>
+		public Texture1D(uint width, TexelFormat format, void* data, TextureUsage usage = TextureUsage.Static)
+			: base(width, 1, 1, 1, 1, format, usage, ResourceType.Texture1D)
 		{
 			if (data == null) {
 				throw new ArgumentException("Initial texture data pointer cannot be null", nameof(data));
@@ -55,8 +57,10 @@ namespace Vega.Graphics
 		/// <param name="width">The width of the texture.</param>
 		/// <param name="format">The texel format.</param>
 		/// <param name="data">The initial texture data. Must be large enough to fill entire texture.</param>
-		public Texture1D(uint width, TexelFormat format, ReadOnlySpan<byte> data)
-			: base(width, 1, 1, 1, 1, format, TextureUsage.Static, ResourceType.Texture1D)
+		/// <param name="usage">The texture usage policy.</param>
+		public Texture1D(uint width, TexelFormat format, ReadOnlySpan<byte> data, 
+				TextureUsage usage = TextureUsage.Static)
+			: base(width, 1, 1, 1, 1, format, usage, ResourceType.Texture1D)
 		{
 			SetDataImpl(new(0, 0, 0, width, 1, 1, 0, 1), data);
 		}
@@ -68,10 +72,42 @@ namespace Vega.Graphics
 		/// <param name="format">The texel format.</param>
 		/// <param name="data">The initial texture data. Must be large enough to fill entire texture.</param>
 		/// <param name="dataOff">The offset into the buffered data to upload.</param>
-		public Texture1D(uint width, TexelFormat format, HostBuffer data, ulong dataOff = 0)
-			: base(width, 1, 1, 1, 1, format, TextureUsage.Static, ResourceType.Texture1D)
+		/// <param name="usage">The texture usage policy.</param>
+		public Texture1D(uint width, TexelFormat format, HostBuffer data, ulong dataOff = 0, 
+				TextureUsage usage = TextureUsage.Static)
+			: base(width, 1, 1, 1, 1, format, usage, ResourceType.Texture1D)
 		{
 			SetDataImpl(new(0, 0, 0, width, 1, 1, 0, 1), data, dataOff);
 		}
+
+		#region Data
+		/// <summary>
+		/// Updates the image data with the passed data. Only works for non-Static or uninialized textures.
+		/// </summary>
+		/// <param name="data">The data to update the texture with.</param>
+		/// <param name="x">The texel coordinate to begin updating at.</param>
+		/// <param name="width">The number of texels to update.</param>
+		public void SetData(void* data, uint x, uint width) =>
+			SetDataImpl(new(x, 0, 0, width, 1, 1), data);
+
+		/// <summary>
+		/// Updates the image data with the passed data. Only works for non-Static or uninialized textures.
+		/// </summary>
+		/// <param name="data">The data to update the texture with.</param>
+		/// <param name="x">The texel coordinate to begin updating at.</param>
+		/// <param name="width">The number of texels to update.</param>
+		public void SetData(ReadOnlySpan<byte> data, uint x, uint width) =>
+			SetDataImpl(new(x, 0, 0, width, 1, 1), data);
+
+		/// <summary>
+		/// Updates the image data with the passed data. Only works for non-Static or uninialized textures.
+		/// </summary>
+		/// <param name="data">The host buffer to update the texture with.</param>
+		/// <param name="x">The texel coordinate to begin updating at.</param>
+		/// <param name="width">The number of texels to update.</param>
+		/// <param name="dataOffset">The offset into <paramref name="data"/> to copy data from.</param>
+		public void SetData(HostBuffer data, uint x, uint width, uint dataOffset = 0) =>
+			SetDataImpl(new(x, 0, 0, width, 1, 1), data, dataOffset);
+		#endregion // Data
 	}
 }
