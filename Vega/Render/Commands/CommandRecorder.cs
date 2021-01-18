@@ -543,8 +543,9 @@ namespace Vega.Render
 			if (!IsRecording) {
 				throw new InvalidOperationException("Cannot bind resource to non-recording command recorder");
 			}
-			if (texture.IsDisposed) {
-				throw new ObjectDisposedException(nameof(texture));
+			texture.ThrowIfDisposed();
+			if (!texture.Initialized) {
+				throw new ArgumentException("Cannot bind uninitialized texture", nameof(texture));
 			}
 
 			// Bind
@@ -567,8 +568,9 @@ namespace Vega.Render
 			if (!IsRecording) {
 				throw new InvalidOperationException("Cannot bind resource to non-recording command recorder");
 			}
-			if (texture.IsDisposed) {
-				throw new ObjectDisposedException(nameof(texture));
+			texture.ThrowIfDisposed();
+			if (!texture.Initialized) {
+				throw new ArgumentException("Cannot bind uninitialized texture", nameof(texture));
 			}
 
 			// Bind
@@ -591,8 +593,9 @@ namespace Vega.Render
 			if (!IsRecording) {
 				throw new InvalidOperationException("Cannot bind resource to non-recording command recorder");
 			}
-			if (texture.IsDisposed) {
-				throw new ObjectDisposedException(nameof(texture));
+			texture.ThrowIfDisposed();
+			if (!texture.Initialized) {
+				throw new ArgumentException("Cannot bind uninitialized texture", nameof(texture));
 			}
 
 			// Bind

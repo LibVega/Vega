@@ -61,7 +61,7 @@ namespace Vega.Graphics
 		#endregion // Overrides
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		protected void ThrowIfDisposed()
+		internal void ThrowIfDisposed()
 		{
 			if (IsDisposed) {
 				throw new ObjectDisposedException(RUID.ToString());
