@@ -27,9 +27,9 @@ namespace Vega.Render
 	{
 		#region Fields
 		/// <summary>
-		/// The shader program used by this pipeline.
+		/// The layout description of the shader used by the pipeline.
 		/// </summary>
-		public readonly Shader Shader;
+		public readonly ShaderLayout Layout;
 		/// <summary>
 		/// The renderer that this pipeline is utilized within.
 		/// </summary>
@@ -43,6 +43,9 @@ namespace Vega.Render
 		/// The expected number of vertex bindings for this pipeline.
 		/// </summary>
 		public readonly uint VertexBindingCount;
+
+		// The shader modules handle
+		internal readonly ShaderProgram ShaderProgram;
 
 		// The pipeline handle
 		internal VkPipeline Handle { get; private set; }
@@ -66,8 +69,10 @@ namespace Vega.Render
 			}
 
 			// Assign fields
-			Shader = description.Shader!;
-			Shader.IncRef();
+			Layout = description.Shader!.Layout;
+			Layout.IncRefCount();
+			ShaderProgram = description.Shader.Program;
+			ShaderProgram.IncRefCount();
 			Renderer = renderer;
 			Subpass = subpass;
 
@@ -85,14 +90,12 @@ namespace Vega.Render
 			Handle?.DestroyPipeline(null);
 
 			// Create new handle
-			Handle = CreatePipeline(BuildCache!, Renderer, Subpass, Shader);
+			Handle = CreatePipeline(BuildCache!, Renderer, Subpass, Layout, ShaderProgram);
 		}
 
 		#region ResourceBase
 		protected override void OnDispose(bool disposing)
 		{
-			Shader?.DecRef();
-
 			if (Core.Instance is not null) {
 				Graphics.Resources.QueueDestroy(this);
 
@@ -103,6 +106,9 @@ namespace Vega.Render
 			else {
 				Destroy();
 			}
+
+			Layout.DecRefCount();
+			ShaderProgram.DecRefCount();
 		}
 
 		protected internal override void Destroy()
@@ -119,6 +125,9 @@ namespace Vega.Render
 			var rlayout = (renderer.MSAA != MSAA.X1) ? renderer.MSAALayout! : renderer.Layout;
 			if (!desc.IsComplete) {
 				throw new InvalidOperationException("Cannot create a pipeline from an incomplete description");
+			}
+			if (desc.Shader!.IsDisposed) {
+				throw new ObjectDisposedException("desc.Shader", "Cannot build a pipeline with a disposed shader");
 			}
 			var cacnt = rlayout.Subpasses[subpass].ColorCount;
 			if (desc.AllColorBlends!.Length != 1 && (cacnt != desc.AllColorBlends.Length)) {
@@ -153,12 +162,12 @@ namespace Vega.Render
 			);
 
 			// Create the initial pipeline
-			return CreatePipeline(buildState, renderer, subpass, desc.Shader!);
+			return CreatePipeline(buildState, renderer, subpass, desc.Shader!.Layout, desc.Shader.Program);
 		}
 
 		// Create a pipeline from a set of build states and a shader
 		private static VkPipeline CreatePipeline(BuildStates states, Renderer renderer, uint subpass,
-			Shader shader)
+			ShaderLayout shaderLayout, ShaderProgram shaderProgram)
 		{
 			var MAIN_STR = stackalloc byte[5] { (byte)'m', (byte)'a', (byte)'i', (byte)'n', (byte)'\0' };
 
@@ -208,7 +217,7 @@ namespace Vega.Render
 			);
 
 			// Shader create info
-			var stageCIs = shader.Program.EnumerateModules().Select(mod => new VkPipelineShaderStageCreateInfo(
+			var stageCIs = shaderProgram.EnumerateModules().Select(mod => new VkPipelineShaderStageCreateInfo(
 				flags: VkPipelineShaderStageCreateFlags.NoFlags,
 				stage: (VkShaderStageFlags)mod.stage,
 				module: mod.mod,
@@ -249,7 +258,7 @@ namespace Vega.Render
 					depthStencilState: &depthStencilCI,
 					colorBlendState: &colorBlendCI,
 					dynamicState: &dynamicCI,
-					layout: shader.Layout.PipelineLayout,
+					layout: shaderLayout.PipelineLayout,
 					renderPass: renderer.RenderPass,
 					subpass: subpass,
 					basePipelineHandle: VulkanHandle<VkPipeline>.Null,

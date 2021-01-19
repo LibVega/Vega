@@ -5,19 +5,16 @@
  */
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using Vega.Render; // Breaks the no Graphics->Render reference rule, but its okay in this case (just compat checks)
-using Vulkan;
 
 namespace Vega.Graphics
 {
 	/// <summary>
 	/// Describes a shader program written in VSL, and its metadata.
 	/// </summary>
-	public unsafe sealed class Shader : ResourceBase
+	public unsafe sealed class Shader : IDisposable
 	{
 		#region Fields
 		/// <summary>
@@ -25,18 +22,16 @@ namespace Vega.Graphics
 		/// </summary>
 		public readonly ShaderLayout Layout;
 
-		/// <summary>
-		/// The number of <see cref="Pipeline"/> instances that are actively using this shader.
-		/// </summary>
-		public uint RefCount => _refCount;
-		private uint _refCount = 0;
-
 		// The shader modules
 		internal readonly ShaderProgram Program;
+
+		/// <summary>
+		/// Object disposal flag.
+		/// </summary>
+		public bool IsDisposed { get; private set; } = false;
 		#endregion // Fields
 
 		internal Shader(ShaderLayout info, ShaderProgram program)
-			: base(ResourceType.ShaderProgram)
 		{
 			Layout = info;
 			Layout.IncRefCount();
@@ -44,10 +39,10 @@ namespace Vega.Graphics
 			Program = program;
 			Program.IncRefCount();
 		}
-
-		// Reference counting functions for pipelines
-		internal void IncRef() => Interlocked.Increment(ref _refCount);
-		internal void DecRef() => Interlocked.Decrement(ref _refCount);
+		~Shader()
+		{
+			dispose(false);
+		}
 
 		// Validation against pipelines
 		internal string? CheckCompatiblity(PipelineDescription desc, Renderer renderer, uint subpassIndex)
@@ -106,29 +101,22 @@ namespace Vega.Graphics
 			return null;
 		}
 
-		#region ResourceBase
-		protected override void OnDispose(bool disposing)
+		#region IDisposable
+		public void Dispose()
 		{
-			if (disposing && (_refCount != 0)) {
-				throw new InvalidOperationException("Cannot dispose a shader that is in use");
-			}
-
-			if (Core.Instance is not null) {
-				Graphics.Resources.QueueDestroy(this);
-			}
-			else {
-				Destroy();
-			}
-
-			Layout.DecRefCount();
-			Program.DecRefCount();
+			dispose(true);
+			GC.SuppressFinalize(this);
 		}
 
-		protected internal override void Destroy()
+		private void dispose(bool disposing)
 		{
-			
+			if (!IsDisposed) {
+				Layout.DecRefCount();
+				Program.DecRefCount();
+			}
+			IsDisposed = true;
 		}
-		#endregion // ResourceBase
+		#endregion // IDisposable
 
 		#region Loading
 		/// <summary>
