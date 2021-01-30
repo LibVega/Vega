@@ -32,6 +32,42 @@ namespace Vega.Graphics
 		/// </summary>
 		UNormBgra = VkFormat.B8g8r8a8Unorm,
 		/// <summary>
+		/// An unsigned 8-bit integer representing a value between -1 and 1. Channels: R.
+		/// </summary>
+		SNorm = VkFormat.R8Snorm,
+		/// <summary>
+		/// Two unsigned 8-bit integers representing values between -1 and 1. Channels: RG.
+		/// </summary>
+		SNorm2 = VkFormat.R8g8Snorm,
+		/// <summary>
+		/// Four unsigned 8-bit integers representing values between -1 and 1. Channels: RGBA.
+		/// </summary>
+		SNorm4 = VkFormat.R8g8b8a8Snorm,
+		/// <summary>
+		/// An unsigned 16-bit integer representing a value between 0 and 1. Channels: R.
+		/// </summary>
+		U16Norm = VkFormat.R16Unorm,
+		/// <summary>
+		/// Two unsigned 16-bit integers representing values between 0 and 1. Channels: RG.
+		/// </summary>
+		U16Norm2 = VkFormat.R16g16Unorm,
+		/// <summary>
+		/// Four unsigned 16-bit integers representing values between 0 and 1. Channels: RGBA.
+		/// </summary>
+		U16Norm4 = VkFormat.R16g16b16a16Unorm,
+		/// <summary>
+		/// An unsigned 16-bit integer representing a value between -1 and 1. Channels: R.
+		/// </summary>
+		S16Norm = VkFormat.R16Snorm,
+		/// <summary>
+		/// Two unsigned 16-bit integers representing values between -1 and 1. Channels: RG.
+		/// </summary>
+		S16Norm2 = VkFormat.R16g16Snorm,
+		/// <summary>
+		/// Four unsigned 16-bit integers representing values between -1 and 1. Channels: RGBA.
+		/// </summary>
+		S16Norm4 = VkFormat.R16g16b16a16Snorm,
+		/// <summary>
 		/// A single unsigned 8-bit integer. Channels: R.
 		/// </summary>
 		UByte = VkFormat.R8Uint,

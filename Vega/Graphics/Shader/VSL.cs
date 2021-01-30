@@ -86,12 +86,12 @@ namespace Vega.Graphics
 			if (uniformSize > 0) {
 				uniformStages = (ShaderStages)file.ReadUInt16();
 				var uniformMemberCount = file.ReadUInt32();
-				Span<UniformMember> members = stackalloc UniformMember[(int)uniformMemberCount];
+				Span<StructMember> members = stackalloc StructMember[(int)uniformMemberCount];
 				var memberNames = new string[uniformMemberCount];
 				Span<byte> nameBytes = stackalloc byte[64];
 				for (uint i = 0; i < uniformMemberCount; ++i) {
 					file.Read(MemoryMarshal.AsBytes(members.Slice((int)i, 1)));
-					var thisName = nameBytes.Slice(0, (int)members[(int)i].NameLength);
+					var thisName = nameBytes.Slice(0, 1);// (int)members[(int)i].NameLength);
 					file.Read(thisName);
 					memberNames[i] = Encoding.ASCII.GetString(thisName);
 				}
@@ -154,7 +154,7 @@ namespace Vega.Graphics
 			outputs = new ShaderLayout.FragmentOutput[rawOutputs.Length];
 			for (int i = 0; i < rawOutputs.Length; ++i) {
 				ref readonly var raw = ref rawOutputs[i];
-				var outputType = ParseTexelFormat(raw.BaseType, 4, raw.Dims[0]);
+				var outputType = ParseTexelFormat(default, 4, raw.Dims[0]);
 				if (!outputType.HasValue) {
 					throw new InvalidShaderException(path, "Invalid fragment output type");
 				}
@@ -173,7 +173,7 @@ namespace Vega.Graphics
 				if (!btype.HasValue) {
 					throw new InvalidShaderException(path, $"Invalid binding type at slot {raw.Slot}");
 				}
-				if ((raw.BaseType == ShaderBaseType.ROBuffer) || (raw.BaseType == ShaderBaseType.RWBuffer)) {
+				if ((raw.BaseType == BaseType.ROBuffer) || (raw.BaseType == BaseType.RWBuffer)) {
 					bindings[i] = new(raw.Slot, (ShaderStages)raw.StageMask, btype.Value, raw.BufferSize);
 				}
 				else {
@@ -188,7 +188,7 @@ namespace Vega.Graphics
 
 		// Perform processing of the uniform members into the final reflection types
 		private static void ProcessUniformMembers(string? path,
-			Span<UniformMember> rawMembers, string[] names, out ShaderLayout.UniformMember[] members)
+			Span<StructMember> rawMembers, string[] names, out ShaderLayout.UniformMember[] members)
 		{
 			members = new ShaderLayout.UniformMember[rawMembers.Length];
 			for (int i = 0; i < rawMembers.Length; ++i) {
@@ -209,9 +209,9 @@ namespace Vega.Graphics
 			for (int i = 0; i < rawInputs.Length; ++i) {
 				ref readonly var raw = ref rawInputs[i];
 				var tfmt = raw.ComponentType switch {
-					ShaderBaseType.Float => TexelFormat.Float4,
-					ShaderBaseType.Signed => TexelFormat.Int4,
-					ShaderBaseType.Unsigned => TexelFormat.UInt4,
+					TexelType.Float => TexelFormat.Float4,
+					TexelType.Signed => TexelFormat.Int4,
+					TexelType.Unsigned => TexelFormat.UInt4,
 					_ => (TexelFormat?)null
 				};
 				if (!tfmt.HasValue) {
