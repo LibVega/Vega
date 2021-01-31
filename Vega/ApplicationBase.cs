@@ -139,8 +139,8 @@ namespace Vega
 			AppVersion = appVersion;
 
 			// Register to core setup events
-			Core.Events.Subscribe<DeviceDiscoveryEvent>((sender, time, evt) => OnSelectDevice(evt!));
-			Core.Events.Subscribe<DeviceConfigureEvent>((sender, time, evt) => OnConfigureDevice(evt!));
+			Core.Events.Subscribe<DeviceDiscoveryEvent>((_, _, evt) => OnSelectDevice(evt!));
+			Core.Events.Subscribe<DeviceConfigureEvent>((_, _, evt) => OnConfigureDevice(evt!));
 		}
 		~ApplicationBase()
 		{
@@ -293,7 +293,7 @@ namespace Vega
 		// This function is blocking
 		private void mainLoop()
 		{
-			while (!ShouldExit) {
+			while (!ShouldExit && !MainWindow.CloseRequested) {
 				Core.NextFrame();
 
 				Phase = ApplicationPhase.Update;
