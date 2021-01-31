@@ -80,7 +80,7 @@ namespace Vega.Graphics
 			ProcessBindings(path, bindings, out var reflBindings);
 
 			// Read the uniform info
-			var uniformSize = file.ReadUInt32();
+			var uniformSize = file.ReadUInt16();
 			ShaderLayout.UniformMember[]? reflUniformMembers = null;
 			ShaderStages uniformStages = ShaderStages.None;
 			if (uniformSize > 0) {
@@ -90,9 +90,10 @@ namespace Vega.Graphics
 				var memberNames = new string[uniformMemberCount];
 				Span<byte> nameBytes = stackalloc byte[64];
 				for (uint i = 0; i < uniformMemberCount; ++i) {
-					file.Read(MemoryMarshal.AsBytes(members.Slice((int)i, 1)));
-					var thisName = nameBytes.Slice(0, 1);// (int)members[(int)i].NameLength);
+					uint nameLength = file.ReadByte();
+					var thisName = nameBytes.Slice(0, (int)nameLength);
 					file.Read(thisName);
+					file.Read(MemoryMarshal.AsBytes(members.Slice((int)i, 1)));
 					memberNames[i] = Encoding.ASCII.GetString(thisName);
 				}
 				ProcessUniformMembers(path, members, memberNames, out reflUniformMembers);

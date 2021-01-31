@@ -15,22 +15,38 @@ namespace Vega.Graphics
 	/// </summary>
 	public static class TexelFormatUtils
 	{
-		// bt == basetype: 0 = float, 1 = int, 2 = uint, 3 = depth/stencil
-		private static readonly Dictionary<TexelFormat, (uint s, uint c, uint bt)> FORMAT_DATA = new() {
-			{ TexelFormat.UNorm,       (1, 1, 0) }, { TexelFormat.UNorm2,   (2, 2, 0) }, { TexelFormat.UNorm4,    (4, 4, 0) },
-			{ TexelFormat.UNormBgra,   (4, 4, 0) },
-			{ TexelFormat.UByte,       (1, 1, 2) }, { TexelFormat.UByte2,   (2, 2, 2) }, { TexelFormat.UByte4,    (4, 4, 2) },
-			{ TexelFormat.Byte,        (1, 1, 1) }, { TexelFormat.Byte2,    (2, 2, 1) }, { TexelFormat.Byte4,     (4, 4, 1) },
-			{ TexelFormat.UShort,      (2, 1, 2) }, { TexelFormat.UShort2,  (4, 2, 2) }, { TexelFormat.UShort4,   (8, 4, 2) },
-			{ TexelFormat.Short,       (2, 1, 1) }, { TexelFormat.Short2,   (4, 2, 1) }, { TexelFormat.Short4,    (8, 4, 1) },
-			{ TexelFormat.UInt,        (4, 1, 2) }, { TexelFormat.UInt2,    (8, 2, 2) }, { TexelFormat.UInt4,    (16, 4, 2) },
-			{ TexelFormat.Int,         (4, 1, 1) }, { TexelFormat.Int2,     (8, 2, 1) }, { TexelFormat.Int4,     (16, 4, 1) },
-			{ TexelFormat.Float,       (4, 1, 0) }, { TexelFormat.Float2,   (8, 2, 0) }, { TexelFormat.Float4,   (16, 4, 0) },
-			{ TexelFormat.Argb1555,    (2, 4, 0) }, { TexelFormat.Bgra5551, (2, 4, 0) }, { TexelFormat.Rgba5551,  (2, 4, 0) },
-			{ TexelFormat.Argb2101010, (4, 4, 0) },
-			{ TexelFormat.Rgb565,      (2, 3, 0) }, { TexelFormat.Bgr565,   (2, 3, 0) },
-			{ TexelFormat.Bgra4444,    (2, 4, 0) }, { TexelFormat.Rgba4444, (2, 4, 0) },
-			{ TexelFormat.Depth16,     (2, 1, 3) }, { TexelFormat.Depth32,  (4, 1, 3) }, { TexelFormat.Depth24Stencil8, (4, 2, 3) },
+		private static readonly Dictionary<TexelFormat, (VSL.TexelType typ, byte sz, byte cnt)> FORMAT_DATA = new() {
+			{ TexelFormat.UNorm,  (VSL.TexelType.UNorm, 1, 1) }, { TexelFormat.UNorm2, (VSL.TexelType.UNorm, 2, 2) },
+			{ TexelFormat.UNorm4, (VSL.TexelType.UNorm, 4, 4) },
+			{ TexelFormat.UNormBgra, (VSL.TexelType.UNorm, 4, 4) },
+			{ TexelFormat.SNorm,  (VSL.TexelType.SNorm, 1, 1) }, { TexelFormat.SNorm2, (VSL.TexelType.SNorm, 2, 2) },
+			{ TexelFormat.SNorm4, (VSL.TexelType.SNorm, 4, 4) },
+			{ TexelFormat.U16Norm,  (VSL.TexelType.UNorm, 2, 1) }, { TexelFormat.U16Norm2, (VSL.TexelType.UNorm, 4, 2) },
+			{ TexelFormat.U16Norm4, (VSL.TexelType.UNorm, 8, 4) },
+			{ TexelFormat.S16Norm,  (VSL.TexelType.SNorm, 2, 1) }, { TexelFormat.S16Norm2, (VSL.TexelType.SNorm, 4, 2) },
+			{ TexelFormat.S16Norm4, (VSL.TexelType.SNorm, 8, 4) },
+			{ TexelFormat.UByte,  (VSL.TexelType.Unsigned, 1, 1) }, { TexelFormat.UByte2, (VSL.TexelType.Unsigned, 2, 2) },
+			{ TexelFormat.UByte4, (VSL.TexelType.Unsigned, 4, 4) },
+			{ TexelFormat.Byte,  (VSL.TexelType.Signed, 1, 1) }, { TexelFormat.Byte2, (VSL.TexelType.Signed, 2, 2) },
+			{ TexelFormat.Byte4, (VSL.TexelType.Signed, 4, 4) },
+			{ TexelFormat.UShort,  (VSL.TexelType.Unsigned, 2, 1) }, { TexelFormat.UShort2, (VSL.TexelType.Unsigned, 4, 2) },
+			{ TexelFormat.UShort4, (VSL.TexelType.Unsigned, 8, 4) },
+			{ TexelFormat.Short,  (VSL.TexelType.Signed, 2, 1) }, { TexelFormat.Short2, (VSL.TexelType.Signed, 4, 2) },
+			{ TexelFormat.Short4, (VSL.TexelType.Signed, 8, 4) },
+			{ TexelFormat.UInt,  (VSL.TexelType.Unsigned, 4, 1) }, { TexelFormat.UInt2, (VSL.TexelType.Unsigned, 8, 2) },
+			{ TexelFormat.UInt4, (VSL.TexelType.Unsigned, 16, 4) },
+			{ TexelFormat.Int,  (VSL.TexelType.Signed, 4, 1) }, { TexelFormat.Int2, (VSL.TexelType.Signed, 8, 2) },
+			{ TexelFormat.Int4, (VSL.TexelType.Signed, 16, 4) },
+			{ TexelFormat.Float,  (VSL.TexelType.Float, 4, 1) }, { TexelFormat.Float2, (VSL.TexelType.Float, 8, 2) },
+			{ TexelFormat.Float4, (VSL.TexelType.Float, 16, 4) },
+			{ TexelFormat.Argb1555, (VSL.TexelType.UNorm, 2, 4) }, { TexelFormat.Bgra5551, (VSL.TexelType.UNorm, 2, 4) },
+			{ TexelFormat.Rgba5551, (VSL.TexelType.UNorm, 2, 4) },
+			{ TexelFormat.Argb2101010, (VSL.TexelType.UNorm, 4, 4) },
+			{ TexelFormat.Rgb565, (VSL.TexelType.UNorm, 2, 3) }, { TexelFormat.Bgr565, (VSL.TexelType.UNorm, 2, 3) },
+			{ TexelFormat.Bgra4444, (VSL.TexelType.UNorm, 2, 4) }, { TexelFormat.Rgba4444, (VSL.TexelType.UNorm, 2, 4) },
+			// Texel type is less important for depth/stencil formats
+			{ TexelFormat.Depth16, (VSL.TexelType.Float, 2, 1) }, { TexelFormat.Depth32, (VSL.TexelType.Float, 4, 1) },
+			{ TexelFormat.Depth24Stencil8, (VSL.TexelType.Float, 4, 2) }
 		};
 
 		/// <summary>
@@ -59,13 +75,13 @@ namespace Vega.Graphics
 		/// Gets the size of a single texel for the given format, in bytes.
 		/// </summary>
 		/// <param name="format">The format to get the size for.</param>
-		public static uint GetSize(this TexelFormat format) => FORMAT_DATA[format].s;
+		public static uint GetSize(this TexelFormat format) => FORMAT_DATA[format].sz;
 
 		/// <summary>
 		/// Gets the number of components per texel for the format.
 		/// </summary>
 		/// <param name="format">The format to get the component count for.</param>
-		public static uint GetComponentCount(this TexelFormat format) => FORMAT_DATA[format].c;
+		public static uint GetComponentCount(this TexelFormat format) => FORMAT_DATA[format].cnt;
 
 		/// <summary>
 		/// Gets if the format is a "packed" format, where components do not fall on byte boundaries.
@@ -84,7 +100,6 @@ namespace Vega.Graphics
 		public static bool IsValidAsInput(this TexelFormat format) =>
 			(format != TexelFormat.Bgr565) && (format != TexelFormat.Rgb565);
 
-
 		/// <summary>
 		/// Gets if the source format is implicitly convertible to the destination, such as in color attachment stores.
 		/// </summary>
@@ -94,15 +109,18 @@ namespace Vega.Graphics
 		{
 			var sdata = FORMAT_DATA[srcFormat];
 			var ddata = FORMAT_DATA[dstFormat];
-			if ((sdata.bt == 3) || (ddata.bt == 3)) {
-				return srcFormat == dstFormat;
-			}
-			var sfloat = sdata.bt == 0;
-			var dfloat = ddata.bt == 0;
-			if (sfloat != dfloat) {
-				return false;
-			}
-			return sdata.c == ddata.c;
+			var sbase = sdata.typ switch { 
+				VSL.TexelType.Signed => 0,
+				VSL.TexelType.Unsigned => 1,
+				_ => 2
+			};
+			var dbase = ddata.typ switch {
+				VSL.TexelType.Signed => 0,
+				VSL.TexelType.Unsigned => 1,
+				_ => 2
+			};
+
+			return (sbase == dbase) || (sdata.cnt == ddata.cnt);
 		}
 
 		// Gets the vulkan aspect flags for the format
