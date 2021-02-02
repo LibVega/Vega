@@ -198,7 +198,7 @@ namespace Vega.Render
 			// Allocate and bind memory
 			VkMemoryRequirements memreq;
 			image.GetImageMemoryRequirements(&memreq);
-			memory = graphics.Resources.AllocateMemoryDevice(memreq) ?? 
+			memory = graphics.Memory.AllocateDevice(memreq) ?? 
 				throw new Exception("Failed to allocate framebuffer memory");
 			image.BindImageMemory(memory.Handle, memory.Offset);
 

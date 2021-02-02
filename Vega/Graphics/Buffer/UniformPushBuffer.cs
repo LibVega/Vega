@@ -69,7 +69,7 @@ namespace Vega.Graphics
 			// Allocate and bind buffer memory
 			VkMemoryRequirements memreq;
 			Handle.GetBufferMemoryRequirements(&memreq);
-			Memory = gd.Resources.AllocateMemoryDynamic(memreq) ?? 
+			Memory = gd.Memory.AllocateDynamic(memreq) ?? 
 				throw new Exception("Failed to allocate uniform push buffer memory");
 			Handle.BindBufferMemory(Memory.Handle, Memory.Offset)
 				.Throw("Failed to bind uniform push buffer memory");

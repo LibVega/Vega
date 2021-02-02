@@ -81,7 +81,7 @@ namespace Vega.Graphics
 			// Allocate/bind memory
 			VkMemoryRequirements memreq;
 			Buffer.GetBufferMemoryRequirements(&memreq);
-			Memory = Graphics.Resources.AllocateMemoryUpload(memreq) ??
+			Memory = Graphics.Memory.AllocateUpload(memreq) ??
 				throw new Exception("Failed to allocate host buffer memory");
 			Buffer.BindBufferMemory(Memory.Handle, Memory.Offset);
 

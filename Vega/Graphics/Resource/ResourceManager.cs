@@ -20,15 +20,6 @@ namespace Vega.Graphics
 		// The service using this resource manager
 		public readonly GraphicsDevice Graphics;
 
-		// Memory info
-		private readonly MemoryIndex MemoryDevice;
-		private readonly MemoryIndex MemoryHost;
-		private readonly MemoryIndex MemoryUpload;
-		private readonly MemoryIndex MemoryDynamic;
-		private readonly MemoryIndex? MemoryTransient;
-		// Gets if the system supports transient memory
-		public bool HasTransientMemory => MemoryTransient.HasValue;
-
 		// Pipeline cache
 		public readonly VkPipelineCache PipelineCache;
 
@@ -68,46 +59,6 @@ namespace Vega.Graphics
 		public ResourceManager(GraphicsDevice gs)
 		{
 			Graphics = gs;
-
-			// Load memory types
-			{
-				var mdev = gs.VkDeviceInfo.FindMemoryType(UInt32.MaxValue, 
-					VkMemoryPropertyFlags.DeviceLocal,
-					VkMemoryPropertyFlags.NoFlags, 
-					VkMemoryPropertyFlags.HostVisible);
-				var mhos = gs.VkDeviceInfo.FindMemoryType(UInt32.MaxValue,
-					VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCached,
-					VkMemoryPropertyFlags.HostCoherent,
-					VkMemoryPropertyFlags.DeviceLocal);
-				var mupl = gs.VkDeviceInfo.FindMemoryType(UInt32.MaxValue,
-					VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent,
-					VkMemoryPropertyFlags.NoFlags,
-					VkMemoryPropertyFlags.HostCached);
-				var mdyn = gs.VkDeviceInfo.FindMemoryType(UInt32.MaxValue,
-					VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent,
-					VkMemoryPropertyFlags.DeviceLocal,
-					VkMemoryPropertyFlags.HostCached);
-				var mtra = gs.VkDeviceInfo.FindMemoryType(UInt32.MaxValue,
-					VkMemoryPropertyFlags.LazilyAllocated | VkMemoryPropertyFlags.DeviceLocal,
-					VkMemoryPropertyFlags.NoFlags,
-					VkMemoryPropertyFlags.HostVisible);
-
-				MemoryDevice = new(
-					mdev.HasValue ? mdev.Value : throw new PlatformNotSupportedException("Device does not report VRAM"),
-					gs.VkDeviceInfo.MemoryTypes[(int)mdev.Value].HeapIndex);
-				MemoryHost = new(
-					mhos.HasValue ? mhos.Value : throw new PlatformNotSupportedException("Device does not report DRAM"),
-					gs.VkDeviceInfo.MemoryTypes[(int)mhos.Value].HeapIndex);
-				MemoryUpload = new(
-					mupl.HasValue ? mupl.Value : MemoryHost.Type,
-					gs.VkDeviceInfo.MemoryTypes[(int)(mupl.HasValue ? mupl.Value : MemoryHost.Type)].HeapIndex);
-				MemoryDynamic = new(
-					mdyn.HasValue ? mdyn.Value : MemoryUpload.Type,
-					gs.VkDeviceInfo.MemoryTypes[(int)(mdyn.HasValue ? mdyn.Value : MemoryUpload.Type)].HeapIndex);
-				MemoryTransient = !mtra.HasValue ? null : new(
-					mtra.Value,
-					gs.VkDeviceInfo.MemoryTypes[(int)mtra.Value].HeapIndex);
-			}
 
 			// Create the pipeline cache
 			VkPipelineCacheCreateInfo pcci = new(
@@ -176,106 +127,6 @@ namespace Vega.Graphics
 			return _commandPools[_ThreadIndex!.Value]!.AllocateTransient(level);
 		}
 		#endregion // Commands
-
-		#region Memory
-		public MemoryAllocation? AllocateMemoryDevice(in VkMemoryRequirements req)
-		{
-			if ((req.MemoryTypeBits & (1u << (int)MemoryDevice.Type)) == 0) {
-				return null;
-			}
-
-			VkMemoryAllocateInfo.New(out var mai);
-			mai.AllocationSize = req.Size;
-			mai.MemoryTypeIndex = MemoryDevice.Type;
-			VulkanHandle<VkDeviceMemory> memHandle;
-			var res = Graphics.VkDevice.AllocateMemory(&mai, null, &memHandle);
-			if (res == VkResult.ErrorOutOfHostMemory) throw new OutOfHostMemoryException(new DataSize((long)req.Size));
-			if (res == VkResult.ErrorOutOfDeviceMemory) throw new OutOfDeviceMemoryException(new DataSize((long)req.Size));
-			VkDeviceMemory mem = new(memHandle, Graphics.VkDevice);
-			return (res == VkResult.Success)
-				? new(mem, 0, req.Size, Graphics.VkDeviceInfo.MemoryTypes[(int)MemoryDevice.Type].PropertyFlags)
-				: null;
-		}
-
-		public MemoryAllocation? AllocateMemoryHost(in VkMemoryRequirements req)
-		{
-			if ((req.MemoryTypeBits & (1u << (int)MemoryHost.Type)) == 0) {
-				return null;
-			}
-
-			VkMemoryAllocateInfo.New(out var mai);
-			mai.AllocationSize = req.Size;
-			mai.MemoryTypeIndex = MemoryHost.Type;
-			VulkanHandle<VkDeviceMemory> memHandle;
-			var res = Graphics.VkDevice.AllocateMemory(&mai, null, &memHandle);
-			if (res == VkResult.ErrorOutOfHostMemory) throw new OutOfHostMemoryException(new DataSize((long)req.Size));
-			if (res == VkResult.ErrorOutOfDeviceMemory) throw new OutOfDeviceMemoryException(new DataSize((long)req.Size));
-			VkDeviceMemory mem = new(memHandle, Graphics.VkDevice);
-			return (res == VkResult.Success)
-				? new(mem, 0, req.Size, Graphics.VkDeviceInfo.MemoryTypes[(int)MemoryHost.Type].PropertyFlags)
-				: null;
-		}
-
-		public MemoryAllocation? AllocateMemoryUpload(in VkMemoryRequirements req)
-		{
-			if ((req.MemoryTypeBits & (1u << (int)MemoryUpload.Type)) == 0) {
-				return null;
-			}
-
-			VkMemoryAllocateInfo.New(out var mai);
-			mai.AllocationSize = req.Size;
-			mai.MemoryTypeIndex = MemoryUpload.Type;
-			VulkanHandle<VkDeviceMemory> memHandle;
-			var res = Graphics.VkDevice.AllocateMemory(&mai, null, &memHandle);
-			if (res == VkResult.ErrorOutOfHostMemory) throw new OutOfHostMemoryException(new DataSize((long)req.Size));
-			if (res == VkResult.ErrorOutOfDeviceMemory) throw new OutOfDeviceMemoryException(new DataSize((long)req.Size));
-			VkDeviceMemory mem = new(memHandle, Graphics.VkDevice);
-			return (res == VkResult.Success)
-				? new(mem, 0, req.Size, Graphics.VkDeviceInfo.MemoryTypes[(int)MemoryUpload.Type].PropertyFlags)
-				: null;
-		}
-
-		public MemoryAllocation? AllocateMemoryDynamic(in VkMemoryRequirements req)
-		{
-			if ((req.MemoryTypeBits & (1u << (int)MemoryDynamic.Type)) == 0) {
-				return null;
-			}
-
-			VkMemoryAllocateInfo.New(out var mai);
-			mai.AllocationSize = req.Size;
-			mai.MemoryTypeIndex = MemoryDynamic.Type;
-			VulkanHandle<VkDeviceMemory> memHandle;
-			var res = Graphics.VkDevice.AllocateMemory(&mai, null, &memHandle);
-			if (res == VkResult.ErrorOutOfHostMemory) throw new OutOfHostMemoryException(new DataSize((long)req.Size));
-			if (res == VkResult.ErrorOutOfDeviceMemory) throw new OutOfDeviceMemoryException(new DataSize((long)req.Size));
-			VkDeviceMemory mem = new(memHandle, Graphics.VkDevice);
-			return (res == VkResult.Success)
-				? new(mem, 0, req.Size, Graphics.VkDeviceInfo.MemoryTypes[(int)MemoryDynamic.Type].PropertyFlags)
-				: null;
-		}
-
-		public MemoryAllocation? AllocateMemoryTransient(in VkMemoryRequirements req)
-		{
-			if (!MemoryTransient.HasValue) {
-				return null;
-			}
-			if ((req.MemoryTypeBits & (1u << (int)MemoryTransient.Value.Type)) == 0) {
-				return null;
-			}
-
-			VkMemoryAllocateInfo.New(out var mai);
-			mai.AllocationSize = req.Size;
-			mai.MemoryTypeIndex = MemoryTransient.Value.Type;
-			VulkanHandle<VkDeviceMemory> memHandle;
-			var res = Graphics.VkDevice.AllocateMemory(&mai, null, &memHandle);
-			if (res == VkResult.ErrorOutOfHostMemory) throw new OutOfHostMemoryException(new DataSize((long)req.Size));
-			if (res == VkResult.ErrorOutOfDeviceMemory) throw new OutOfDeviceMemoryException(new DataSize((long)req.Size));
-			VkDeviceMemory mem = new(memHandle, Graphics.VkDevice);
-			return (res == VkResult.Success)
-				? new(mem, 0, req.Size, Graphics.VkDeviceInfo.MemoryTypes[(int)MemoryTransient.Value.Type].PropertyFlags)
-				: null;
-		}
-		#endregion // Memory
 
 		#region Threading
 		public void RegisterThread()
@@ -367,14 +218,5 @@ namespace Vega.Graphics
 			IsDisposed = true;
 		}
 		#endregion // IDisposable
-
-		// Holds information for a memory type
-		private struct MemoryIndex
-		{
-			public uint Type;
-			public uint Heap;
-
-			public MemoryIndex(uint t, uint h) => (Type, Heap) = (t, h);
-		}
 	}
 }

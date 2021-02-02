@@ -103,7 +103,7 @@ namespace Vega.Graphics
 			// Allocate/bind memory
 			VkMemoryRequirements memreq;
 			Handle.GetImageMemoryRequirements(&memreq);
-			Memory = Graphics.Resources.AllocateMemoryDevice(memreq) ?? 
+			Memory = Graphics.Memory.AllocateDevice(memreq) ?? 
 				throw new Exception("Failed to allocate texture memory");
 			Handle.BindImageMemory(Memory.Handle, Memory.Offset);
 

@@ -25,6 +25,9 @@ namespace Vega.Graphics
 		/// </summary>
 		public readonly Core Core;
 
+		// The memory manager
+		internal readonly MemoryManager Memory;
+
 		#region Vulkan Objects
 		internal readonly VkInstance VkInstance;
 		internal readonly Vulkan.VVK.InstanceInfo VkInstanceInfo;
@@ -82,6 +85,9 @@ namespace Vega.Graphics
 			GraphicsQueue = new(this, graphicsQueue, graphicsQueueIndex);
 			LINFO("Created Vulkan device instance");
 			Limits = new(VkDeviceInfo);
+
+			// Create the memory manager
+			Memory = new(this);
 
 			// Create the global binding table for the device
 			BindingTable = new(this);
@@ -145,6 +151,8 @@ namespace Vega.Graphics
 					SamplerPool.Terminate();
 
 					BindingTable.Dispose();
+
+					Memory.Dispose();
 
 					GraphicsQueue.Dispose();
 

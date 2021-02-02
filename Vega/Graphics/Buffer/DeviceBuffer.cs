@@ -243,7 +243,7 @@ namespace Vega.Graphics
 			// Allocate and bind buffer memory
 			VkMemoryRequirements memreq;
 			buffer.GetBufferMemoryRequirements(&memreq);
-			memory = gd.Resources.AllocateMemoryDevice(memreq) ??
+			memory = gd.Memory.AllocateDevice(memreq) ??
 				throw new Exception("Failed to allocate memory for buffer");
 			buffer.BindBufferMemory(memory.Handle, memory.Offset);
 		}
