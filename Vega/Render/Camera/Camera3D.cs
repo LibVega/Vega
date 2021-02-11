@@ -9,7 +9,7 @@ using System;
 namespace Vega.Render
 {
 	/// <summary>
-	/// Implements common camera-like functionality for views in 3D space.
+	/// Implements common camera functionality for views in right-handed 3D space.
 	/// </summary>
 	public sealed class Camera3D
 	{
@@ -39,7 +39,8 @@ namespace Vega.Render
 		private Vec3 _target;
 
 		/// <summary>
-		/// The angle of roll around the look direction. Positive roll indicates a clockwise rotation in view space.
+		/// The angle of roll around the look direction. Positive roll indicates a counter-clockwise rotation in view 
+		/// space.
 		/// </summary>
 		public float Roll {
 			get => _roll;
@@ -61,6 +62,15 @@ namespace Vega.Render
 			}
 		}
 		private ICameraProjection _projection;
+
+		/// <summary>
+		/// The value of <see cref="Projection"/>, if it is an instance of <see cref="Render.PerspectiveProjection"/>.
+		/// </summary>
+		public PerspectiveProjection? PerspectiveProjection => Projection as PerspectiveProjection;
+		/// <summary>
+		/// The value of <see cref="Projection"/>, if it is an instance of <see cref="Render.OrthographicProjection"/>.
+		/// </summary>
+		public OrthographicProjection? OrthographicProjection => Projection as OrthographicProjection;
 
 		#region Matrix
 		/// <summary>
@@ -111,14 +121,14 @@ namespace Vega.Render
 		#endregion // Fields
 
 		/// <summary>
-		/// Create a new camera at (10, 10, 10), looking at (0, 0, 0), with the given projection.
+		/// Create a new camera at (0, 0, 10), looking at (0, 0, 0), with the given projection.
 		/// </summary>
 		/// <param name="projection">The projection to use for the camera.</param>
 		public Camera3D(ICameraProjection projection)
 		{
 			_projection = projection;
 			_target = Vec3.Zero;
-			_position = new(10, 10, 10);
+			_position = new(0, 0, 10);
 		}
 
 		/// <summary>
