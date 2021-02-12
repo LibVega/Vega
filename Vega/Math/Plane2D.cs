@@ -10,7 +10,7 @@ namespace Vega
 {
 	/// <summary>
 	/// Represents an infinitely extending plane in 2D space (an infinite line). <see cref="Plane2D.Normal"/> is assumed
-	/// to be normalized in all calculations, and all planes constructed by the library will have normalized normals.
+	/// to be normalized in all calculations, and all planes constructed by the library will be normalized.
 	/// </summary>
 	public struct Plane2D : IEquatable<Plane2D>
 	{
