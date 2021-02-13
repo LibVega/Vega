@@ -33,6 +33,16 @@ namespace Vega
 		/// Gets the version of the plane with the normal pointing away from the origin (positive distance).
 		/// </summary>
 		public readonly Plane3D Positive => (D < 0) ? new(-Normal, -D) : this;
+		/// <summary>
+		/// Gets the normalized version of the plane.
+		/// </summary>
+		public readonly Plane3D Normalized
+		{
+			get {
+				var ilen = 1 / Normal.Length;
+				return new(Normal.X * ilen, Normal.Y * ilen, Normal.Z * ilen, D * ilen);
+			}
+		}
 		#endregion // Fields
 
 		#region Ctor
