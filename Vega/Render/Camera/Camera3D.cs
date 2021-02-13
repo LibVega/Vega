@@ -22,6 +22,7 @@ namespace Vega.Render
 			set {
 				_position = value;
 				_viewDirty = true;
+				_viewProjectionDirty = true;
 			}
 		}
 		private Vec3 _position;
@@ -34,6 +35,7 @@ namespace Vega.Render
 			set {
 				_target = value;
 				_viewDirty = true;
+				_viewProjectionDirty = true;
 			}
 		}
 		private Vec3 _target;
@@ -47,6 +49,7 @@ namespace Vega.Render
 			set {
 				_roll = value;
 				_viewDirty = true;
+				_viewProjectionDirty = true;
 			}
 		}
 		private float _roll = 0;
@@ -59,6 +62,7 @@ namespace Vega.Render
 			set {
 				_projection = value;
 				_projectionDirty = true;
+				_viewProjectionDirty = true;
 			}
 		}
 		private ICameraProjection _projection;
@@ -95,7 +99,7 @@ namespace Vega.Render
 		/// </summary>
 		public ref readonly Matrix ProjectionMatrix { 
 			get {
-				if (_projectionDirty) {
+				if (_projectionDirty || _projection.Dirty) {
 					_projection.CreateProjectionMatrix(out _projectionMatrix);
 					_projectionDirty = false;
 				}
@@ -110,14 +114,29 @@ namespace Vega.Render
 		/// </summary>
 		public ref readonly Matrix ViewProjectionMatrix {
 			get {
-				if (_viewDirty || _projectionDirty || _projection.Dirty) {
+				if (_viewProjectionDirty || _projection.Dirty) {
 					Matrix.Multiply(ViewMatrix, ProjectionMatrix, out _viewProjectionMatrix);
+					_viewProjectionDirty = false;
 				}
 				return ref _viewProjectionMatrix;
 			}
 		}
 		private Matrix _viewProjectionMatrix = Matrix.Identity;
+		private bool _viewProjectionDirty = true;
 		#endregion // Matrix
+
+		/// <summary>
+		/// The frustum describing the bounding volume of the camera view.
+		/// </summary>
+		public Frustum Frustum {
+			get {
+				if (_viewDirty || _projectionDirty || _viewProjectionDirty || _projection.Dirty) {
+					_frustum.Matrix = ViewProjectionMatrix;
+				}
+				return _frustum;
+			}
+		}
+		private Frustum _frustum = new();
 		#endregion // Fields
 
 		/// <summary>

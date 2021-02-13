@@ -22,6 +22,7 @@ namespace Vega.Render
 			set {
 				_position = value;
 				_viewDirty = true;
+				_viewProjectionDirty = true;
 			}
 		}
 		private Vec2 _position;
@@ -34,6 +35,7 @@ namespace Vega.Render
 			set {
 				_roll = value;
 				_viewDirty = true;
+				_viewProjectionDirty = true;
 			}
 		}
 		private float _roll;
@@ -46,6 +48,7 @@ namespace Vega.Render
 			set {
 				_size = value;
 				_projectionDirty = true;
+				_viewProjectionDirty = true;
 			}
 		}
 		private Vec2 _size;
@@ -59,6 +62,7 @@ namespace Vega.Render
 				_position = value.Center;
 				_size = value.Size;
 				_projectionDirty = true;
+				_viewProjectionDirty = true;
 			}
 		}
 
@@ -70,6 +74,7 @@ namespace Vega.Render
 			set {
 				_near = value;
 				_projectionDirty = true;
+				_viewProjectionDirty = true;
 			}
 		}
 		private float _near;
@@ -82,6 +87,7 @@ namespace Vega.Render
 			set {
 				_far = value;
 				_projectionDirty = true;
+				_viewProjectionDirty = true;
 			}
 		}
 		private float _far;
@@ -125,13 +131,15 @@ namespace Vega.Render
 		/// </summary>
 		public ref readonly Matrix ViewProjectionMatrix {
 			get {
-				if (_viewDirty || _projectionDirty) {
+				if (_viewProjectionDirty) {
 					Matrix.Multiply(ViewMatrix, ProjectionMatrix, out _viewProjectionMatrix);
+					_viewProjectionDirty = false;
 				}
 				return ref _viewProjectionMatrix;
 			}
 		}
 		private Matrix _viewProjectionMatrix = Matrix.Identity;
+		private bool _viewProjectionDirty = true;
 		#endregion // Matrix
 		#endregion // Fields
 
