@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Runtime.CompilerServices;
 using Vulkan;
 
 namespace Vega.Render
@@ -81,6 +82,7 @@ namespace Vega.Render
 		);
 
 		#region Overrides
+		[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 		public readonly override int GetHashCode() =>
 			Pass.GetHashCode() ^ Fail.GetHashCode() ^ DepthFail.GetHashCode() ^ Compare.GetHashCode() ^ 
 			Reference.GetHashCode();
@@ -94,10 +96,12 @@ namespace Vega.Render
 		#endregion // Overrides
 
 		#region Operators
+		[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 		public static bool operator == (in StencilState l, in StencilState r) =>
 			(l.Pass == r.Pass) && (l.Fail == r.Fail) && (l.DepthFail == r.DepthFail) &&
 			(l.Compare == r.Compare) && (l.Reference == r.Reference);
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 		public static bool operator != (in StencilState l, in StencilState r) =>
 			(l.Pass != r.Pass) || (l.Fail != r.Fail) || (l.DepthFail != r.DepthFail) ||
 			(l.Compare != r.Compare) || (l.Reference != r.Reference);
