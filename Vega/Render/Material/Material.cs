@@ -5,7 +5,6 @@
  */
 
 using System;
-using System.Collections.Generic;
 using Vega.Graphics;
 
 namespace Vega.Render
@@ -28,15 +27,9 @@ namespace Vega.Render
 		internal readonly ShaderProgram Program;
 
 		/// <summary>
-		/// The vertex input parameters for the material.
+		/// The input description for the material, describing how vertex data is read and interpreted.
 		/// </summary>
-		public readonly MaterialParams Params;
-
-		/// <summary>
-		/// The descriptions for the material vertex inputs.
-		/// </summary>
-		public IReadOnlyList<VertexDescription> Vertices => _vertices;
-		private readonly VertexDescription[] _vertices;
+		public readonly MaterialInput Input;
 
 		/// <summary>
 		/// Object disposal flag.
@@ -48,36 +41,34 @@ namespace Vega.Render
 		/// Describes a new material from a shader program and a specific set of vertex descriptions.
 		/// </summary>
 		/// <param name="shader">The shader program to process the material with.</param>
-		/// <param name="params">The vertex input topology for the material.</param>
+		/// <param name="input">The vertex input topology for the material.</param>
 		/// <param name="vertices">The descriptions for the vertex inputs for the material.</param>
-		public Material(Shader shader, in MaterialParams @params, params VertexDescription[] vertices)
-			: this(shader.Layout, shader.Program, @params, vertices)
+		public Material(Shader shader, MaterialInput input)
+			: this(shader.Layout, shader.Program, input)
 		{ }
 		// Internal constructor
-		internal Material(ShaderLayout layout, ShaderProgram program, in MaterialParams @params, 
-			params VertexDescription[] vertices)
+		internal Material(ShaderLayout layout, ShaderProgram program, MaterialInput input)
 		{
 			// Assign objects
 			Layout = layout;
 			Program = program;
 			Layout.IncRefCount();
 			Program.IncRefCount();
-			Params = @params;
-			_vertices = vertices;
+			Input = input;
 
 			// Validate vertex inputs
-			if (vertices.Length > 0) {
+			if (input.Vertices.Count > 0) {
 				uint vmask = 0;
-				foreach (var vd in vertices) {
+				foreach (var vd in input.Vertices) {
 					if ((vmask & vd.LocationMask) != 0) {
-						throw new ArgumentException("Duplicate vertex location in descriptions", nameof(vertices));
+						throw new ArgumentException("Duplicate vertex location in descriptions", nameof(input));
 					}
 					vmask |= vd.LocationMask;
 				}
 				if (vmask != Layout.VertexLocationMask) {
 					throw new ArgumentException(
 						$"Missing vertex location in material descriptions ({vmask:X8} != {Layout.VertexLocationMask:X8})",
-						nameof(vertices));
+						nameof(input));
 				}
 			}
 		}
@@ -88,41 +79,27 @@ namespace Vega.Render
 
 		#region Derivatives
 		/// <summary>
-		/// Create a derivative material, which uses the same shader and pipeline parameters, but a different set of
+		/// Create a derivative material, which uses the same shader and input parameters, but a different set of
 		/// vertex descriptions.
 		/// </summary>
 		/// <param name="vertices">The new vertex descriptions to use for the material.</param>
 		/// <returns>The new derivative material type.</returns>
-		public Material CreateDerivative(params VertexDescription[] vertices) => new(Layout, Program, Params, vertices);
+		public Material CreateDerivative(params VertexDescription[] vertices) => 
+			new(Layout, Program, Input with { Vertices = vertices });
 
 		/// <summary>
-		/// Create a derivative material, which uses the same pipeline parameters and vertex descriptions, but a
-		/// different shader program.
+		/// Create a derivative material, which uses the same input, but a different shader program.
 		/// </summary>
 		/// <param name="shader">The new shader program to use for the material.</param>
 		/// <returns>The new derivative material type.</returns>
-		public Material CreateDerivative(Shader shader) => new(shader, Params, _vertices);
+		public Material CreateDerivative(Shader shader) => new(shader, Input);
 
 		/// <summary>
-		/// Create a derivative material, which uses the same shader and vertex descriptions, but with different
-		/// parameters.
+		/// Create a derivative material, which uses the same shader, but with a different input description.
 		/// </summary>
 		/// <param name="params">The new pipeline parameters to use for the material.</param>
 		/// <returns>The new derivative material type.</returns>
-		public Material CreateDerivative(in MaterialParams @params) => new(Layout, Program, @params, _vertices);
-
-		/// <summary>
-		/// Create a derivative material, which uses the same shader and vertex descriptions, but with optionally
-		/// different parameters.
-		/// </summary>
-		/// <param name="topology">The new topology to use, or <c>null</c> to use the same topology.</param>
-		/// <param name="winding">The new winding to use, or <c>null</c> to use the same winding.</param>
-		/// <param name="restartEnable">The new primitive stream restart value, or <c>null</c> to use the same value.</param>
-		/// <returns>The new derivative material type.</returns>
-		public Material CreateDerivative(Topology? topology = null, Winding? winding = null, bool? restartEnable = null)
-			=> CreateDerivative(new MaterialParams(
-				topology ?? Params.Topology, winding ?? Params.Winding, restartEnable ?? Params.RestartEnabled
-			));
+		public Material CreateDerivative(MaterialInput input) => new(Layout, Program, input);
 		#endregion // Derivatives
 
 		#region IDisposable
