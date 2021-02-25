@@ -22,14 +22,6 @@ namespace Vega.Render
 		/// The vertex input topology.
 		/// </summary>
 		public Topology Topology { get; init; } = Topology.PointList;
-		/// <summary>
-		/// The vertex winding order that specifies the "front face".
-		/// </summary>
-		public Winding Winding { get; init; } = Winding.CW; // TODO: Move to RenderStates
-		/// <summary>
-		/// If primitive stream resetting is enabled using <see cref="UInt16.MaxValue"/> or <see cref="UInt32.MaxValue"/>.
-		/// </summary>
-		public bool RestartEnabled { get; init; } = false;
 
 		/// <summary>
 		/// The set of vertex data layouts used to input data into the material.
@@ -76,8 +68,6 @@ namespace Vega.Render
 		{
 			unchecked {
 				int hash = Topology.GetHashCode();
-				hash = ((hash << 5) + hash) ^ Winding.GetHashCode();
-				hash = ((hash << 5) + hash) ^ RestartEnabled.GetHashCode();
 				foreach (var desc in _vertices) {
 					hash = ((hash << 5) + hash) ^ desc.GetHashCode();
 				}
@@ -88,8 +78,7 @@ namespace Vega.Render
 		[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 		internal bool CompareStates(MaterialInput input)
 		{
-			if ((Hash != input.Hash) || (Topology != input.Topology) || (Winding != input.Winding) ||
-				(RestartEnabled != input.RestartEnabled) || (_vertices.Length != input._vertices.Length)) {
+			if ((Hash != input.Hash) || (Topology != input.Topology) || (_vertices.Length != input._vertices.Length)) {
 				return false;
 			}
 			for (int i = 0; i < _vertices.Length; ++i) {

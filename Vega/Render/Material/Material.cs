@@ -103,6 +103,14 @@ namespace Vega.Render
 		public Material CreateDerivative(MaterialInput input) => new(Layout, Program, input, Output);
 
 		/// <summary>
+		/// Create a derivative material with a different primitive topology.
+		/// </summary>
+		/// <param name="topology">The new topology to use.</param>
+		/// <returns>The new derivative material type.</returns>
+		public Material CreateDerivative(Topology topology) => 
+			new(Layout, Program, Input with { Topology = topology }, Output);
+
+		/// <summary>
 		/// Create a derivative material with a different set of vertex descriptions.
 		/// </summary>
 		/// <param name="vertices">The new vertex descriptions to use.</param>
@@ -116,6 +124,14 @@ namespace Vega.Render
 		/// <param name="output">The new output state to use.</param>
 		/// <returns>The new derivative material type.</returns>
 		public Material CreateDerivative(MaterialOutput output) => new(Layout, Program, Input, output);
+
+		/// <summary>
+		/// Create a derived material with a different depth state.
+		/// </summary>
+		/// <param name="depthState">The new depth state to use.</param>
+		/// <returns>The new derivative material type.</returns>
+		public Material CreateDerivative(DepthState depthState) =>
+			new(Layout, Program, Input, Output with { DepthState = depthState });
 
 		/// <summary>
 		/// Create a derivative material with a different set of blend states.

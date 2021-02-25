@@ -18,6 +18,11 @@ namespace Vega.Render
 	{
 		#region Fields
 		/// <summary>
+		/// The state to use for depth buffer operations.
+		/// </summary>
+		public DepthState DepthState { get; init; } = DepthState.Default;
+
+		/// <summary>
 		/// The blend states to use to update attachments when the associated material instance is in use.
 		/// </summary>
 		public IReadOnlyList<BlendState> BlendStates {
@@ -36,9 +41,11 @@ namespace Vega.Render
 		/// <summary>
 		/// Create a new output description.
 		/// </summary>
+		/// <param name="depth">The depth buffer state.</param>
 		/// <param name="blendStates">The attachment blend states.</param>
-		public MaterialOutput(params BlendState[] blendStates)
+		public MaterialOutput(DepthState depth, params BlendState[] blendStates)
 		{
+			DepthState = depth;
 			_blendStates = blendStates;
 		}
 
@@ -49,7 +56,7 @@ namespace Vega.Render
 		private int buildHash()
 		{
 			unchecked {
-				int hash = _blendStates.Length.GetHashCode();
+				int hash = DepthState.GetHashCode();
 				foreach (var state in _blendStates) {
 					hash = ((hash << 5) + hash) ^ state.GetHashCode();
 				}
@@ -60,7 +67,8 @@ namespace Vega.Render
 		[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 		internal bool CompareStates(MaterialOutput output)
 		{
-			if ((Hash != output.Hash) || (_blendStates.Length != output._blendStates.Length)) {
+			if ((Hash != output.Hash) || (DepthState == output.DepthState) || 
+				(_blendStates.Length != output._blendStates.Length)) {
 				return false;
 			}
 			for (int i = 0; i < _blendStates.Length; ++i) {

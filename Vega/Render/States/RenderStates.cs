@@ -17,10 +17,10 @@ namespace Vega.Render
 	/// <list type="bullet">
 	/// <item><see cref="FillMode"/> - <see cref="FillMode.Solid"/></item>
 	/// <item><see cref="CullMode"/> - <see cref="CullMode.None"/></item>
+	/// <item><see cref="Winding"/> - <see cref="Winding.CW"/></item>
+	/// <item><see cref="RestartEnabled"/> - <c>false</c></item>
 	/// <item><see cref="LineWidth"/> - <c>1.0f</c></item>
-	/// <item><see cref="DepthState"/> - <see cref="DepthState.Default"/></item>
-	/// <item><see cref="FrontStencil"/> - <c>null</c></item>
-	/// <item><see cref="BackStencil"/> - <c>null</c></item>
+	/// <item><see cref="StencilState"/> - <c>null</c></item>
 	/// </list>
 	/// </para>
 	/// </summary>
@@ -39,27 +39,25 @@ namespace Vega.Render
 		public CullMode CullMode { get; init; } = CullMode.None;
 
 		/// <summary>
+		/// The vertex winding order that specifies the "front face".
+		/// </summary>
+		public Winding Winding { get; init; } = Winding.CW;
+
+		/// <summary>
+		/// If primitive stream resetting is enabled using <see cref="UInt16.MaxValue"/> or <see cref="UInt32.MaxValue"/>.
+		/// </summary>
+		public bool RestartEnabled { get; init; } = false;
+
+		/// <summary>
 		/// The width of line primitives, or <c>null</c> to use the default of <c>1.0f</c>. Values other than 
 		/// <c>null</c> requires <see cref="Graphics.GraphicsFeatures.WideLines"/>.
 		/// </summary>
 		public float LineWidth { get; init; } = 1.0f;
 
 		/// <summary>
-		/// The state of the depth operations to perform.
+		/// If the current renderer has a stencil buffer, this describes what stencil operations to perform.
 		/// </summary>
-		public DepthState DepthState { get; init; } = DepthState.Default;
-
-		/// <summary>
-		/// If the current renderer has a stencil buffer, this describes what stencil operations to perform on
-		/// front-facing primitives.
-		/// </summary>
-		public StencilState? FrontStencil { get; init; } = null;
-
-		/// <summary>
-		/// If the current renderer has a stencil buffer, this describes what stencil operations to perform on
-		/// front-facing primitives.
-		/// </summary>
-		public StencilState? BackStencil { get; init; } = null;
+		public StencilState? StencilState { get; init; } = null;
 
 		/// <summary>
 		/// The hash for the collection of render states.
@@ -73,40 +71,31 @@ namespace Vega.Render
 		/// </summary>
 		/// <param name="fillMode">The polygon fill mode.</param>
 		/// <param name="cullMode">The polygon winding cull mode.</param>
+		/// <param name="winding">The primitive winding that defines a front face.</param>
+		/// <param name="restartEnabled">If primitive stream restart is supported.</param>
 		/// <param name="lineWidth">The width of line primitives.</param>
-		/// <param name="depthState">The depth buffer read/write state.</param>
-		/// <param name="frontStencil">The stencil buffer state for front-facing primitives.</param>
-		/// <param name="backStencil">The stencil buffer state for back-facing primitives.</param>
+		/// <param name="stencilState">The stencil buffer state.</param>
 		public RenderStates(
-			FillMode fillMode,
-			CullMode cullMode,
-			float lineWidth,
-			in DepthState depthState,
-			in StencilState? frontStencil,
-			in StencilState? backStencil
+			FillMode fillMode = FillMode.Solid,
+			CullMode cullMode = CullMode.None,
+			Winding winding = Winding.CW,
+			bool restartEnabled = false,
+			float lineWidth = 1.0f,
+			in StencilState? stencilState = null
 		)
 		{
 			FillMode = fillMode;
 			CullMode = cullMode;
+			Winding = winding;
+			RestartEnabled = restartEnabled;
 			LineWidth = lineWidth;
-			DepthState = depthState;
-			FrontStencil = frontStencil;
-			BackStencil = backStencil;
+			StencilState = stencilState;
 		}
-
 		/// <summary>
-		/// Create a default set of render states with a defined depth state and cull mode.
+		/// Create a set of default render states.
 		/// </summary>
-		/// <param name="depthState">The depth buffer read/write state.</param>
-		/// <param name="cullMode">The polygon winding cull mode.</param>
-		public RenderStates(
-			in DepthState depthState,
-			CullMode cullMode = CullMode.None
-		)
-		{
-			DepthState = depthState;
-			CullMode = cullMode;
-		}
+		public RenderStates()
+		{ }
 
 		#region Overrides
 		public override int GetHashCode() => Hash;
@@ -116,23 +105,22 @@ namespace Vega.Render
 
 		private int buildHash()
 		{
-			// This is how System.Tuple calculates hash codes
 			unchecked {
 				int hash = FillMode.GetHashCode();
 				hash = ((hash << 5) + hash) ^ CullMode.GetHashCode();
+				hash = ((hash << 5) + hash) ^ Winding.GetHashCode();
+				hash = ((hash << 5) + hash) ^ RestartEnabled.GetHashCode();
 				hash = ((hash << 5) + hash) ^ LineWidth.GetHashCode();
-				hash = ((hash << 5) + hash) ^ DepthState.GetHashCode();
-				hash = ((hash << 5) + hash) ^ FrontStencil.GetHashCode();
-				hash = ((hash << 5) + hash) ^ BackStencil.GetHashCode();
+				hash = ((hash << 5) + hash) ^ StencilState.GetHashCode();
 				return hash;
 			}
 		}
 
 		// Compare the state values
-		[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+		[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 		internal bool CompareStates(RenderStates states) =>
-			(Hash == states.Hash) && (FillMode == states.FillMode) && (CullMode == states.CullMode) && 
-			(LineWidth == states.LineWidth) && (DepthState == states.DepthState) && 
-			(FrontStencil == states.FrontStencil) && (BackStencil == states.BackStencil);
+			(Hash == states.Hash) && (FillMode == states.FillMode) && (CullMode == states.CullMode) &&
+			(Winding == states.Winding) && (RestartEnabled == states.RestartEnabled) &&
+			(LineWidth == states.LineWidth) && (StencilState == states.StencilState);
 	}
 }
