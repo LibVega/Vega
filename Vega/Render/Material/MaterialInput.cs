@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Vega.Graphics;
 
 namespace Vega.Render
@@ -24,7 +25,7 @@ namespace Vega.Render
 		/// <summary>
 		/// The vertex winding order that specifies the "front face".
 		/// </summary>
-		public Winding Winding { get; init; } = Winding.CW;
+		public Winding Winding { get; init; } = Winding.CW; // TODO: Move to RenderStates
 		/// <summary>
 		/// If primitive stream resetting is enabled using <see cref="UInt16.MaxValue"/> or <see cref="UInt32.MaxValue"/>.
 		/// </summary>
@@ -69,10 +70,7 @@ namespace Vega.Render
 
 		public override int GetHashCode() => Hash;
 
-		public bool Equals(MaterialInput? input) => 
-			(input is not null) && (Hash == input.Hash) &&
-			(Topology == input.Topology) && (Winding == input.Winding) && (RestartEnabled == input.RestartEnabled) &&
-			(_vertices.Length == input._vertices.Length) && Enumerable.SequenceEqual(_vertices, input._vertices);
+		public bool Equals(MaterialInput? input) => input?.CompareStates(this) ?? false;
 
 		private int buildHash()
 		{
@@ -85,6 +83,21 @@ namespace Vega.Render
 				}
 				return hash;
 			}
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveOptimization)]
+		internal bool CompareStates(MaterialInput input)
+		{
+			if ((Hash != input.Hash) || (Topology != input.Topology) || (Winding != input.Winding) ||
+				(RestartEnabled != input.RestartEnabled) || (_vertices.Length != input._vertices.Length)) {
+				return false;
+			}
+			for (int i = 0; i < _vertices.Length; ++i) {
+				if (_vertices[i] != input._vertices[i]) { // TODO: Change VertexDescription to a record
+					return false;
+				}
+			}
+			return true;
 		}
 	}
 }

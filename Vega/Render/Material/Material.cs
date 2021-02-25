@@ -32,6 +32,11 @@ namespace Vega.Render
 		public readonly MaterialInput Input;
 
 		/// <summary>
+		/// The output description for the material, describing how the renderer attachments are updated.
+		/// </summary>
+		public readonly MaterialOutput Output;
+
+		/// <summary>
 		/// Object disposal flag.
 		/// </summary>
 		public bool IsDisposed { get; private set; } = false;
@@ -42,12 +47,11 @@ namespace Vega.Render
 		/// </summary>
 		/// <param name="shader">The shader program to process the material with.</param>
 		/// <param name="input">The vertex input topology for the material.</param>
-		/// <param name="vertices">The descriptions for the vertex inputs for the material.</param>
-		public Material(Shader shader, MaterialInput input)
-			: this(shader.Layout, shader.Program, input)
+		public Material(Shader shader, MaterialInput input, MaterialOutput output)
+			: this(shader.Layout, shader.Program, input, output)
 		{ }
 		// Internal constructor
-		internal Material(ShaderLayout layout, ShaderProgram program, MaterialInput input)
+		internal Material(ShaderLayout layout, ShaderProgram program, MaterialInput input, MaterialOutput output)
 		{
 			// Assign objects
 			Layout = layout;
@@ -55,6 +59,7 @@ namespace Vega.Render
 			Layout.IncRefCount();
 			Program.IncRefCount();
 			Input = input;
+			Output = output;
 
 			// Validate vertex inputs
 			if (input.Vertices.Count > 0) {
@@ -71,6 +76,11 @@ namespace Vega.Render
 						nameof(input));
 				}
 			}
+
+			// Validate outputs
+			if (output.BlendStates.Count != layout.FragmentOutputs.Count) {
+				throw new ArgumentException("Output count mismatch", nameof(output));
+			}
 		}
 		~Material()
 		{
@@ -79,27 +89,41 @@ namespace Vega.Render
 
 		#region Derivatives
 		/// <summary>
-		/// Create a derivative material, which uses the same shader and input parameters, but a different set of
-		/// vertex descriptions.
+		/// Create a derivative material with a different shader.
 		/// </summary>
-		/// <param name="vertices">The new vertex descriptions to use for the material.</param>
+		/// <param name="shader">The new shader program to use.</param>
 		/// <returns>The new derivative material type.</returns>
-		public Material CreateDerivative(params VertexDescription[] vertices) => 
-			new(Layout, Program, Input with { Vertices = vertices });
+		public Material CreateDerivative(Shader shader) => new(shader, Input, Output);
 
 		/// <summary>
-		/// Create a derivative material, which uses the same input, but a different shader program.
+		/// Create a derivative material with a different input state.
 		/// </summary>
-		/// <param name="shader">The new shader program to use for the material.</param>
+		/// <param name="params">The new pipeline parameters to use.</param>
 		/// <returns>The new derivative material type.</returns>
-		public Material CreateDerivative(Shader shader) => new(shader, Input);
+		public Material CreateDerivative(MaterialInput input) => new(Layout, Program, input, Output);
 
 		/// <summary>
-		/// Create a derivative material, which uses the same shader, but with a different input description.
+		/// Create a derivative material with a different set of vertex descriptions.
 		/// </summary>
-		/// <param name="params">The new pipeline parameters to use for the material.</param>
+		/// <param name="vertices">The new vertex descriptions to use.</param>
 		/// <returns>The new derivative material type.</returns>
-		public Material CreateDerivative(MaterialInput input) => new(Layout, Program, input);
+		public Material CreateDerivative(params VertexDescription[] vertices) =>
+			new(Layout, Program, Input with { Vertices = vertices }, Output);
+
+		/// <summary>
+		/// Create a derived material with a different output state.
+		/// </summary>
+		/// <param name="output">The new output state to use.</param>
+		/// <returns>The new derivative material type.</returns>
+		public Material CreateDerivative(MaterialOutput output) => new(Layout, Program, Input, output);
+
+		/// <summary>
+		/// Create a derivative material with a different set of blend states.
+		/// </summary>
+		/// <param name="blendStates">The new blend states to use as the output.</param>
+		/// <returns>The new derivative material type.</returns>
+		public Material CreateDerivative(params BlendState[] blendStates) =>
+			new(Layout, Program, Input, Output with { BlendStates = blendStates });
 		#endregion // Derivatives
 
 		#region IDisposable
