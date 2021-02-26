@@ -14,7 +14,7 @@ namespace Vega.Graphics
 	/// Fully describes a vertex layout and its shader access rules from a collection of <see cref="VertexElement"/>s
 	/// and some additional metadata.
 	/// </summary>
-	public sealed class VertexDescription : IEquatable<VertexDescription>
+	public sealed record VertexDescription
 	{
 		#region Fields
 		/// <summary>
@@ -22,7 +22,7 @@ namespace Vega.Graphics
 		/// </summary>
 		public IReadOnlyList<VertexElement> Elements => _elements;
 		private readonly VertexElement[] _elements;
-		
+
 		/// <summary>
 		/// The collection of element binding locations, which matches <see cref="Elements"/> by index.
 		/// </summary>
@@ -32,12 +32,12 @@ namespace Vega.Graphics
 		/// <summary>
 		/// The stride, in bytes, of the vertex within the vertex buffer.
 		/// </summary>
-		public readonly uint Stride;
+		public uint Stride { get; init; }
 
 		/// <summary>
 		/// The input rate for the vertex.
 		/// </summary>
-		public readonly VertexRate Rate;
+		public VertexRate Rate { get; init; }
 
 		/// <summary>
 		/// The number of binding slots taken up by this description, taking into account matrices and arrays.
@@ -49,8 +49,11 @@ namespace Vega.Graphics
 		/// </summary>
 		public readonly uint LocationMask;
 
-		// A precalculated hash code for faster comparisons and lookups
-		private readonly int _hashCode;
+		/// <summary>
+		/// A precomputed hash for the description.
+		/// </summary>
+		public int Hash => _hash ?? (_hash = CalculateHash(Rate, _elements, _locations)).Value;
+		private int? _hash = null;
 		#endregion // Fields
 
 		/// <summary>
@@ -73,7 +76,6 @@ namespace Vega.Graphics
 			}
 			Stride = stride.HasValue ? stride.Value : _elements.Max(e => e.Offset + e.Format.GetSize());
 			Rate = rate;
-			_hashCode = CalculateHash(rate, _elements, _locations);
 			LocationMask = CalculateLocationMask(_elements, _locations);
 		}
 
@@ -91,7 +93,6 @@ namespace Vega.Graphics
 			_locations = elements.Select(p => p.location).ToArray();
 			Stride = _elements.Max(e => e.Offset + e.Format.GetSize());
 			Rate = rate;
-			_hashCode = CalculateHash(rate, _elements, _locations);
 			LocationMask = CalculateLocationMask(_elements, _locations);
 		}
 
@@ -111,7 +112,6 @@ namespace Vega.Graphics
 			_locations = Enumerable.Range(0, _elements.Length).Select(i => (uint)i).ToArray();
 			Stride = stride.HasValue ? stride.Value : _elements.Max(e => e.Offset + e.Format.GetSize());
 			Rate = rate;
-			_hashCode = CalculateHash(rate, _elements, _locations);
 			LocationMask = CalculateLocationMask(_elements, _locations);
 		}
 
@@ -129,7 +129,6 @@ namespace Vega.Graphics
 			_locations = Enumerable.Range(0, _elements.Length).Select(i => (uint)i).ToArray();
 			Stride = _elements.Max(e => e.Offset + e.Format.GetSize());
 			Rate = rate;
-			_hashCode = CalculateHash(rate, _elements, _locations);
 			LocationMask = CalculateLocationMask(_elements, _locations);
 		}
 
@@ -152,22 +151,15 @@ namespace Vega.Graphics
 			_locations = Enumerable.Range(0, _elements.Length).Select(i => (uint)i).ToArray();
 			Stride = off;
 			Rate = rate;
-			_hashCode = CalculateHash(rate, _elements, _locations);
 			LocationMask = CalculateLocationMask(_elements, _locations);
 		}
 
-		#region Overrides
-		public override int GetHashCode() => _hashCode;
+		public override int GetHashCode() => Hash;
 
-		public override string ToString() => $"[{Stride}:{Rate}:{{{String.Join(":", _elements)}}}]";
-
-		public override bool Equals(object? obj) => (obj is IEquatable<VertexDescription> vd) && vd.Equals(this);
-
-		bool IEquatable<VertexDescription>.Equals(VertexDescription? other) =>
-			(other is not null) && (other._hashCode == _hashCode) && (other.Stride == Stride) && 
-			(other.Rate == Rate) &&
+		public bool Equals(VertexDescription? other) =>
+			(other is not null) && (other.Hash == Hash) && (other.Stride == Stride) && (other.Rate == Rate) &&
+			(other._locations.Length == _locations.Length) &&
 			other._elements.SequenceEqual(_elements) && other._locations.SequenceEqual(_locations);
-		#endregion // Overrides
 
 		/// <summary>
 		/// Enumerates over pairs of vertex elements and their binding locations.
@@ -178,9 +170,6 @@ namespace Vega.Graphics
 				yield return (_locations[i], _elements[i]);
 			}
 		}
-
-		// Duplicates the description (deep copy)
-		internal VertexDescription Duplicate() => new(_elements, _locations, Stride, Rate);
 
 		// Calculates a hash code for a set of elements and locations
 		private static int CalculateHash(VertexRate rate, VertexElement[] elements, uint[] locations)

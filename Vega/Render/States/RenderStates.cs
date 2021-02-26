@@ -91,11 +91,6 @@ namespace Vega.Render
 			LineWidth = lineWidth;
 			StencilState = stencilState;
 		}
-		/// <summary>
-		/// Create a set of default render states.
-		/// </summary>
-		public RenderStates()
-		{ }
 
 		#region Overrides
 		public override int GetHashCode() => Hash;

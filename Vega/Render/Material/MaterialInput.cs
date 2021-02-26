@@ -82,7 +82,7 @@ namespace Vega.Render
 				return false;
 			}
 			for (int i = 0; i < _vertices.Length; ++i) {
-				if (_vertices[i] != input._vertices[i]) { // TODO: Change VertexDescription to a record
+				if (!_vertices[i].Equals(input._vertices[i])) {
 					return false;
 				}
 			}
